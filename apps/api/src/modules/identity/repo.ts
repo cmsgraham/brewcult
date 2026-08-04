@@ -4,11 +4,11 @@
  *
  * Only this module's own tables are touched: users, auth_identities,
  * refresh_tokens, login_attempts, audit_log (0002) and the identity extras
- * (0004 — see ./sql/0004_identity_extras.sql).
+ * (see db/migrations/0005_identity_extras.sql).
  */
 import type { Role } from '../../lib/policy.js';
 import { hashPassword } from './passwords.js';
-import { hashToken, normaliseHandle } from './secrets.js';
+import { hashToken, normaliseHandle, normaliseRecoveryCode } from './secrets.js';
 import type {
   AuthProvider,
   Exec,
@@ -487,6 +487,11 @@ export async function deleteMfa(exec: Exec, userId: string): Promise<void> {
   await exec(`DELETE FROM user_mfa WHERE user_id = $1`, [userId]);
 }
 
+/**
+ * Codes are hashed in their NORMALISED form (no dashes, upper case), which is
+ * also the form `consumeRecoveryCode` looks up — so a user may type the code
+ * with or without the display dashes and either works.
+ */
 export async function replaceRecoveryCodes(
   exec: Exec,
   userId: string,
@@ -497,7 +502,7 @@ export async function replaceRecoveryCodes(
     await exec(
       `INSERT INTO mfa_recovery_codes (user_id, code_hash) VALUES ($1, $2)
        ON CONFLICT (user_id, code_hash) DO NOTHING`,
-      [userId, hashToken(code)],
+      [userId, hashToken(normaliseRecoveryCode(code))],
     );
   }
 }

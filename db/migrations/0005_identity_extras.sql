@@ -1,13 +1,10 @@
 -- ============================================================================
--- 0004_identity_extras.sql  —  OWNED BY THE IDENTITY MODULE (Wave 2, Lane E)
+-- 0005_identity_extras.sql - identity module (Wave 2, Lane E)
 --
--- !! ACTION REQUIRED BY THE MIGRATIONS OWNER !!
--- This file lives inside the module because Lane E is not permitted to write to
--- db/migrations/. It must be copied VERBATIM to
---   db/migrations/0004_identity_extras.sql
--- so `db/migrate.sh` applies it. Until then the identity module's email
--- verification, password reset, email change and MFA flows have no tables.
--- The module's test harness applies this file after 0001..0003.
+-- Promoted from the module's sql/ directory by the orchestrator at Wave 2
+-- integration; numbered 0005 because 0004 is the catalog search/index
+-- migration. Applied by db/migrate.sh in filename order and by the identity
+-- test harness after 0001..0003.
 --
 -- Rationale: 0002_identity.sql covers users / auth_identities / refresh_tokens /
 -- login_attempts / audit_log, but backlog ID-02 (verification code, reset link),
@@ -33,6 +30,13 @@
 -- ----------------------------------------------------------------------------
 ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS user_agent text;
 ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS ip         inet;
+
+-- Whether the session this family represents cleared an MFA challenge. It is
+-- carried forward on every rotation, so refreshing preserves — and cannot
+-- manufacture — MFA standing. Without it, a session established BEFORE the user
+-- enrolled in TOTP would silently become MFA-backed on its next refresh, which
+-- is a privilege escalation for staff roles (isStaff() checks actor.mfa).
+ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS mfa boolean NOT NULL DEFAULT false;
 
 -- ----------------------------------------------------------------------------
 -- email_verification_codes — short (6-digit) codes, so they are Argon2id-hashed

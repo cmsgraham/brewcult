@@ -14,9 +14,8 @@ import { fileURLToPath } from 'node:url';
 import { PGlite } from '@electric-sql/pglite';
 import { citext } from '@electric-sql/pglite/contrib/citext';
 import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 
-import { buildApp } from '../src/app.js';
 import { registerErrorHandler } from '../src/lib/errors.js';
 import { ANONYMOUS, resetPolicies, type Actor } from '../src/lib/policy.js';
 import { registerCatalogRoutes } from '../src/modules/catalog/index.js';
@@ -230,7 +229,10 @@ beforeAll(async () => {
   };
 
   resetPolicies();
-  app = buildApp();
+  // A bare instance, not buildApp(): the full bootstrap also mounts identity
+  // (which needs a live pool) and would double-register the catalog routes this
+  // test mounts below against its injected PGlite db.
+  app = Fastify();
   registerErrorHandler(app);
   // Stand-in for the identity lane's auth plugin: the catalog only ever reads
   // `request.actor`, it never defines it (see modules/catalog/auth-seam.ts).

@@ -69,7 +69,6 @@ import {
   normaliseRecoveryCode,
 } from '../secrets.js';
 import {
-  RefreshTokenReuseError,
   issueSession,
   revokeAllFamiliesForUser,
   revokeFamily,
@@ -484,30 +483,33 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       if (!presented) throw unauthorized('No refresh token supplied.');
       const context = requestContext(request);
 
-      let rotation;
-      try {
-        rotation = await transaction(async (client) =>
-          rotateRefreshToken(clientExec(client), presented, context),
+      // The transaction must COMMIT before we answer: on reuse it contains the
+      // family revocation, and throwing from inside it would undo exactly the
+      // defence we just triggered.
+      const rotation = await transaction(async (client) =>
+        rotateRefreshToken(clientExec(client), presented, context),
+      );
+
+      if (rotation.status === 'reuse_detected') {
+        request.log.warn(
+          { familyId: rotation.familyId, userId: rotation.userId },
+          'refresh token reuse detected — family revoked',
         );
-      } catch (err) {
-        if (err instanceof RefreshTokenReuseError) {
-          // The family is already revoked (inside the transaction above).
-          request.log.warn(
-            { familyId: err.familyId, userId: err.userId },
-            'refresh token reuse detected — family revoked',
-          );
-          await recordLoginAttempt(poolExec, {
-            email: null,
-            userId: err.userId,
-            success: false,
-            failureReason: 'refresh_reuse',
-            ip: context.ip,
-            userAgent: context.userAgent,
-          });
-          clearSessionCookies(reply);
-          throw unauthorized('Session ended for security reasons. Sign in again.');
-        }
-        throw err;
+        await recordLoginAttempt(poolExec, {
+          email: null,
+          userId: rotation.userId,
+          success: false,
+          failureReason: 'refresh_reuse',
+          ip: context.ip,
+          userAgent: context.userAgent,
+        });
+        clearSessionCookies(reply);
+        throw unauthorized('Session ended for security reasons. Sign in again.');
+      }
+
+      if (rotation.status === 'invalid') {
+        clearSessionCookies(reply);
+        throw unauthorized('Invalid refresh token');
       }
 
       const user = await findUserById(poolExec, rotation.userId);
@@ -517,15 +519,14 @@ export function registerAuthRoutes(app: FastifyInstance): void {
         throw unauthorized('Session ended. Sign in again.');
       }
 
-      // Refreshing preserves the MFA standing of the session it continues.
-      const sessionMfa = request.actor.userId === user.id ? request.actor.mfa === true : false;
-      const mfaEnabled = (await findUserMfa(poolExec, user.id))?.confirmed_at != null;
-
       const session: IssuedSession = {
         accessToken: signAccessToken(app, {
           userId: user.id,
           role: user.role,
-          mfa: sessionMfa || mfaEnabled,
+          // Read from the token family, not recomputed from the account: a
+          // session that never answered a TOTP challenge must not acquire MFA
+          // standing merely because the user has since enrolled.
+          mfa: rotation.mfa,
           familyId: rotation.familyId,
         }),
         refreshToken: rotation.token,

@@ -1,6 +1,8 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import { type HealthStatus } from '@brewcult/shared-types';
 import { registerErrorHandler } from './lib/errors.js';
+import { registerIdentityRoutes } from './modules/identity/index.js';
+import { registerCatalogRoutes } from './modules/catalog/index.js';
 
 function health(status: HealthStatus['status']): HealthStatus {
   return {
@@ -14,10 +16,11 @@ function health(status: HealthStatus['status']): HealthStatus {
 /**
  * Builds the Fastify app (separated from listen() for testability).
  *
- * Domain modules (identity, catalog, brewing, …) register their routes here in
- * Wave 2+ via their public interfaces (apps/api/src/modules/<m>/index.ts).
+ * Domain modules register through their public interface only
+ * (apps/api/src/modules/<m>/index.ts) — dependency-cruiser enforces that no
+ * module reaches into another module's internals (EF §1.2).
  */
-export function buildApp(): FastifyInstance {
+export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
     logger: {
       level: process.env.LOG_LEVEL ?? 'info',
@@ -32,10 +35,31 @@ export function buildApp(): FastifyInstance {
   app.get('/healthz', async () => health('ok'));
 
   /**
-   * Readiness: safe to receive traffic. Wave 2+ adds dependency probes
+   * Readiness: safe to receive traffic. Wave 3 adds dependency probes
    * (Postgres, Redis) and reports 'degraded' with a 503 when they fail.
    */
   app.get('/readyz', async () => health('ok'));
+
+  /**
+   * Client capability document (EF §2.5). Web and — later — iOS read this to
+   * gate features and detect an unsupported client version, so behaviour can
+   * change server-side without shipping a new build.
+   */
+  app.get('/v1/client-config', async () => ({
+    min_supported_version: '0.1.0',
+    features: {
+      googleAuth: Boolean(process.env.GOOGLE_CLIENT_ID),
+      marketplace: false,
+      news: false,
+      community: false,
+      brewLogger: false,
+    },
+  }));
+
+  // Identity first: it installs the actor plugin, CSRF and the identity
+  // policies that the catalog's staff-only routes authorize against.
+  await registerIdentityRoutes(app);
+  await registerCatalogRoutes(app);
 
   return app;
 }

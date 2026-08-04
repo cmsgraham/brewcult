@@ -6,8 +6,8 @@ import { buildApp } from '../src/app.js';
 describe('health endpoints', () => {
   let app: FastifyInstance;
 
-  beforeAll(() => {
-    app = buildApp();
+  beforeAll(async () => {
+    app = await buildApp();
   });
 
   afterAll(async () => {

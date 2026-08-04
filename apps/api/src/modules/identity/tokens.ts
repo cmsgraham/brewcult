@@ -43,6 +43,7 @@ export interface RefreshTokenRow {
   expires_at: Date;
   rotated_at: Date | null;
   revoked_at: Date | null;
+  mfa: boolean;
   expired: boolean;
 }
 
@@ -92,13 +93,13 @@ export function verifyMfaChallengeToken(app: FastifyInstance, token: string): st
 /** Inserts a refresh token, creating a new family when `familyId` is omitted. */
 export async function insertRefreshToken(
   exec: Exec,
-  params: { userId: string; familyId?: string; context?: SessionContext },
+  params: { userId: string; familyId?: string; mfa: boolean; context?: SessionContext },
 ): Promise<{ token: string; familyId: string; expiresAt: Date }> {
   const token = generateToken(32);
   const familyId = params.familyId ?? randomUUID();
   const { rows } = await exec<{ expires_at: Date }>(
-    `INSERT INTO refresh_tokens (user_id, family_id, token_hash, expires_at, user_agent, ip)
-     VALUES ($1, $2, $3, now() + ($4 || ' days')::interval, $5, $6::inet)
+    `INSERT INTO refresh_tokens (user_id, family_id, token_hash, expires_at, user_agent, ip, mfa)
+     VALUES ($1, $2, $3, now() + ($4 || ' days')::interval, $5, $6::inet, $7)
      RETURNING expires_at`,
     [
       params.userId,
@@ -107,6 +108,7 @@ export async function insertRefreshToken(
       String(REFRESH_TOKEN_TTL_DAYS),
       params.context?.userAgent?.slice(0, 512) ?? null,
       params.context?.ip ?? null,
+      params.mfa,
     ],
   );
   const expiresAt = rows[0]?.expires_at;
@@ -122,6 +124,7 @@ export async function issueSession(
 ): Promise<IssuedSession> {
   const refresh = await insertRefreshToken(exec, {
     userId: params.userId,
+    mfa: params.mfa,
     context: params.context,
   });
   return {
@@ -168,20 +171,28 @@ export async function revokeAllFamiliesForUser(
   return rows.length;
 }
 
-/** Thrown when reuse of an already-rotated token revoked the family. */
-export class RefreshTokenReuseError extends Error {
-  constructor(readonly familyId: string, readonly userId: string) {
-    super('Refresh token reuse detected');
-    this.name = 'RefreshTokenReuseError';
-  }
-}
-
-export interface RotationResult {
-  userId: string;
-  familyId: string;
-  token: string;
-  expiresAt: Date;
-}
+/**
+ * Result of presenting a refresh token.
+ *
+ * This is a RETURN VALUE and not an exception on purpose. Reuse detection
+ * revokes the family, and that revocation has to be COMMITTED — but the request
+ * itself fails. Throwing from inside the caller's transaction would roll the
+ * revocation back with it, leaving the stolen family alive: the attacker would
+ * simply keep using the token they already rotated to. Returning the outcome
+ * lets the transaction commit and the caller answer 401 afterwards.
+ */
+export type RotationOutcome =
+  | {
+      status: 'rotated';
+      userId: string;
+      familyId: string;
+      token: string;
+      expiresAt: Date;
+      /** MFA standing of the session, carried over from the presented token. */
+      mfa: boolean;
+    }
+  | { status: 'reuse_detected'; userId: string; familyId: string }
+  | { status: 'invalid' };
 
 /**
  * The rotation step. Runs inside the caller's transaction so reuse detection
@@ -189,17 +200,16 @@ export interface RotationResult {
  * presented row is taken `FOR UPDATE`, which serialises two clients racing with
  * the same token.
  *
- * Throws `RefreshTokenReuseError` (after revoking the family) on reuse, and a
- * plain 401 `ApiError` for unknown / revoked / expired tokens — the caller must
- * not distinguish those to the client.
+ * Unknown, revoked and expired tokens all collapse to `invalid` — the caller
+ * must not distinguish them to the client.
  */
 export async function rotateRefreshToken(
   exec: Exec,
   presentedToken: string,
   context?: SessionContext,
-): Promise<RotationResult> {
+): Promise<RotationOutcome> {
   const { rows } = await exec<RefreshTokenRow>(
-    `SELECT id, user_id, family_id, expires_at, rotated_at, revoked_at,
+    `SELECT id, user_id, family_id, expires_at, rotated_at, revoked_at, mfa,
             (expires_at <= now()) AS expired
        FROM refresh_tokens
       WHERE token_hash = $1
@@ -208,7 +218,7 @@ export async function rotateRefreshToken(
   );
 
   const row = rows[0];
-  if (!row) throw unauthorized('Invalid refresh token');
+  if (!row) return { status: 'invalid' };
 
   if (row.rotated_at !== null) {
     // ---- THEFT SIGNAL -------------------------------------------------------
@@ -230,24 +240,29 @@ export async function rotateRefreshToken(
       targetId: row.family_id,
       payload: { trigger: 'reuse_detection' },
     });
-    throw new RefreshTokenReuseError(row.family_id, row.user_id);
+    return { status: 'reuse_detected', familyId: row.family_id, userId: row.user_id };
   }
 
-  if (row.revoked_at !== null) throw unauthorized('Invalid refresh token');
-  if (row.expired) throw unauthorized('Invalid refresh token');
+  if (row.revoked_at !== null) return { status: 'invalid' };
+  if (row.expired) return { status: 'invalid' };
 
   await exec(`UPDATE refresh_tokens SET rotated_at = now() WHERE id = $1`, [row.id]);
 
   const next = await insertRefreshToken(exec, {
     userId: row.user_id,
     familyId: row.family_id,
+    // Carried over, never recomputed: a refresh can neither gain nor lose the
+    // MFA standing the session was created with.
+    mfa: row.mfa === true,
     context,
   });
 
   return {
+    status: 'rotated',
     userId: row.user_id,
     familyId: row.family_id,
     token: next.token,
     expiresAt: next.expiresAt,
+    mfa: row.mfa === true,
   };
 }

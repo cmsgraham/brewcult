@@ -67,6 +67,27 @@ function normaliseIp(ip: string | null | undefined): string | null {
   return isIpv4 || isIpv6 ? trimmed : null;
 }
 
+/**
+ * Only these reasons count towards lockout.
+ *
+ * The allow-list is the point: `duplicate_registration` and `mfa_required` are
+ * recorded for telemetry but must NOT throttle a login, because
+ *  - anyone can POST /register with a known address, so counting duplicate
+ *    registrations would let a stranger lock any account they can name, and
+ *  - `mfa_required` is written on every *successful* password check of an
+ *    MFA-protected account, so counting it would lock those users out for
+ *    signing in normally.
+ */
+export const LOCKOUT_REASONS: readonly FailureReason[] = [
+  'unknown_account',
+  'bad_password',
+  'no_password_credential',
+  'account_not_active',
+  'mfa_failed',
+  // 'locked_out' is deliberately absent: counting rejected-while-throttled
+  // attempts would let an impatient user extend their own lockout forever.
+];
+
 /** Consecutive failures tolerated before backoff starts. */
 export const LOCKOUT_THRESHOLD = 5;
 /** Failures older than this stop counting. */
@@ -104,9 +125,10 @@ export async function checkLockout(exec: Exec, email: string): Promise<LockoutSt
      FROM login_attempts, last_success
      WHERE email = $1
        AND success = false
+       AND failure_reason = ANY($3::text[])
        AND created_at > now() - ($2 || ' minutes')::interval
        AND (last_success.at IS NULL OR created_at > last_success.at)`,
-    [email, String(LOCKOUT_WINDOW_MINUTES)],
+    [email, String(LOCKOUT_WINDOW_MINUTES), LOCKOUT_REASONS],
   );
 
   const failures = Number(rows[0]?.failures ?? 0);

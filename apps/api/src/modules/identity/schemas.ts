@@ -183,8 +183,10 @@ export const refreshSchema = {
   description:
     'Presenting an already-rotated token is treated as theft: the entire token family is ' +
     'revoked and the call fails (EF §2.3).',
+  // Nullable: a browser sends the token in the `bc_refresh` cookie and posts no
+  // body at all, so an absent body must validate rather than 400.
   body: {
-    type: 'object',
+    type: ['object', 'null'],
     additionalProperties: false,
     properties: { refresh_token: { type: 'string', minLength: 1 } },
   },
@@ -195,7 +197,7 @@ export const logoutSchema = {
   tags: [IDENTITY_TAG],
   summary: 'Sign out — revokes the current refresh-token family',
   body: {
-    type: 'object',
+    type: ['object', 'null'],
     additionalProperties: false,
     properties: { refresh_token: { type: 'string', minLength: 1 } },
   },
@@ -420,7 +422,11 @@ export const getProfileSchema = {
     required: ['handle'],
     properties: { handle },
   },
-  response: { 200: publicProfileSchema, 404: errorResponse },
+  // Superset schema: the handler decides whether it returns the public or the
+  // self projection, and fast-json-stringify only emits the keys that are
+  // present. A public-only schema here would silently strip the owner's own
+  // fields out of their own profile response.
+  response: { 200: selfProfileSchema, 404: errorResponse },
 } as const;
 
 export const updateProfileSchema = {
