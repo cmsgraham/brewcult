@@ -284,7 +284,10 @@ mail.brewcult.coffee {                  # cert-only block: no proxy target neede
 ```
 
 Note the CSP has **no `unsafe-inline` for scripts** (EF §3.3 requirement — stricter than
-Zentra's; Next.js needs nonce-based inline handling, task F-15 covers it).
+Zentra's). Next.js emits its own per-request **nonce** CSP from `middleware.ts`, so Caddy's
+policy is written with the `?` prefix (`?Content-Security-Policy`) meaning *set only if the
+upstream didn't* — overwriting it would strip the nonce and break hydration. Caddy's copy
+remains the defence-in-depth fallback for responses that carry no policy of their own.
 
 ### Certificate issuance & renewal (automatic — but understand it)
 

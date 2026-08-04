@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import { type HealthStatus } from '@brewcult/shared-types';
+import { registerErrorHandler } from './lib/errors.js';
 
 function health(status: HealthStatus['status']): HealthStatus {
   return {
@@ -22,6 +23,10 @@ export function buildApp(): FastifyInstance {
       level: process.env.LOG_LEVEL ?? 'info',
     },
   });
+
+  // Must be registered before any route: without it, AuthorizationError and the
+  // typed ApiError helpers (notFound/conflict/...) all surface as bare 500s.
+  registerErrorHandler(app);
 
   /** Liveness: the process is up (container healthcheck target, F-18). */
   app.get('/healthz', async () => health('ok'));

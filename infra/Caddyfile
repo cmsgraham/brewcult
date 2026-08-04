@@ -18,7 +18,12 @@ brewcult.coffee {
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
-		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://media.brewcult.coffee; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		# `?` = set only if the upstream did NOT send this header. The Next.js
+		# middleware emits a per-request nonce CSP (script-src 'self' 'nonce-…');
+		# overwriting it here would strip the nonce and break hydration. This
+		# stays as the defence-in-depth fallback for any response that arrives
+		# without its own policy (static assets, middleware bypass, api errors).
+		?Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://media.brewcult.coffee; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
 		-Server
 	}
 
