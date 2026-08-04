@@ -1,0 +1,349 @@
+[
+  {
+    "slug": "cascara-ethiopia-chelbesa-washed",
+    "roaster": "cascara-roasting-co",
+    "name": "Ethiopia Chelbesa, Washed",
+    "roast_level": "light",
+    "intended_use": "filter",
+    "tasting_notes": ["jasmine", "lemon", "black tea"],
+    "status": "active",
+    "lot": {
+      "origin": "Ethiopia|Yirgacheffe",
+      "farm": "Chelbesa Washing Station",
+      "varietals": ["74110", "74112", "Heirloom"],
+      "process": "washed",
+      "altitude_masl": 2100,
+      "harvest_period": "2025/26 main crop"
+    }
+  },
+  {
+    "slug": "cascara-kenya-gatomboya-aa",
+    "roaster": "cascara-roasting-co",
+    "name": "Kenya Gatomboya AA",
+    "roast_level": "light",
+    "intended_use": "filter",
+    "tasting_notes": ["blackcurrant", "grapefruit", "brown sugar"],
+    "status": "seasonal",
+    "lot": {
+      "origin": "Kenya|Nyeri",
+      "farm": "Gatomboya Factory",
+      "varietals": ["SL28", "SL34", "Ruiru 11"],
+      "process": "washed",
+      "process_detail": "72h double fermentation, soaked 24h",
+      "altitude_masl": 1800,
+      "harvest_period": "Oct 2025 – Jan 2026 fly crop"
+    }
+  },
+  {
+    "slug": "cascara-colombia-el-mirador-honey",
+    "roaster": "cascara-roasting-co",
+    "name": "Colombia El Mirador, Red Honey",
+    "roast_level": "medium-light",
+    "intended_use": "omni",
+    "tasting_notes": ["red apple", "panela", "vanilla"],
+    "status": "active",
+    "lot": {
+      "origin": "Colombia|Huila",
+      "farm": "Finca El Mirador",
+      "varietals": ["Caturra", "Colombia"],
+      "process": "honey",
+      "process_detail": "red honey, 15 days parabolic drying",
+      "altitude_masl": 1750,
+      "harvest_period": "2025 mitaca"
+    }
+  },
+  {
+    "slug": "cascara-street-level-espresso",
+    "roaster": "cascara-roasting-co",
+    "name": "Street Level Espresso",
+    "roast_level": "medium",
+    "intended_use": "espresso",
+    "tasting_notes": ["milk chocolate", "hazelnut", "dried fig"],
+    "status": "active",
+    "lot": {
+      "origin": "Brazil|Cerrado Mineiro",
+      "farm": "Fazenda Boa Vista",
+      "varietals": ["Mundo Novo", "Catuaí"],
+      "process": "natural",
+      "altitude_masl": 1100,
+      "harvest_period": "2025 harvest"
+    }
+  },
+  {
+    "slug": "kiln-cherry-guji-hambela-natural",
+    "roaster": "kiln-and-cherry",
+    "name": "Guji Hambela, Natural",
+    "roast_level": "light",
+    "intended_use": "filter",
+    "tasting_notes": ["blueberry", "apricot", "milk chocolate"],
+    "status": "active",
+    "lot": {
+      "origin": "Ethiopia|Guji",
+      "farm": "Hambela Estate",
+      "varietals": ["Heirloom"],
+      "process": "natural",
+      "process_detail": "raised-bed dried 18–21 days",
+      "altitude_masl": 2000,
+      "harvest_period": "2025/26 main crop"
+    }
+  },
+  {
+    "slug": "kiln-cherry-huehue-la-bendicion",
+    "roaster": "kiln-and-cherry",
+    "name": "Huehuetenango La Bendición",
+    "roast_level": "medium",
+    "intended_use": "omni",
+    "tasting_notes": ["plum", "cocoa nib", "toffee"],
+    "status": "active",
+    "lot": {
+      "origin": "Guatemala|Huehuetenango",
+      "farm": "Finca La Bendición",
+      "varietals": ["Bourbon", "Caturra"],
+      "process": "washed",
+      "altitude_masl": 1900,
+      "harvest_period": "Jan – Apr 2026"
+    }
+  },
+  {
+    "slug": "kiln-cherry-tarrazu-black-honey",
+    "roaster": "kiln-and-cherry",
+    "name": "Tarrazú Cumbres del Sol, Black Honey",
+    "roast_level": "medium-light",
+    "intended_use": "filter",
+    "tasting_notes": ["cane sugar", "mandarin", "raisin"],
+    "status": "seasonal",
+    "lot": {
+      "origin": "Costa Rica|Tarrazú",
+      "farm": "Micro-beneficio Cumbres del Sol",
+      "varietals": ["Catuaí", "Villa Sarchí"],
+      "process": "honey",
+      "process_detail": "black honey, slow-dried 22 days",
+      "altitude_masl": 1650,
+      "harvest_period": "2025/26 harvest"
+    }
+  },
+  {
+    "slug": "kiln-cherry-house-espresso",
+    "roaster": "kiln-and-cherry",
+    "name": "House Espresso",
+    "roast_level": "medium-dark",
+    "intended_use": "espresso",
+    "tasting_notes": ["dark chocolate", "molasses", "roasted almond"],
+    "status": "active",
+    "lot": {
+      "origin": "Brazil|Cerrado Mineiro",
+      "farm": "Fazenda Boa Vista",
+      "varietals": ["Catuaí", "Mundo Novo"],
+      "process": "natural",
+      "altitude_masl": 1050,
+      "harvest_period": "2025 harvest"
+    }
+  },
+  {
+    "slug": "aurora-yirgacheffe-lot-7",
+    "roaster": "aurora-roastworks",
+    "name": "Yirgacheffe Lot 7",
+    "roast_level": "light",
+    "intended_use": "filter",
+    "tasting_notes": ["bergamot", "peach", "honeysuckle"],
+    "status": "active",
+    "lot": {
+      "origin": "Ethiopia|Yirgacheffe",
+      "farm": "Chelbesa Washing Station",
+      "varietals": ["Heirloom"],
+      "process": "washed",
+      "altitude_masl": 2050,
+      "harvest_period": "2025/26 main crop"
+    }
+  },
+  {
+    "slug": "aurora-nyeri-anaerobic-experiment",
+    "roaster": "aurora-roastworks",
+    "name": "Nyeri Anaerobic Experiment #3",
+    "roast_level": "light",
+    "intended_use": "filter",
+    "tasting_notes": ["hibiscus", "strawberry candy", "lime"],
+    "status": "seasonal",
+    "lot": {
+      "origin": "Kenya|Nyeri",
+      "farm": "Gatomboya Factory",
+      "varietals": ["SL28"],
+      "process": "anaerobic",
+      "process_detail": "96h sealed-tank anaerobic before washing",
+      "altitude_masl": 1780,
+      "harvest_period": "Oct 2025 – Jan 2026 fly crop"
+    }
+  },
+  {
+    "slug": "aurora-boquete-geisha-washed",
+    "roaster": "aurora-roastworks",
+    "name": "Boquete Geisha, Washed",
+    "roast_level": "light",
+    "intended_use": "filter",
+    "tasting_notes": ["jasmine", "papaya", "earl grey"],
+    "status": "seasonal",
+    "lot": {
+      "origin": "Panama|Boquete",
+      "farm": "Finca Los Vientos",
+      "varietals": ["Geisha"],
+      "process": "washed",
+      "altitude_masl": 1700,
+      "harvest_period": "Jan – Mar 2026"
+    }
+  },
+  {
+    "slug": "aurora-nordic-espresso",
+    "roaster": "aurora-roastworks",
+    "name": "Nordic Espresso",
+    "roast_level": "medium-light",
+    "intended_use": "espresso",
+    "tasting_notes": ["red berries", "caramel", "florals"],
+    "status": "active",
+    "lot": {
+      "origin": "Colombia|Huila",
+      "farm": "Finca El Mirador",
+      "varietals": ["Caturra", "Castillo"],
+      "process": "washed",
+      "altitude_masl": 1700,
+      "harvest_period": "2025 principal"
+    }
+  },
+  {
+    "slug": "solstice-huila-pink-bourbon",
+    "roaster": "solstice-coffee-roasters",
+    "name": "Huila Pink Bourbon",
+    "roast_level": "light",
+    "intended_use": "filter",
+    "tasting_notes": ["pink grapefruit", "rose", "white peach"],
+    "status": "active",
+    "lot": {
+      "origin": "Colombia|Huila",
+      "farm": "Finca El Mirador",
+      "varietals": ["Pink Bourbon"],
+      "process": "washed",
+      "altitude_masl": 1820,
+      "harvest_period": "2025 mitaca"
+    }
+  },
+  {
+    "slug": "solstice-guji-carbonic-maceration",
+    "roaster": "solstice-coffee-roasters",
+    "name": "Guji Carbonic Maceration",
+    "roast_level": "light",
+    "intended_use": "omni",
+    "tasting_notes": ["red wine", "cherry cola", "cacao"],
+    "status": "seasonal",
+    "lot": {
+      "origin": "Ethiopia|Guji",
+      "farm": "Hambela Estate",
+      "varietals": ["Heirloom"],
+      "process": "experimental",
+      "process_detail": "carbonic maceration 5 days, then natural drying",
+      "altitude_masl": 1980,
+      "harvest_period": "2025/26 main crop"
+    }
+  },
+  {
+    "slug": "solstice-tarrazu-white-honey",
+    "roaster": "solstice-coffee-roasters",
+    "name": "Tarrazú White Honey",
+    "roast_level": "medium-light",
+    "intended_use": "filter",
+    "tasting_notes": ["green apple", "honey", "almond"],
+    "status": "active",
+    "lot": {
+      "origin": "Costa Rica|Tarrazú",
+      "farm": "Micro-beneficio Cumbres del Sol",
+      "varietals": ["Catuaí"],
+      "process": "honey",
+      "process_detail": "white honey, mechanical demucilage 80%",
+      "altitude_masl": 1600,
+      "harvest_period": "2025/26 harvest"
+    }
+  },
+  {
+    "slug": "solstice-midnight-blend",
+    "roaster": "solstice-coffee-roasters",
+    "name": "Midnight Blend",
+    "roast_level": "dark",
+    "intended_use": "espresso",
+    "tasting_notes": ["bittersweet chocolate", "smoke", "brown butter"],
+    "status": "active",
+    "lot": {
+      "origin": "Brazil|Cerrado Mineiro",
+      "farm": "Fazenda Boa Vista",
+      "varietals": ["Mundo Novo"],
+      "process": "natural",
+      "altitude_masl": 1000,
+      "harvest_period": "2025 harvest"
+    }
+  },
+  {
+    "slug": "meridian-huehue-washed-bourbon",
+    "roaster": "meridian-coffee-roasters",
+    "name": "Huehuetenango Washed Bourbon",
+    "roast_level": "medium",
+    "intended_use": "omni",
+    "tasting_notes": ["stone fruit", "milk chocolate", "orange zest"],
+    "status": "active",
+    "lot": {
+      "origin": "Guatemala|Huehuetenango",
+      "farm": "Finca La Bendición",
+      "varietals": ["Bourbon"],
+      "process": "washed",
+      "altitude_masl": 1850,
+      "harvest_period": "Jan – Apr 2026"
+    }
+  },
+  {
+    "slug": "meridian-yirgacheffe-natural",
+    "roaster": "meridian-coffee-roasters",
+    "name": "Yirgacheffe Natural",
+    "roast_level": "medium-light",
+    "intended_use": "filter",
+    "tasting_notes": ["blueberry jam", "cocoa", "violet"],
+    "status": "active",
+    "lot": {
+      "origin": "Ethiopia|Yirgacheffe",
+      "farm": null,
+      "varietals": ["Heirloom"],
+      "process": "natural",
+      "altitude_masl": 1950,
+      "harvest_period": "2025/26 main crop"
+    }
+  },
+  {
+    "slug": "meridian-boquete-caturra-lot-12",
+    "roaster": "meridian-coffee-roasters",
+    "name": "Boquete Caturra Lot 12",
+    "roast_level": "medium",
+    "intended_use": "filter",
+    "tasting_notes": ["red apple", "caramel", "walnut"],
+    "status": "discontinued",
+    "lot": {
+      "origin": "Panama|Boquete",
+      "farm": "Finca Los Vientos",
+      "varietals": ["Caturra"],
+      "process": "washed",
+      "altitude_masl": 1550,
+      "harvest_period": "Jan – Mar 2025"
+    }
+  },
+  {
+    "slug": "meridian-daybreak-espresso",
+    "roaster": "meridian-coffee-roasters",
+    "name": "Daybreak Espresso",
+    "roast_level": "medium",
+    "intended_use": "espresso",
+    "tasting_notes": ["toffee", "red plum", "cocoa"],
+    "status": "active",
+    "lot": {
+      "origin": "Colombia|Huila",
+      "farm": null,
+      "varietals": ["Castillo", "Colombia"],
+      "process": "washed",
+      "altitude_masl": 1650,
+      "harvest_period": "2025 principal"
+    }
+  }
+]

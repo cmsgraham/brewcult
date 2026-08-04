@@ -1,0 +1,57 @@
+# BrewCult CI — quality gate, not deployer (ADR-003 / deployment_guide §4).
+# Merge to main is blocked unless green (branch protection). Target <10 min.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    # Wave 2+: integration/contract tests run against real Postgres + Redis.
+    # Uncomment when `test:integration` exists (deployment_guide §4).
+    # services:
+    #   postgres:
+    #     image: pgvector/pgvector:pg16
+    #     env: { POSTGRES_USER: test, POSTGRES_PASSWORD: test, POSTGRES_DB: test }
+    #     ports: ["5432:5432"]
+    #     options: >-
+    #       --health-cmd "pg_isready -U test" --health-interval 5s --health-retries 5
+    #   redis:
+    #     image: redis:7-alpine
+    #     ports: ["6379:6379"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # eslint + module-boundary rules (dependency-cruiser, F-04)
+      - run: npm run lint
+
+      - run: npm run typecheck
+
+      # unit tests (vitest, per workspace)
+      - run: npm run test
+
+      # Wave 2+ (placeholders per deployment_guide §4):
+      # - run: npm run test:integration   # real Postgres/Redis from the services above
+      # - run: npm run test:contract      # OpenAPI conformance (F-13)
+
+      - run: npm audit --audit-level=critical
+
+      # web + api production builds must compile
+      - run: npm run build
+
+  # M3+: AI eval harness (golden set + prompt-injection suite, AI-07).
+  # Gated separately; requires ANTHROPIC_API_KEY secret. See deployment_guide §4.
+  # ai-evals:
+  #   if: <paths filter on apps/api/src/modules/intelligence>
+  #   runs-on: ubuntu-latest
+  #   steps: [ ... ]

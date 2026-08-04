@@ -1,0 +1,3 @@
+# The root .gitignore ignores every dist/; brand outputs are an exception —
+# exported icons are committed so the repo is usable without running the pipeline.
+!dist/

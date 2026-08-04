@@ -1,0 +1,48 @@
+# BrewCult edge — Caddy 2 (deployment_guide.md §5.3)
+# One Caddy, four hostnames. Caddy is the single TLS terminator and the ACME
+# client for the whole box — including the mail server's cert (§5.4), which is
+# why the mail.brewcult.coffee block exists with no proxy target.
+# DNS A records for ALL FOUR hostnames must point at the VPS before first boot.
+
+# Redirect www → apex so search engines see a single canonical host.
+www.brewcult.coffee {
+	redir https://brewcult.coffee{uri} permanent
+}
+
+brewcult.coffee {
+	# Security headers (EF §3.3). CSP has NO 'unsafe-inline' for scripts —
+	# stricter than Zentra's; Next.js nonce-based inline handling is task F-15.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://media.brewcult.coffee; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		-Server
+	}
+
+	# API under the same origin: /api/* is stripped and proxied to the api container.
+	handle_path /api/* {
+		reverse_proxy api:4000
+	}
+
+	# Service worker must NEVER be cached by the browser HTTP cache — iOS Safari
+	# (especially standalone PWA mode) can hold a stale copy for hours (Zentra lesson).
+	@sw path /sw.js
+	header @sw Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+
+	reverse_proxy web:3000
+}
+
+# Cookie-less media origin (EF §3.5) — MinIO behind its own hostname.
+media.brewcult.coffee {
+	reverse_proxy minio:9000
+}
+
+# Cert-only block: no proxy target needed — its purpose is making Caddy
+# issue/renew the mail server's certificate (consumed read-only via the
+# brewcult_caddy_data volume, §5.4).
+mail.brewcult.coffee {
+	respond "ok" 200
+}

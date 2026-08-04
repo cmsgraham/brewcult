@@ -1,0 +1,26 @@
+{
+  "name": "@brewcult/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BrewCult HTTP API (Fastify) + worker/scheduler entrypoints (EF §7.2)",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "worker:dev": "tsx watch src/worker.ts",
+    "scheduler:dev": "tsx watch src/scheduler.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@brewcult/shared-types": "*",
+    "fastify": "^5.2.0",
+    "pino": "^9.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "vitest": "^3.0.0"
+  }
+}

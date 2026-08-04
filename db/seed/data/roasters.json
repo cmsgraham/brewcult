@@ -1,0 +1,32 @@
+[
+  {
+    "slug": "cascara-roasting-co",
+    "name": "Cascara Roasting Co.",
+    "location": "Seattle, WA, USA",
+    "verified": true
+  },
+  {
+    "slug": "kiln-and-cherry",
+    "name": "Kiln & Cherry",
+    "location": "London, UK",
+    "verified": true
+  },
+  {
+    "slug": "aurora-roastworks",
+    "name": "Aurora Roastworks",
+    "location": "Oslo, Norway",
+    "verified": true
+  },
+  {
+    "slug": "solstice-coffee-roasters",
+    "name": "Solstice Coffee Roasters",
+    "location": "Barcelona, Spain",
+    "verified": false
+  },
+  {
+    "slug": "meridian-coffee-roasters",
+    "name": "Meridian Coffee Roasters",
+    "location": "Melbourne, Australia",
+    "verified": false
+  }
+]

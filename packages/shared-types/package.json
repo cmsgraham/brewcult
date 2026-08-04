@@ -1,0 +1,16 @@
+{
+  "name": "@brewcult/shared-types",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared TypeScript types for BrewCult apps (types-only package, consumed from source)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

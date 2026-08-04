@@ -1,0 +1,42 @@
+[
+  {
+    "country": "Ethiopia",
+    "region": "Yirgacheffe",
+    "description": "High-altitude birthplace-of-coffee terroir; washed coffees are floral and citric, naturals intensely fruited."
+  },
+  {
+    "country": "Ethiopia",
+    "region": "Guji",
+    "description": "Southern zone neighboring Yirgacheffe; syrupy stone fruit and bergamot, both washed and natural processing."
+  },
+  {
+    "country": "Colombia",
+    "region": "Huila",
+    "description": "Andean department with year-round micro-harvests; balanced, sweet, red-fruit-and-caramel profiles."
+  },
+  {
+    "country": "Kenya",
+    "region": "Nyeri",
+    "description": "Central highlands; SL28/SL34 factories producing blackcurrant-driven, intensely juicy washed lots."
+  },
+  {
+    "country": "Guatemala",
+    "region": "Huehuetenango",
+    "description": "Remote non-volcanic highlands; dense, chocolate-and-stone-fruit washed coffees at serious altitude."
+  },
+  {
+    "country": "Brazil",
+    "region": "Cerrado Mineiro",
+    "description": "Flat, mechanized savanna plateau; nutty, chocolatey naturals that anchor espresso blends."
+  },
+  {
+    "country": "Costa Rica",
+    "region": "Tarrazú",
+    "description": "Steep valleys south of San José; honey-process pioneers with crisp, sugar-cane sweetness."
+  },
+  {
+    "country": "Panama",
+    "region": "Boquete",
+    "description": "Volcanic slopes of Volcán Barú; home of hyper-aromatic Geisha lots and misty microclimates."
+  }
+]

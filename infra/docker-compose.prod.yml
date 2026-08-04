@@ -1,0 +1,205 @@
+# BrewCult — PROD compose (deployment_guide.md §5.2, EF §7.2)
+#
+# Topology: caddy / web / api / worker / scheduler / postgres / redis / minio /
+# minio-init / migrate. Deployed by infra/deploy.sh (rsync + server-side build,
+# ADR-003). Secrets live in /srv/brewcult/.env.prod — never in the repo.
+#
+# worker and scheduler are the SAME IMAGE as api (apps/api/Dockerfile.prod),
+# differing only in `command:` — EF §7.2 role-based deployables. No separate
+# worker.Dockerfile exists; the entrypoint override lives here.
+#
+# Migration rule (§5.2): migrate must FAIL LOUDLY — api/worker/scheduler only
+# start after `migrate` exits 0 (condition: service_completed_successfully).
+#
+# NEVER run `docker compose down -v` on prod: brewcult_caddy_data holds the
+# Let's Encrypt certs + ACME account (rate-limited to re-issue) and is shared
+# read-only with the mail server (§5.4). It is in the nightly backup set.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: brewcult-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80" # must stay open — ACME HTTP-01 (§5.3)
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    dns: # explicit resolvers — Zentra lesson (ACME lookups on minimal hosts)
+      - 8.8.8.8
+      - 1.1.1.1
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - brewcult_caddy_data:/data # certificates + ACME account (PERSIST — backup set)
+      - brewcult_caddy_config:/config
+    depends_on:
+      web:
+        condition: service_started
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile.prod
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-} # empty → same-origin /api via Caddy
+        API_INTERNAL_URL: http://api:4000
+    container_name: brewcult-web
+    restart: unless-stopped
+    expose:
+      - "3000"
+    environment:
+      API_INTERNAL_URL: http://api:4000
+    env_file:
+      - ../.env.prod
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      api:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile.prod
+    container_name: brewcult-api
+    restart: unless-stopped
+    expose:
+      - "4000"
+    env_file:
+      - ../.env.prod
+    healthcheck: # /healthz contract — F-20
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4000/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully # fail-loud gate (§5.2)
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+
+  worker: # outbox relay + event consumers — same image as api, different entrypoint
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile.prod
+    container_name: brewcult-worker
+    restart: unless-stopped
+    command: ["node", "dist/worker.js"]
+    env_file:
+      - ../.env.prod
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "dist/worker.js"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+
+  scheduler: # cron: retention jobs, digests, backups — same image as api
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile.prod
+    container_name: brewcult-scheduler
+    restart: unless-stopped
+    command: ["node", "dist/scheduler.js"]
+    env_file:
+      - ../.env.prod
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "dist/scheduler.js"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: brewcult-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - brewcult_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: brewcult-redis
+    restart: unless-stopped
+    volumes:
+      - brewcult_redis:/data
+
+  minio:
+    image: minio/minio:latest
+    container_name: brewcult-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    expose:
+      - "9000" # reached only via media.brewcult.coffee through Caddy
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+    volumes:
+      - brewcult_minio:/data
+
+  minio-init: # one-shot bucket bootstrap
+    image: minio/mc:latest
+    container_name: brewcult-minio-init
+    depends_on:
+      - minio
+    env_file:
+      - ../.env.prod
+    volumes:
+      - ./:/infra
+    entrypoint: ["/bin/sh", "/infra/minio-create-bucket.sh"]
+    restart: "no"
+
+  migrate: # one-shot: applies db/migrations/*.sql BEFORE api starts (§5.2)
+    image: pgvector/pgvector:pg16
+    container_name: brewcult-migrate
+    env_file:
+      - ../.env.prod # provides DATABASE_URL (postgres:5432 on the compose network)
+    environment:
+      MIGRATIONS_DIR: /db/migrations
+    volumes:
+      - ../db:/db:ro
+    entrypoint: ["/bin/sh", "/db/migrate.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  brewcult_pgdata:
+  brewcult_redis:
+  brewcult_minio:
+  brewcult_caddy_data: # precious: certs + ACME account — nightly backup set, shared :ro with mail (§5.4)
+  brewcult_caddy_config:

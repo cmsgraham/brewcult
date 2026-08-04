@@ -1,0 +1,25 @@
+{
+  "name": "@brewcult/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BrewCult web app (Next.js App Router — SSR + PWA shell arrives in Wave 2)",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "next start --port 3000",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "vitest": "^3.0.0"
+  }
+}

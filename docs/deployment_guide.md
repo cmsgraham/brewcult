@@ -588,6 +588,10 @@ COOKIE_DOMAIN=localhost
 
 # Database / cache / storage
 DATABASE_URL=postgres://brewcult:brewcult@postgres:5432/brewcult
+POSTGRES_USER=brewcult          # compose-only: prod postgres container + healthcheck
+POSTGRES_PASSWORD=brewcult      # must agree with DATABASE_URL
+POSTGRES_DB=brewcult
+NEXT_PUBLIC_API_URL=            # web build arg; empty = same-origin /api
 REDIS_URL=redis://redis:6379
 S3_ENDPOINT=http://minio:9000
 S3_ACCESS_KEY=minioadmin

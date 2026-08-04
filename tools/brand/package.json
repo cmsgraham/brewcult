@@ -1,0 +1,16 @@
+{
+  "name": "@brewcult/brand-tools",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BrewCult brand asset export pipeline: rasterizes docs/brand SVGs into every icon, favicon, OG and email asset.",
+  "type": "module",
+  "scripts": {
+    "export": "tsx export.ts"
+  },
+  "dependencies": {
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.34.3",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2"
+  }
+}

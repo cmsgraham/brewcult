@@ -1,0 +1,13 @@
+{
+  "name": "@brewcult/seed",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deterministic dev/staging seed data for the BrewCult database (Wave 1, Lane D).",
+  "type": "module",
+  "scripts": {
+    "seed": "node --experimental-strip-types seed.ts"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}
