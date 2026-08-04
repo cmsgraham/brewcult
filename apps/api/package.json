@@ -16,10 +16,13 @@
   "dependencies": {
     "@brewcult/shared-types": "*",
     "fastify": "^5.2.0",
-    "pino": "^9.6.0"
+    "pg": "^8.22.0",
+    "pino": "^9.6.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "@types/pg": "^8.20.4",
     "tsx": "^4.19.0",
     "vitest": "^3.0.0"
   }

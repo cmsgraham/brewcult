@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "png-to-ico": "^3.0.1",
-    "sharp": "^0.34.3",
+    "sharp": "^0.35.3",
     "tsx": "^4.20.3",
     "typescript": "^5.9.2"
   }
