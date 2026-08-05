@@ -238,7 +238,11 @@ describe('GoogleButton', () => {
   it('is a plain link to the redirect endpoint, not a fetch', () => {
     render(<GoogleButton enabled next="/profile" />);
     const link = screen.getByRole('link', { name: 'Sign in with Google' });
-    expect(link).toHaveAttribute('href', '/api/v1/auth/google?next=%2Fprofile');
+    // UNVERSIONED on purpose — the API mounts Google at its root because the
+    // callback is registered in Google's console and matched byte for byte.
+    // This assertion said `/api/v1/auth/google`, which strips to
+    // `/v1/auth/google` and 404s: the test was pinning the broken path.
+    expect(link).toHaveAttribute('href', '/api/auth/google?next=%2Fprofile');
   });
 
   /**

@@ -414,8 +414,23 @@ export const authApi = {
     }),
 } as const;
 
-/** Redirect start for Google OAuth — a plain link, never an XHR. */
-export const GOOGLE_OAUTH_START = '/api/v1/auth/google';
+/**
+ * Redirect start for Google OAuth — a plain link, never an XHR.
+ *
+ * DELIBERATELY UNVERSIONED. Every other endpoint here lives under `/api/v1/…`,
+ * but the identity module mounts the Google routes at the API ROOT
+ * (`/auth/google` and `/auth/google/callback`, see identity/google.ts) because
+ * the callback URL is registered inside Google's own console and matched byte
+ * for byte. Putting it behind a version means the day we ship `/v2` every
+ * existing user's sign-in breaks until someone edits a Google project — so the
+ * OAuth entry points are a stable, unversioned contract on purpose.
+ *
+ * Caddy strips the `/api` prefix, so this resolves to `/auth/google` at the API.
+ * It was briefly `/api/v1/auth/google` — swept up by a blanket "everything moves
+ * under /v1" change — which stripped to `/v1/auth/google` and 404'd every
+ * attempt to sign in with Google. Do not "fix" this to match its neighbours.
+ */
+export const GOOGLE_OAUTH_START = '/api/auth/google';
 
 export const catalogApi = {
   coffees: (options?: ApiRequestOptions) =>
