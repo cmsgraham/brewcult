@@ -279,10 +279,11 @@ export async function disableMfa(
 /**
  * `POST /v1/auth/logout` — revokes the current session family.
  *
- * Not `authApi.logout` from lib/api.ts, for two reasons: that helper posts to
- * `/api/auth/logout`, which resolves to a path the API does not serve (it mounts
- * identity under `/v1/auth`, see FINAL REPORT), and it sends no CSRF token, so
- * `csrfGuard` would refuse it anyway. This exists because the one fix for
+ * Both objections that once justified this over `authApi.logout` are now gone:
+ * that helper posts to `/api/v1/auth/logout` (correct), and `apiFetch` attaches
+ * the CSRF token on mutating methods by itself. Either is fine; new callers
+ * should prefer `authApi.logout` as the canonical client. This exists because
+ * the one fix for
  * "enrolled, but this session never answered a challenge" is a round trip
  * through sign-in, and offering that advice without a working button is how a
  * dead end gets rebuilt one screen further along.

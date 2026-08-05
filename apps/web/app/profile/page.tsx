@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { AvatarEditor } from '../../components/media/avatar-editor';
 import { AccountActions } from '../../components/profile/account-actions';
+import { SignOutButton } from '../../components/profile/sign-out-button';
 import { Alert } from '../../components/ui/alert';
 import { fetchClientConfig } from '../../lib/client-config';
 import { readAvatarUrl } from '../../lib/media-client';
@@ -29,6 +30,15 @@ export default async function ProfilePage() {
         @{user.handle} · {user.email}
         {user.emailVerified === false ? ' · email not confirmed yet' : ''}
       </p>
+
+      {/* Sign out sits up here, next to who you are, and deliberately NOWHERE
+          NEAR the delete button further down: those two are not neighbours you
+          want on a small screen. Until now the only sign-out in the product was
+          buried in the security panel, which meant no discoverable way to leave
+          on a shared device. */}
+      <div className="bc-actions" style={{ marginTop: 0 }}>
+        <SignOutButton />
+      </div>
 
       {user.emailVerified === false ? (
         <Alert tone="info" title="One small thing.">
