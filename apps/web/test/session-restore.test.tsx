@@ -39,20 +39,54 @@ afterEach(() => {
 
 const ok = () => new Response('{}', { status: 200 });
 const unauthorized = () => new Response('{}', { status: 401 });
+const csrfToken = () => new Response(JSON.stringify({ csrf_token: 'tok-1' }), { status: 200 });
+const forbidden = () =>
+  new Response(JSON.stringify({ error: 'forbidden', message: 'csrf' }), { status: 403 });
+
+/** Answers the CSRF mint, and whatever is queued for the refresh itself. */
+function apiStub(refreshResponses: Response[]) {
+  const queue = [...refreshResponses];
+  return vi.fn((url: string) =>
+    Promise.resolve(
+      String(url).includes('/auth/csrf') ? csrfToken() : (queue.shift() ?? ok()),
+    ),
+  );
+}
 
 describe('restoring in the background', () => {
   it('refreshes and re-renders when the server could not see the session', async () => {
-    fetchMock.mockResolvedValue(ok());
+    const stub = apiStub([ok()]);
+    vi.stubGlobal('fetch', stub);
     render(<SessionRestorer restorable />);
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    expect(String(fetchMock.mock.calls[0]![0])).toBe('/api/v1/auth/refresh');
-    expect(fetchMock.mock.calls[0]![1]).toMatchObject({
-      method: 'POST',
-      credentials: 'include',
-    });
-    // The re-render is the point: server components then see a fresh cookie.
     await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+    const call = stub.mock.calls.find(([url]) => String(url).includes('/auth/refresh'));
+    expect(call?.[1]).toMatchObject({ method: 'POST', credentials: 'include' });
+  });
+
+  it('sends a CSRF token, because refresh is a mutation and the API says so', async () => {
+    // Without this the browser's refresh is a 403, every time, silently — which
+    // is what production did for a week: 19 sign-ins, 1 rotation. The old test
+    // asserted the URL and the method and would have passed throughout.
+    const stub = apiStub([ok()]);
+    vi.stubGlobal('fetch', stub);
+    render(<SessionRestorer restorable />);
+
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    const call = stub.mock.calls.find(([url]) => String(url).includes('/auth/refresh'));
+    expect((call?.[1] as RequestInit).headers).toMatchObject({ 'x-csrf-token': 'tok-1' });
+  });
+
+  it('mints a fresh token and retries once when the first one is stale', async () => {
+    const stub = apiStub([forbidden(), ok()]);
+    vi.stubGlobal('fetch', stub);
+    render(<SessionRestorer restorable />);
+
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+    const refreshCalls = stub.mock.calls.filter(([url]) => String(url).includes('/auth/refresh'));
+    expect(refreshCalls).toHaveLength(2);
+    // Retried ONCE. A loop here would hammer the endpoint on every page load.
+    expect(refreshCalls[1]?.[1]).toMatchObject({ method: 'POST' });
   });
 
   it('does nothing at all for a visitor with no session', async () => {
@@ -72,10 +106,10 @@ describe('restoring in the background', () => {
   });
 
   it('forgets the hint after a failure, so the next page load does not retry', async () => {
-    fetchMock.mockResolvedValue(unauthorized());
+    const stub = apiStub([unauthorized()]);
+    vi.stubGlobal('fetch', stub);
     render(<SessionRestorer restorable />);
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(document.cookie).not.toContain(SESSION_HINT_COOKIE));
     // No re-render: nothing changed, and a refresh() here would just cost a
     // round trip to draw the same signed-out page.
@@ -83,15 +117,17 @@ describe('restoring in the background', () => {
   });
 
   it('tries once per page load, not once per render', async () => {
-    fetchMock.mockResolvedValue(ok());
+    const stub = apiStub([ok()]);
+    vi.stubGlobal('fetch', stub);
     const { rerender } = render(<SessionRestorer restorable />);
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
     rerender(<SessionRestorer restorable />); // what router.refresh() causes
     rerender(<SessionRestorer restorable />);
 
     await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const refreshCalls = stub.mock.calls.filter(([url]) => String(url).includes('/auth/refresh'));
+    expect(refreshCalls).toHaveLength(1);
   });
 });
 

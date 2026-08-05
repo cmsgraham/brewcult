@@ -140,14 +140,43 @@ export function resolveApiUrl(path: string, baseUrl?: string): string {
 /** In-flight refresh, so five parallel 401s cause one refresh, not five. */
 let refreshInFlight: Promise<boolean> | null = null;
 
+/**
+ * Refresh is a MUTATION, and the API treats it as one.
+ *
+ * This bypasses `apiFetch`, so it also bypassed the CSRF handling that lives
+ * there — and `csrfGuard` demands a double-submit token on any request carrying
+ * a session cookie, which this one does by definition. Every refresh the
+ * browser ever attempted came back 403. Production said so in the only way it
+ * could: nineteen sign-ins in a week and one rotation, because the only
+ * "refresh" that ever worked was a person typing their password again.
+ *
+ * The token is minted on demand and retried once on a 403, because a token can
+ * also simply have expired. `fetchCsrfToken` is a GET and needs no token
+ * itself, so there is no loop here.
+ */
 async function refreshSession(doFetch: FetchLike, baseUrl?: string): Promise<boolean> {
   refreshInFlight ??= (async () => {
     try {
-      const res = await doFetch(resolveApiUrl('/api/v1/auth/refresh', baseUrl), {
-        method: 'POST',
-        credentials: 'include',
-        headers: { Accept: 'application/json' },
-      });
+      const attempt = (token: string | null): Promise<Response> =>
+        doFetch(resolveApiUrl('/api/v1/auth/refresh', baseUrl), {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            Accept: 'application/json',
+            ...(token ? { 'x-csrf-token': token } : {}),
+          },
+        });
+
+      csrfToken ??= await fetchCsrfToken(doFetch, baseUrl);
+      let res = await attempt(csrfToken);
+
+      if (res.status === 403) {
+        const fresh = await fetchCsrfToken(doFetch, baseUrl);
+        if (fresh) {
+          csrfToken = fresh;
+          res = await attempt(fresh);
+        }
+      }
       return res.ok;
     } catch {
       return false;

@@ -43,13 +43,43 @@ describe('resolveApiUrl', () => {
   });
 });
 
+/**
+ * A note on why these stopped counting calls by index.
+ *
+ * They used to assert the exact sequence 401 → refresh → retry, three calls,
+ * with the refresh at index 1. That sequence was WRONG: a refresh carries a
+ * session cookie, so the API's csrfGuard demands a double-submit token, and the
+ * client was sending none. Every browser refresh was a 403 for the life of the
+ * feature — nineteen sign-ins in a week and one rotation — while these tests
+ * stayed green, because they described the broken sequence faithfully.
+ *
+ * They now match calls by URL and assert the header that actually matters.
+ * Counting stayed only where the count IS the property (never looping).
+ */
+const callsTo = (
+  impl: { mock: { calls: [string, RequestInit?][] } },
+  path: string,
+): [string, RequestInit?][] => impl.mock.calls.filter(([url]) => String(url).includes(path));
+
 describe('401 → silent refresh → retry', () => {
+  /** Answers the CSRF mint; everything else comes from the queue. */
+  const stubbedApi = (responses: Response[]) => {
+    const queue = [...responses];
+    return vi.fn<(input: string, init?: RequestInit) => Promise<Response>>((url) =>
+      Promise.resolve(
+        String(url).includes('/auth/csrf')
+          ? jsonResponse(200, { csrf_token: 'tok-1' })
+          : (queue.shift() ?? jsonResponse(200, {})),
+      ),
+    );
+  };
+
   it('refreshes once and retries the original request', async () => {
-    const fetchImpl = vi
-      .fn<(input: string, init?: RequestInit) => Promise<Response>>()
-      .mockResolvedValueOnce(jsonResponse(401, { error: 'unauthorized', message: 'nope' }))
-      .mockResolvedValueOnce(jsonResponse(200, { ok: true })) // the refresh
-      .mockResolvedValueOnce(jsonResponse(200, { id: 'u_1', handle: 'nadia' }));
+    const fetchImpl = stubbedApi([
+      jsonResponse(401, { error: 'unauthorized', message: 'nope' }),
+      jsonResponse(200, { ok: true }), // the refresh
+      jsonResponse(200, { id: 'u_1', handle: 'nadia' }),
+    ]);
 
     const result = await apiFetch<{ handle: string }>('/api/v1/users/me', {
       fetchImpl,
@@ -58,38 +88,55 @@ describe('401 → silent refresh → retry', () => {
     });
 
     expect(result.handle).toBe('nadia');
-    expect(fetchImpl).toHaveBeenCalledTimes(3);
-    expect(fetchImpl.mock.calls[1]?.[0]).toBe('/api/v1/auth/refresh');
-    expect(fetchImpl.mock.calls[1]?.[1]?.method).toBe('POST');
-    // Original request replayed unchanged.
-    expect(fetchImpl.mock.calls[2]?.[0]).toBe('/api/v1/users/me');
+    expect(callsTo(fetchImpl, '/auth/refresh')).toHaveLength(1);
+    // Original request made, then replayed.
+    expect(callsTo(fetchImpl, '/users/me')).toHaveLength(2);
+  });
+
+  it('sends the CSRF token on the refresh, because the API demands one', async () => {
+    // The bug this file missed for the whole life of the feature. csrfGuard
+    // fires on any request carrying a session cookie, and a refresh always
+    // carries one — so a token-less refresh is a 403, silently, forever.
+    const fetchImpl = stubbedApi([
+      jsonResponse(401, { error: 'unauthorized', message: '' }),
+      jsonResponse(200, {}),
+      jsonResponse(200, { handle: 'nadia' }),
+    ]);
+
+    await apiFetch('/api/v1/users/me', { fetchImpl, baseUrl: BASE, refreshOn401: true });
+
+    const [, init] = callsTo(fetchImpl, '/auth/refresh')[0]!;
+    expect(init?.headers).toMatchObject({ 'x-csrf-token': 'tok-1' });
+    expect(init?.credentials).toBe('include');
   });
 
   it('gives up after one refresh — never loops', async () => {
-    const fetchImpl = vi
-      .fn<(input: string, init?: RequestInit) => Promise<Response>>()
-      .mockResolvedValueOnce(jsonResponse(401, { error: 'unauthorized', message: '' }))
-      .mockResolvedValueOnce(jsonResponse(200, {})) // refresh succeeds
-      .mockResolvedValueOnce(jsonResponse(401, { error: 'unauthorized', message: '' }));
+    const fetchImpl = stubbedApi([
+      jsonResponse(401, { error: 'unauthorized', message: '' }),
+      jsonResponse(200, {}), // refresh succeeds
+      jsonResponse(401, { error: 'unauthorized', message: '' }),
+    ]);
 
     await expect(
       apiFetch('/api/v1/users/me', { fetchImpl, baseUrl: BASE, refreshOn401: true }),
     ).rejects.toBeInstanceOf(ApiError);
 
-    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    // The count IS the property here: one refresh, two attempts, then stop.
+    expect(callsTo(fetchImpl, '/auth/refresh')).toHaveLength(1);
+    expect(callsTo(fetchImpl, '/users/me')).toHaveLength(2);
   });
 
   it('does not retry when the refresh itself fails', async () => {
-    const fetchImpl = vi
-      .fn<(input: string, init?: RequestInit) => Promise<Response>>()
-      .mockResolvedValueOnce(jsonResponse(401, { error: 'unauthorized', message: '' }))
-      .mockResolvedValueOnce(jsonResponse(401, { error: 'unauthorized', message: '' }));
+    const fetchImpl = stubbedApi([
+      jsonResponse(401, { error: 'unauthorized', message: '' }),
+      jsonResponse(401, { error: 'unauthorized', message: '' }), // refresh refused
+    ]);
 
     await expect(
       apiFetch('/api/v1/users/me', { fetchImpl, baseUrl: BASE, refreshOn401: true }),
     ).rejects.toMatchObject({ status: 401 });
 
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(callsTo(fetchImpl, '/users/me')).toHaveLength(1);
   });
 
   it('never refreshes for auth endpoints — a 401 from /login is the answer', async () => {
