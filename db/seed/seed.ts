@@ -19,6 +19,33 @@ const DATABASE_URL =
   process.env.DATABASE_URL ??
   'postgres://brewcult:brewcult@localhost:5433/brewcult';
 
+/**
+ * What to seed. `all` (the default) is the DEVELOPMENT fixture.
+ *
+ * ── READ THIS BEFORE SEEDING A PUBLIC SITE ──────────────────────────────────
+ * The two halves of this fixture are not equivalent:
+ *
+ *   equipment.json / grind_conversions.json — REAL products. Comandante C40,
+ *     Baratza Encore, Niche Zero, Turin DF64. Publishing these is ordinary
+ *     catalogue content, the same as any review site carries.
+ *
+ *   roasters.json / coffee_products.json / farms.json / origins.json —
+ *     INVENTED. "Cascara Roasting Co.", "Kiln & Cherry" and the rest are
+ *     fixtures written to exercise the domain model, and two of them carry
+ *     `verified: true`. They are perfect for tests and demos and must never
+ *     reach a public, indexed site: they would publish businesses that do not
+ *     exist, assert that we verified them, and hand a search engine fabricated
+ *     product pages. That is a trust problem before it is an SEO problem.
+ *
+ * `SEED_SCOPE=equipment` therefore exists so production can carry the real
+ * half without the invented one.
+ */
+const SEED_SCOPE = (process.env.SEED_SCOPE ?? 'all').toLowerCase();
+const seedCatalogue = SEED_SCOPE === 'all';
+if (!seedCatalogue && SEED_SCOPE !== 'equipment') {
+  throw new Error(`SEED_SCOPE must be 'all' or 'equipment', got '${SEED_SCOPE}'`);
+}
+
 interface RoasterRow {
   slug: string; name: string; location: string | null; verified: boolean;
 }
@@ -49,116 +76,121 @@ async function main() {
   try {
     await client.query('BEGIN');
 
-    // ---- roasters -----------------------------------------------------------
+    // The invented half. Skipped entirely unless SEED_SCOPE=all — see the
+    // note beside SEED_SCOPE at the top of this file.
     const roasterIds = new Map<string, string>();
-    for (const r of load('roasters.json') as RoasterRow[]) {
-      const res = await client.query(
-        `INSERT INTO roasters (name, slug, location, verified)
-         VALUES ($1, $2, $3, $4)
-         ON CONFLICT (slug) DO UPDATE
-           SET name = EXCLUDED.name, location = EXCLUDED.location,
-               verified = EXCLUDED.verified
-         RETURNING id`,
-        [r.name, r.slug, r.location, r.verified],
-      );
-      roasterIds.set(r.slug, res.rows[0].id);
-      bump('roasters');
-    }
-
-    // ---- origins (natural key: country + region) ----------------------------
-    const originIds = new Map<string, string>();
-    for (const o of load('origins.json') as OriginRow[]) {
-      const res = await client.query(
-        `INSERT INTO origins (country, region, description)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (country, region) DO UPDATE
-           SET description = EXCLUDED.description
-         RETURNING id`,
-        [o.country, o.region, o.description],
-      );
-      originIds.set(`${o.country}|${o.region ?? ''}`, res.rows[0].id);
-      bump('origins');
-    }
-    const originId = (key: string): string => {
-      const id = originIds.get(key);
-      if (!id) throw new Error(`unknown origin reference: ${key}`);
-      return id;
-    };
-
-    // ---- farms (natural key: origin_id + name) ------------------------------
-    const farmIds = new Map<string, string>();
-    for (const f of load('farms.json') as FarmRow[]) {
-      const res = await client.query(
-        `INSERT INTO farms (origin_id, name, story)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (origin_id, name) DO UPDATE SET story = EXCLUDED.story
-         RETURNING id`,
-        [originId(f.origin), f.name, f.story],
-      );
-      farmIds.set(`${f.origin}|${f.name}`, res.rows[0].id);
-      bump('farms');
-    }
-
-    // ---- coffee products + their lots --------------------------------------
-    // Lots have no natural key of their own; they are keyed through the owning
-    // product (1:1 in seed data): if the product already has a lot, update it,
-    // otherwise insert a fresh lot and attach it.
-    for (const p of load('coffee_products.json') as ProductRow[]) {
-      const roasterId = roasterIds.get(p.roaster);
-      if (!roasterId) throw new Error(`unknown roaster reference: ${p.roaster}`);
-      const lot = p.lot;
-      const lotOriginId = originId(lot.origin);
-      const farmId = lot.farm ? (farmIds.get(`${lot.origin}|${lot.farm}`) ?? null) : null;
-      if (lot.farm && !farmId) throw new Error(`unknown farm reference: ${lot.farm}`);
-
-      const existing = await client.query(
-        'SELECT id, coffee_lot_id FROM coffee_products WHERE slug = $1',
-        [p.slug],
-      );
-      let lotId: string;
-      if (existing.rowCount && existing.rows[0].coffee_lot_id) {
-        lotId = existing.rows[0].coffee_lot_id;
-        await client.query(
-          `UPDATE coffee_lots
-             SET origin_id = $2, farm_id = $3, varietals = $4, process = $5,
-                 process_detail = $6, altitude_masl = $7, harvest_period = $8
-           WHERE id = $1`,
-          [lotId, lotOriginId, farmId, lot.varietals, lot.process,
-           lot.process_detail ?? null, lot.altitude_masl, lot.harvest_period],
-        );
-      } else {
+    if (seedCatalogue) {
+      // ---- roasters -----------------------------------------------------------
+      for (const r of load('roasters.json') as RoasterRow[]) {
         const res = await client.query(
-          `INSERT INTO coffee_lots
-             (origin_id, farm_id, varietals, process, process_detail,
-              altitude_masl, harvest_period)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)
+          `INSERT INTO roasters (name, slug, location, verified)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (slug) DO UPDATE
+             SET name = EXCLUDED.name, location = EXCLUDED.location,
+                 verified = EXCLUDED.verified
            RETURNING id`,
-          [lotOriginId, farmId, lot.varietals, lot.process,
-           lot.process_detail ?? null, lot.altitude_masl, lot.harvest_period],
+          [r.name, r.slug, r.location, r.verified],
         );
-        lotId = res.rows[0].id;
-        bump('coffee_lots');
+        roasterIds.set(r.slug, res.rows[0].id);
+        bump('roasters');
       }
 
-      await client.query(
-        `INSERT INTO coffee_products
-           (roaster_id, coffee_lot_id, name, slug, roast_level, intended_use,
-            tasting_notes, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         ON CONFLICT (slug) DO UPDATE
-           SET roaster_id = EXCLUDED.roaster_id,
-               coffee_lot_id = EXCLUDED.coffee_lot_id,
-               name = EXCLUDED.name, roast_level = EXCLUDED.roast_level,
-               intended_use = EXCLUDED.intended_use,
-               tasting_notes = EXCLUDED.tasting_notes,
-               status = EXCLUDED.status`,
-        [roasterId, lotId, p.name, p.slug, p.roast_level, p.intended_use,
-         p.tasting_notes, p.status],
-      );
-      bump('coffee_products');
+      // ---- origins (natural key: country + region) ----------------------------
+      const originIds = new Map<string, string>();
+      for (const o of load('origins.json') as OriginRow[]) {
+        const res = await client.query(
+          `INSERT INTO origins (country, region, description)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (country, region) DO UPDATE
+             SET description = EXCLUDED.description
+           RETURNING id`,
+          [o.country, o.region, o.description],
+        );
+        originIds.set(`${o.country}|${o.region ?? ''}`, res.rows[0].id);
+        bump('origins');
+      }
+      const originId = (key: string): string => {
+        const id = originIds.get(key);
+        if (!id) throw new Error(`unknown origin reference: ${key}`);
+        return id;
+      };
+
+      // ---- farms (natural key: origin_id + name) ------------------------------
+      const farmIds = new Map<string, string>();
+      for (const f of load('farms.json') as FarmRow[]) {
+        const res = await client.query(
+          `INSERT INTO farms (origin_id, name, story)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (origin_id, name) DO UPDATE SET story = EXCLUDED.story
+           RETURNING id`,
+          [originId(f.origin), f.name, f.story],
+        );
+        farmIds.set(`${f.origin}|${f.name}`, res.rows[0].id);
+        bump('farms');
+      }
+
+      // ---- coffee products + their lots --------------------------------------
+      // Lots have no natural key of their own; they are keyed through the owning
+      // product (1:1 in seed data): if the product already has a lot, update it,
+      // otherwise insert a fresh lot and attach it.
+      for (const p of load('coffee_products.json') as ProductRow[]) {
+        const roasterId = roasterIds.get(p.roaster);
+        if (!roasterId) throw new Error(`unknown roaster reference: ${p.roaster}`);
+        const lot = p.lot;
+        const lotOriginId = originId(lot.origin);
+        const farmId = lot.farm ? (farmIds.get(`${lot.origin}|${lot.farm}`) ?? null) : null;
+        if (lot.farm && !farmId) throw new Error(`unknown farm reference: ${lot.farm}`);
+
+        const existing = await client.query(
+          'SELECT id, coffee_lot_id FROM coffee_products WHERE slug = $1',
+          [p.slug],
+        );
+        let lotId: string;
+        if (existing.rowCount && existing.rows[0].coffee_lot_id) {
+          lotId = existing.rows[0].coffee_lot_id;
+          await client.query(
+            `UPDATE coffee_lots
+               SET origin_id = $2, farm_id = $3, varietals = $4, process = $5,
+                   process_detail = $6, altitude_masl = $7, harvest_period = $8
+             WHERE id = $1`,
+            [lotId, lotOriginId, farmId, lot.varietals, lot.process,
+             lot.process_detail ?? null, lot.altitude_masl, lot.harvest_period],
+          );
+        } else {
+          const res = await client.query(
+            `INSERT INTO coffee_lots
+               (origin_id, farm_id, varietals, process, process_detail,
+                altitude_masl, harvest_period)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
+             RETURNING id`,
+            [lotOriginId, farmId, lot.varietals, lot.process,
+             lot.process_detail ?? null, lot.altitude_masl, lot.harvest_period],
+          );
+          lotId = res.rows[0].id;
+          bump('coffee_lots');
+        }
+
+        await client.query(
+          `INSERT INTO coffee_products
+             (roaster_id, coffee_lot_id, name, slug, roast_level, intended_use,
+              tasting_notes, status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           ON CONFLICT (slug) DO UPDATE
+             SET roaster_id = EXCLUDED.roaster_id,
+                 coffee_lot_id = EXCLUDED.coffee_lot_id,
+                 name = EXCLUDED.name, roast_level = EXCLUDED.roast_level,
+                 intended_use = EXCLUDED.intended_use,
+                 tasting_notes = EXCLUDED.tasting_notes,
+                 status = EXCLUDED.status`,
+          [roasterId, lotId, p.name, p.slug, p.roast_level, p.intended_use,
+           p.tasting_notes, p.status],
+        );
+        bump('coffee_products');
+      }
+
+      // ---- equipment brands + models -----------------------------------------
     }
 
-    // ---- equipment brands + models -----------------------------------------
     const models = load('equipment.json') as ModelRow[];
     const brandIds = new Map<string, string>();
     for (const brand of [...new Set(models.map((m) => m.brand))]) {
