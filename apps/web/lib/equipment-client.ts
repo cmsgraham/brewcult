@@ -19,14 +19,17 @@ export type EquipmentCategory =
 
 export interface OwnedEquipment {
   id: string;
-  equipment_model_id: string;
-  slug: string;
+  /** Null for a custom entry — gear with no catalogue row. */
+  equipment_model_id: string | null;
+  slug: string | null;
   name: string;
-  brand: string;
+  brand: string | null;
   category: EquipmentCategory;
   grind_scale_type: string | null;
   nickname: string | null;
   is_primary: boolean;
+  /** Your own entry rather than a catalogue model. Private to you. */
+  is_custom: boolean;
   created_at: string;
 }
 
@@ -55,6 +58,22 @@ export const CATEGORY_LABEL: Record<EquipmentCategory, string> = {
 /** Brand + model, the way somebody would say it out loud. */
 export function equipmentTitle(item: OwnedEquipment): string {
   return [item.brand, item.name].filter(Boolean).join(' ');
+}
+
+/**
+ * Record gear the catalogue does not have. Private to the person adding it and
+ * usable immediately — no review, no waiting.
+ */
+export async function addCustomEquipment(
+  input: { brand?: string; name: string; category: EquipmentCategory; is_primary?: boolean },
+  options?: ApiRequestOptions,
+): Promise<OwnedEquipment[]> {
+  const body = await apiFetch<OwnedResponse>(`${MY_EQUIPMENT_PATH}/custom`, {
+    ...options,
+    method: 'POST',
+    body: input,
+  });
+  return body?.items ?? [];
 }
 
 export async function fetchMyEquipment(options?: ApiRequestOptions): Promise<OwnedEquipment[]> {

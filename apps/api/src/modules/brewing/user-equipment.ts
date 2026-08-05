@@ -23,31 +23,43 @@ export type EquipmentCategory =
 
 export interface OwnedEquipment {
   id: string;
-  equipment_model_id: string;
-  slug: string;
+  /** Null for a custom entry — gear with no catalogue row (0011). */
+  equipment_model_id: string | null;
+  slug: string | null;
   name: string;
-  brand: string;
+  brand: string | null;
   category: EquipmentCategory;
   grind_scale_type: string | null;
   nickname: string | null;
   is_primary: boolean;
+  /** True when this is the owner's own entry rather than a catalogue model. */
+  is_custom: boolean;
   created_at: string;
 }
 
+/**
+ * One shape for both tiers.
+ *
+ * LEFT JOIN, not JOIN: a custom row has no catalogue model, and an inner join
+ * would silently drop exactly the rows this migration exists to support. The
+ * coalesces mean callers never branch on which tier a row came from — only
+ * `is_custom` distinguishes them, and only where that difference matters.
+ */
 const SELECT = `
   SELECT ue.id::text                 AS id,
          ue.equipment_model_id::text AS equipment_model_id,
          em.slug                     AS slug,
-         em.name                     AS name,
-         eb.name                     AS brand,
-         em.category                 AS category,
+         coalesce(em.name, ue.custom_name)         AS name,
+         coalesce(eb.name, ue.custom_brand)        AS brand,
+         coalesce(em.category, ue.custom_category) AS category,
          em.grind_scale_type         AS grind_scale_type,
          ue.nickname                 AS nickname,
          ue.is_primary               AS is_primary,
+         (ue.equipment_model_id IS NULL) AS is_custom,
          ue.created_at               AS created_at
     FROM user_equipment ue
-    JOIN equipment_models em ON em.id = ue.equipment_model_id
-    JOIN equipment_brands eb ON eb.id = em.brand_id`;
+    LEFT JOIN equipment_models em ON em.id = ue.equipment_model_id
+    LEFT JOIN equipment_brands eb ON eb.id = em.brand_id`;
 
 /** Everything this person owns, newest first. */
 export async function listOwnedEquipment(
@@ -176,4 +188,60 @@ export async function removeOwnedEquipment(
     [userId, id],
   );
   return res.rows.length > 0;
+}
+
+export interface AddCustomInput {
+  userId: string;
+  brand?: string | null;
+  name: string;
+  category: EquipmentCategory;
+  isPrimary?: boolean;
+}
+
+/**
+ * Record gear the catalogue has never heard of.
+ *
+ * Immediate and private by design. Making somebody wait for review before they
+ * can log a brew on their own grinder is the gatekeeping §10 rules out — and
+ * the shared catalogue is protected by this row simply never being part of it.
+ */
+export async function addCustomEquipment(
+  db: BrewingDb,
+  input: AddCustomInput,
+): Promise<AddResult> {
+  const name = input.name.trim();
+  const brand = input.brand?.trim() || null;
+  if (name === '') return { status: 'unknown_model' };
+
+  const isPrimary = input.isPrimary === true;
+  if (isPrimary) {
+    await db.query(
+      `UPDATE user_equipment
+          SET is_primary = false, primary_category = NULL
+        WHERE user_id = $1::uuid AND primary_category = $2`,
+      [input.userId, input.category],
+    );
+  }
+
+  const inserted = await db.query<{ id: string }>(
+    `INSERT INTO user_equipment
+       (user_id, custom_brand, custom_name, custom_category, is_primary, primary_category)
+     VALUES ($1::uuid, $2, $3, $4, $5, $6)
+     ON CONFLICT DO NOTHING
+     RETURNING id::text AS id`,
+    [
+      input.userId,
+      brand,
+      name,
+      input.category,
+      isPrimary,
+      isPrimary ? input.category : null,
+    ],
+  );
+
+  const id = inserted.rows[0]?.id;
+  if (!id) return { status: 'already_owned' };
+
+  const item = await findOwnedEquipment(db, input.userId, id);
+  return item ? { status: 'added', item } : { status: 'already_owned' };
 }

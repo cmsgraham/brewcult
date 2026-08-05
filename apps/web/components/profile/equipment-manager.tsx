@@ -4,12 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { isApiError } from '../../lib/api';
 import {
   CATEGORY_LABEL,
+  addCustomEquipment,
   addMyEquipment,
   equipmentTitle,
   fetchMyEquipment,
   makePrimaryEquipment,
   removeMyEquipment,
   searchEquipment,
+  type EquipmentCategory,
   type EquipmentSuggestion,
   type OwnedEquipment,
 } from '../../lib/equipment-client';
@@ -38,6 +40,10 @@ export function EquipmentManager() {
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customBrand, setCustomBrand] = useState('');
+  const [customName, setCustomName] = useState('');
+  const [customCategory, setCustomCategory] = useState<EquipmentCategory>('grinder');
   const listId = 'equipment-search-results';
 
   useEffect(() => {
@@ -131,6 +137,9 @@ export function EquipmentManager() {
                 <span className="bc-kit__name">
                   {equipmentTitle(item)}
                   {item.is_primary ? <span className="bc-kit__badge">Default</span> : null}
+                  {item.is_custom ? (
+                    <span className="bc-kit__badge bc-kit__badge--quiet">Yours</span>
+                  ) : null}
                 </span>
                 <span className="bc-muted bc-kit__meta">
                   {CATEGORY_LABEL[item.category].replace(/s$/, '')}
@@ -192,6 +201,109 @@ export function EquipmentManager() {
                 ? 'Nothing matched. If your gear is missing we will add it — the catalogue is still growing.'
                 : `${results.length} match${results.length === 1 ? '' : 'es'}`}
         </p>
+
+        {/* The fallback lives HERE — at the moment search disappoints, not
+            hidden behind a link somewhere else on the page. A catalogue of 98
+            models will always be missing somebody's grinder, and being told
+            "not found" with no next step is where people give up. */}
+        {query.trim() !== '' && !searching && results.length === 0 && !customOpen ? (
+          <button
+            type="button"
+            className="bc-button bc-button--secondary"
+            onClick={() => {
+              setCustomName(query.trim());
+              setCustomOpen(true);
+            }}
+          >
+            Add “{query.trim()}” as your own
+          </button>
+        ) : null}
+
+        {customOpen ? (
+          <div className="bc-panel bc-stack">
+            <p style={{ marginBottom: 0 }}>
+              This stays on your account only — it will not appear in search or on any public
+              page. You can still log brews with it straight away.
+            </p>
+            <div className="bc-kit__custom">
+              <span className="bc-field">
+                <label className="bc-kit__label" htmlFor="custom-brand">
+                  Brand <span className="bc-muted">(optional)</span>
+                </label>
+                <input
+                  id="custom-brand"
+                  className="bc-input"
+                  value={customBrand}
+                  maxLength={80}
+                  onChange={(event) => setCustomBrand(event.target.value)}
+                />
+              </span>
+              <span className="bc-field">
+                <label className="bc-kit__label" htmlFor="custom-name">
+                  Model
+                </label>
+                <input
+                  id="custom-name"
+                  className="bc-input"
+                  value={customName}
+                  maxLength={120}
+                  onChange={(event) => setCustomName(event.target.value)}
+                />
+              </span>
+              <span className="bc-field">
+                <label className="bc-kit__label" htmlFor="custom-category">
+                  Type
+                </label>
+                <select
+                  id="custom-category"
+                  className="bc-input"
+                  value={customCategory}
+                  onChange={(event) =>
+                    setCustomCategory(event.target.value as EquipmentCategory)
+                  }
+                >
+                  {(Object.keys(CATEGORY_LABEL) as EquipmentCategory[]).map((category) => (
+                    <option key={category} value={category}>
+                      {CATEGORY_LABEL[category].replace(/s$/, '')}
+                    </option>
+                  ))}
+                </select>
+              </span>
+            </div>
+            <div className="bc-actions" style={{ marginTop: 0 }}>
+              <button
+                type="button"
+                className="bc-button"
+                disabled={busy || customName.trim() === ''}
+                onClick={() =>
+                  void run(async () => {
+                    const next = await addCustomEquipment({
+                      ...(customBrand.trim() ? { brand: customBrand.trim() } : {}),
+                      name: customName.trim(),
+                      category: customCategory,
+                    });
+                    setCustomOpen(false);
+                    setCustomBrand('');
+                    setCustomName('');
+                    setQuery('');
+                    setResults([]);
+                    return next;
+                  })
+                }
+              >
+                Add to my equipment
+              </button>
+              <button
+                type="button"
+                className="bc-button bc-button--quiet"
+                disabled={busy}
+                onClick={() => setCustomOpen(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {results.length > 0 ? (
           <ul className="bc-kit__results" id={listId}>

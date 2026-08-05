@@ -18,6 +18,7 @@ import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  addCustomEquipment,
   addOwnedEquipment,
   listOwnedEquipment,
   removeOwnedEquipment,
@@ -37,6 +38,7 @@ const MIGRATIONS = [
   'db/migrations/0008_media.sql',
   'db/migrations/0009_notifications.sql',
   'db/migrations/0010_user_equipment.sql',
+  'db/migrations/0011_custom_equipment.sql',
 ];
 
 let pg: PGlite;
@@ -262,6 +264,103 @@ describe('the database enforces it, not the API', () => {
          VALUES ($1::uuid, $2::uuid, true, 'grinder')`,
         [userId, models['1zpresso-jx-pro']!],
       ),
+    ).rejects.toThrow();
+  });
+});
+
+describe('custom equipment — gear the catalogue does not have', () => {
+  it('records something with no catalogue row and marks it as yours', async () => {
+    const result = await addCustomEquipment(db, {
+      userId,
+      brand: 'Fellow',
+      name: 'Opus',
+      category: 'grinder',
+    });
+    expect(result.status).toBe('added');
+    if (result.status !== 'added') return;
+
+    expect(result.item).toMatchObject({
+      brand: 'Fellow',
+      name: 'Opus',
+      category: 'grinder',
+      is_custom: true,
+      equipment_model_id: null,
+      slug: null,
+    });
+  });
+
+  it('appears in the same list as catalogue gear', async () => {
+    await addOwnedEquipment(db, { userId, equipmentModelId: models['niche-zero']! });
+    await addCustomEquipment(db, { userId, name: 'Hand-me-down grinder', category: 'grinder' });
+
+    // The LEFT JOIN matters here: an inner join would drop exactly the custom
+    // rows this feature exists for.
+    const list = await listOwnedEquipment(db, userId);
+    expect(list).toHaveLength(2);
+    expect(list.filter((i) => i.is_custom)).toHaveLength(1);
+  });
+
+  it('works with no brand at all', async () => {
+    const result = await addCustomEquipment(db, {
+      userId,
+      name: 'Unbranded burr grinder',
+      category: 'grinder',
+    });
+    expect(result.status).toBe('added');
+    if (result.status !== 'added') return;
+    expect(result.item.brand).toBeNull();
+  });
+
+  it('treats a case-different duplicate as the same thing', async () => {
+    await addCustomEquipment(db, { userId, brand: 'Fellow', name: 'Opus', category: 'grinder' });
+    const again = await addCustomEquipment(db, {
+      userId,
+      brand: 'FELLOW',
+      name: 'opus',
+      category: 'grinder',
+    });
+    expect(again.status).toBe('already_owned');
+    expect(await listOwnedEquipment(db, userId)).toHaveLength(1);
+  });
+
+  it('lets a custom entry hold the primary slot, and yield it', async () => {
+    await addCustomEquipment(db, {
+      userId,
+      name: 'Grandfather’s grinder',
+      category: 'grinder',
+      isPrimary: true,
+    });
+    await addOwnedEquipment(db, {
+      userId,
+      equipmentModelId: models['niche-zero']!,
+      isPrimary: true,
+    });
+    const primaries = (await listOwnedEquipment(db, userId)).filter((i) => i.is_primary);
+    expect(primaries).toHaveLength(1);
+    expect(primaries[0]!.slug).toBe('niche-zero');
+  });
+
+  it('is invisible to everybody else', async () => {
+    await addCustomEquipment(db, { userId, name: 'My secret grinder', category: 'grinder' });
+    expect(await listOwnedEquipment(db, otherUserId)).toEqual([]);
+  });
+
+  it('the database refuses a row that is BOTH a model and a custom entry', async () => {
+    // Otherwise a row could name a catalogue model and override its brand, and
+    // every reader would have to decide which one wins.
+    await expect(
+      pg.query(
+        `INSERT INTO user_equipment
+           (user_id, equipment_model_id, custom_name, custom_category)
+         VALUES ($1::uuid, $2::uuid, 'Confused', 'grinder')`,
+        [userId, models['niche-zero']!],
+      ),
+    ).rejects.toThrow();
+  });
+
+  it('the database refuses a row that is NEITHER', async () => {
+    await expect(
+      pg.query(`INSERT INTO user_equipment (user_id) VALUES ($1::uuid)`, [userId]),
     ).rejects.toThrow();
   });
 });

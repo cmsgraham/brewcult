@@ -35,10 +35,12 @@ import {
 import * as repo from './repository.js';
 import { defaultBrewingDb, withTransaction } from './repository.js';
 import {
+  addCustomEquipment,
   addOwnedEquipment,
   listOwnedEquipment,
   removeOwnedEquipment,
   setPrimaryEquipment,
+  type EquipmentCategory,
 } from './user-equipment.js';
 import {
   brewListQuery,
@@ -188,6 +190,63 @@ export async function registerBrewingRoutes(
       return reply.status(201).send({ items: await listOwnedEquipment(db, userId) });
     },
   );
+
+  const CATEGORIES: readonly EquipmentCategory[] = [
+    'brewer',
+    'grinder',
+    'kettle',
+    'scale',
+    'machine',
+    'accessory',
+  ];
+
+  /**
+   * Gear the catalogue does not have (0011, tier 1).
+   *
+   * Deliberately NOT gated on review: somebody who owns an unlisted grinder
+   * should be able to record it and get on with logging a brew. It is private
+   * to them and never reaches the shared catalogue — that is what
+   * /v1/equipment-requests is for.
+   */
+  app.post<{
+    Body: { brand?: string; name?: string; category?: string; is_primary?: boolean };
+  }>(`${prefix}/my-equipment/custom`, authed, async (request, reply) => {
+    const userId = requireUserId(request);
+    const body = request.body ?? {};
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    const category = body.category as EquipmentCategory | undefined;
+
+    if (name === '') throw badRequest('What is it called?');
+    if (name.length > 120) throw badRequest('That name is a bit long — 120 characters or fewer.');
+    if ((body.brand ?? '').length > 80) {
+      throw badRequest('That brand is a bit long — 80 characters or fewer.');
+    }
+    if (!category || !CATEGORIES.includes(category)) {
+      throw badRequest('Tell us what kind of equipment it is.');
+    }
+
+    const result = await addCustomEquipment(db, {
+      userId,
+      brand: body.brand ?? null,
+      name,
+      category,
+      isPrimary: body.is_primary === true,
+    });
+
+    if (result.status === 'unknown_model') throw badRequest('What is it called?');
+    if (result.status === 'already_owned') {
+      return reply.status(200).send({ items: await listOwnedEquipment(db, userId) });
+    }
+
+    await recordBrewingAudit(db, {
+      actorId: userId,
+      action: 'user_equipment.added',
+      targetType: 'user_equipment',
+      targetId: result.item.id,
+      payload: { custom: true, category },
+    });
+    return reply.status(201).send({ items: await listOwnedEquipment(db, userId) });
+  });
 
   app.patch<{ Params: { id: string } }>(
     `${prefix}/my-equipment/:id`,
