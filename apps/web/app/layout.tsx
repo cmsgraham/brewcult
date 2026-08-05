@@ -73,6 +73,18 @@ export const metadata: Metadata = {
     title: 'BrewCult',
     statusBarStyle: 'default',
   },
+  /**
+   * Search Console ownership. Set NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION to the
+   * token from the "HTML tag" method and this emits the meta tag Google looks
+   * for. Left unset it emits nothing at all — an empty verification tag is not
+   * neutral, it is a tag that fails verification.
+   *
+   * Verification is what lets you SUBMIT the sitemap and see which pages were
+   * indexed and why the rest were not. Without it you are waiting to be found.
+   */
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined,
+  },
 };
 
 export const viewport: Viewport = {

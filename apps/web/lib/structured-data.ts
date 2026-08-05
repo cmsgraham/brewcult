@@ -40,6 +40,72 @@ function compact<T extends Record<string, unknown>>(input: T): T {
   return output as T;
 }
 
+/**
+ * The brand itself.
+ *
+ * Every page carries per-page markup already; nothing carried the ENTITY. This
+ * is what a search engine associates a name, a logo and a set of official
+ * profiles with — the thing that decides whether searching "brewcult" returns a
+ * recognised brand or four blue links.
+ *
+ * `sameAs` is the confirmation signal: profiles you demonstrably control. It is
+ * driven entirely by configuration and omitted when empty, because listing a
+ * handle we do not own would be a claim about somebody else's account. Rule 1
+ * of this file applies to identity as much as to ratings.
+ */
+export interface OrganizationJsonLdInput {
+  name: string;
+  description: string;
+  logoUrl: string;
+  /** Official profiles, if any. Empty is a perfectly good answer. */
+  sameAs?: readonly string[];
+  /** A contact address people can actually reach. */
+  email?: string | null;
+}
+
+export function organizationJsonLd(input: OrganizationJsonLdInput): JsonLdDocument {
+  return {
+    '@context': SCHEMA_CONTEXT,
+    '@type': 'Organization',
+    ...compact({
+      '@id': `${absoluteUrl('/')}#organization`,
+      name: input.name,
+      url: absoluteUrl('/'),
+      description: input.description,
+      logo: {
+        '@type': 'ImageObject',
+        url: absoluteUrl(input.logoUrl),
+      },
+      sameAs: [...(input.sameAs ?? [])],
+      email: input.email ?? null,
+    }),
+  };
+}
+
+/**
+ * The site, as distinct from the organisation that publishes it.
+ *
+ * Deliberately WITHOUT a `SearchAction`. The sitelinks search box wants a URL
+ * template like `/search?q={query}`, and this site has no such route — search
+ * on /discover is client-side with no query parameter. Declaring one anyway
+ * would advertise a URL that 404s, which is the markup equivalent of a broken
+ * promise. Add it the day a real search URL exists, not before.
+ */
+export function websiteJsonLd(name: string, description: string): JsonLdDocument {
+  return {
+    '@context': SCHEMA_CONTEXT,
+    '@type': 'WebSite',
+    ...compact({
+      '@id': `${absoluteUrl('/')}#website`,
+      name,
+      url: absoluteUrl('/'),
+      description,
+      publisher: { '@id': `${absoluteUrl('/')}#organization` },
+      inLanguage: 'en',
+    }),
+  };
+}
+
 /** schema.org `PropertyValue` — the honest home for domain facts that have no
  *  first-class schema.org property (process, varietal, altitude, burr size…). */
 export function propertyValue(name: string, value: unknown): Record<string, unknown> | null {

@@ -382,3 +382,19 @@ export function catalogSitemapEntries(
 
   return entries;
 }
+
+/**
+ * Official profiles for the Organization entity's `sameAs`.
+ *
+ * Comma-separated absolute URLs in NEXT_PUBLIC_BRAND_PROFILES. Empty by
+ * default and empty is CORRECT until the accounts exist: `sameAs` is a claim
+ * that these profiles are ours, and pointing it at a handle somebody else owns
+ * is worse than omitting it entirely. Anything that is not an https URL is
+ * dropped rather than emitted broken.
+ */
+export function brandSameAs(): string[] {
+  return (process.env.NEXT_PUBLIC_BRAND_PROFILES ?? '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.startsWith('https://'));
+}

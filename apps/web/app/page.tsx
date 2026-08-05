@@ -1,5 +1,8 @@
 import { type Metadata } from 'next';
 import Link from 'next/link';
+import { JsonLd, readCspNonce } from '../components/catalog/json-ld';
+import { brandSameAs } from '../lib/seo';
+import { organizationJsonLd, websiteJsonLd } from '../lib/structured-data';
 import { getSessionUser } from '../lib/server-api';
 
 export const metadata: Metadata = {
@@ -9,11 +12,32 @@ export const metadata: Metadata = {
   alternates: { canonical: '/' },
 };
 
+const TAGLINE = 'Brewing intelligence for people who love coffee.';
+const ABOUT =
+  'BrewCult helps you log what you brew, understand what changed the cup, and find ' +
+  'coffee and equipment worth your money — without gatekeeping.';
+
 export default async function HomePage() {
-  const user = await getSessionUser();
+  const [user, nonce] = await Promise.all([getSessionUser(), readCspNonce()]);
+
+  // The brand entity lives HERE and only here. Every other page carries markup
+  // about its own subject; this is the one that tells a search engine who
+  // publishes all of it, which is what turns a name into a recognised brand
+  // rather than four blue links.
+  const brandDocuments = [
+    organizationJsonLd({
+      name: 'BrewCult',
+      description: ABOUT,
+      logoUrl: '/icons/icon-512.png',
+      sameAs: brandSameAs(),
+      email: 'admin@brewcult.coffee',
+    }),
+    websiteJsonLd('BrewCult', TAGLINE),
+  ];
 
   return (
     <div className="bc-hero">
+      <JsonLd documents={brandDocuments} nonce={nonce} />
       <h1>Coffee gets better when you pay attention.</h1>
       <p className="bc-lede">
         BrewCult attaches to the habit you already have. Log the brew you were going to
