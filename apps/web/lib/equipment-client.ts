@@ -147,3 +147,55 @@ export async function searchEquipment(
   );
   return body?.items ?? [];
 }
+
+/* ------------------------------------------------------------------ *
+ * Catalogue requests (tier 2) — proposals, not entries
+ * ------------------------------------------------------------------ */
+
+export const EQUIPMENT_REQUESTS_PATH = '/api/v1/equipment-requests';
+
+export interface EquipmentRequest {
+  id: string;
+  submitted_text: string;
+  image_storage_key: string | null;
+  ai_draft: {
+    brand?: string;
+    name?: string;
+    category?: string;
+    grind_scale_type?: string;
+    specs?: Record<string, unknown>;
+    confidence?: string;
+    notes?: string;
+  } | null;
+  ai_error: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  decision_note: string | null;
+  created_at: string;
+}
+
+export async function fetchMyEquipmentRequests(
+  options?: ApiRequestOptions,
+): Promise<EquipmentRequest[]> {
+  const body = await apiFetch<{ items?: EquipmentRequest[] }>(EQUIPMENT_REQUESTS_PATH, options);
+  return body?.items ?? [];
+}
+
+/**
+ * Propose something for the SHARED catalogue.
+ *
+ * Distinct from adding it to your own equipment, which is instant. This one
+ * waits for a person, because the catalogue drives grind conversions and public
+ * pages — and an assistant drafting from its own knowledge is occasionally
+ * confidently wrong.
+ */
+export async function submitEquipmentRequest(
+  input: { description: string; image_media_id?: string },
+  options?: ApiRequestOptions,
+): Promise<EquipmentRequest[]> {
+  const body = await apiFetch<{ items?: EquipmentRequest[] }>(EQUIPMENT_REQUESTS_PATH, {
+    ...options,
+    method: 'POST',
+    body: input,
+  });
+  return body?.items ?? [];
+}

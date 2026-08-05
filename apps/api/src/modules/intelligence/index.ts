@@ -192,3 +192,28 @@ export type {
   IntelligenceDb,
   StartingRecipeResult,
 } from './types.js';
+
+/**
+ * Drafting a catalogue entry from a pasted description.
+ *
+ * Exported because the review queue lives in `admin` (which already owns
+ * moderation queues) and admin may import intelligence — whereas intelligence
+ * already imports brewing and catalog, so putting the queue in either of those
+ * would close a cycle. Composition points one way (engineering_foundations §9.5).
+ */
+export {
+  draftEquipment,
+  EQUIPMENT_DRAFT_SCHEMA,
+  type EquipmentDraft,
+  type EquipmentDraftInput,
+  type EquipmentDraftDeps,
+} from './equipment-draft.js';
+
+/**
+ * The OpenAI provider, for callers that build their own gateway.
+ *
+ * Production runs AI_PROVIDER=openai, so a consumer selecting a provider needs
+ * this one too — exporting only Anthropic would silently give the review queue
+ * a different model from the rest of the product.
+ */
+export { OpenAiProvider } from './provider-openai.js';

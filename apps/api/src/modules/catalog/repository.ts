@@ -909,6 +909,33 @@ export interface EquipmentInput {
   grind_scale_type?: GrindScaleType | null;
 }
 
+/**
+ * Find or create a brand by name.
+ *
+ * Needed because the staff create route takes a brand_id, and a piece of
+ * equipment nobody has catalogued often belongs to a brand nobody has
+ * catalogued either. Case-insensitive on the way in: "Option-O" and "option-o"
+ * are one brand, and letting both exist would split every future model between
+ * them.
+ */
+export async function upsertEquipmentBrand(db: CatalogDb, name: string): Promise<string> {
+  const trimmed = name.trim();
+  const existing = await db.query<{ id: string }>(
+    `SELECT id::text AS id FROM equipment_brands WHERE lower(name) = lower($1)`,
+    [trimmed],
+  );
+  const found = existing.rows[0]?.id;
+  if (found) return found;
+
+  const created = await db.query<{ id: string }>(
+    `INSERT INTO equipment_brands (name) VALUES ($1)
+     ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+     RETURNING id::text AS id`,
+    [trimmed],
+  );
+  return created.rows[0]!.id;
+}
+
 export async function insertEquipmentModel(
   db: CatalogDb,
   input: EquipmentInput,

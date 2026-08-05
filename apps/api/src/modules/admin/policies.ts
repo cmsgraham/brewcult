@@ -50,12 +50,15 @@ export const ADMIN_USER_RESOURCE = 'admin_user';
 export const SELLER_APPLICATION_RESOURCE = 'seller_application';
 export const REPORT_RESOURCE = 'report';
 export const AUDIT_LOG_RESOURCE = 'audit_log';
+/** Proposals for the shared equipment catalogue (0011). */
+export const EQUIPMENT_REQUEST_RESOURCE = 'equipment_request';
 
 export const ADMIN_RESOURCE_TYPES = [
   ADMIN_USER_RESOURCE,
   SELLER_APPLICATION_RESOURCE,
   REPORT_RESOURCE,
   AUDIT_LOG_RESOURCE,
+  EQUIPMENT_REQUEST_RESOURCE,
 ] as const;
 
 export type AdminResourceType = (typeof ADMIN_RESOURCE_TYPES)[number];
@@ -153,6 +156,39 @@ export const reportPolicy: Policy<ReportResource> = (actor, action, resource) =>
 };
 
 /**
+ * `equipment_request` — proposals for the shared catalogue.
+ *
+ * Anybody signed in may propose; only staff may see the queue or decide. A
+ * requester can read their own submission back (to see the outcome and the
+ * reason) but never anybody else's, because the submission carries free text
+ * and a photo somebody chose to send to REVIEWERS, not to other users.
+ */
+export interface EquipmentRequestResource {
+  requester_id: string;
+}
+
+export const equipmentRequestPolicy: Policy<EquipmentRequestResource> = (
+  actor,
+  action,
+  resource,
+) => {
+  switch (action) {
+    case 'create':
+      return isAuthenticated(actor);
+    case 'list':
+      // Same split as the other queues: the route scopes non-staff to self.
+      return isAuthenticated(actor);
+    case 'read':
+      if (!resource) return false;
+      return isStaff(actor) || isOwner(actor, resource.requester_id);
+    case 'moderate':
+      return isStaff(actor);
+    default:
+      return false;
+  }
+};
+
+/**
  * `audit_log` — read-only, staff-only, forever.
  *
  * There is no `create`, `update` or `delete` case and there never will be: the
@@ -180,6 +216,7 @@ export function registerAdminPolicies(): void {
   define(SELLER_APPLICATION_RESOURCE, sellerApplicationPolicy);
   define(REPORT_RESOURCE, reportPolicy);
   define(AUDIT_LOG_RESOURCE, auditLogPolicy);
+  define(EQUIPMENT_REQUEST_RESOURCE, equipmentRequestPolicy);
 }
 
 function define<T>(resourceType: string, policy: Policy<T>): void {

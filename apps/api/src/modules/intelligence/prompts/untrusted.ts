@@ -36,7 +36,9 @@ export type UntrustedSource =
   | 'review_body'
   | 'post_body'
   | 'user_message'
-  | 'tool_result';
+  | 'tool_result'
+  /** A product description somebody pasted in. Untrusted like any other. */
+  | 'equipment_description';
 
 /**
  * A per-request fence. Constructed once per assembled prompt so that the tags

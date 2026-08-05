@@ -53,9 +53,18 @@ export type AdminAuditAction =
   // moderation queue
   | 'admin.report_created'
   | 'admin.report_claimed'
-  | 'admin.report_resolved';
+  | 'admin.report_resolved'
+  // catalogue proposals (0011). Audited because "who decided this grinder has
+  // 48mm burrs, and on what evidence?" is a question the catalogue should be
+  // able to answer years later.
+  | 'admin.equipment_request_approved'
+  | 'admin.equipment_request_rejected';
 
-export type AdminAuditTargetType = 'user' | 'seller_application' | 'report';
+export type AdminAuditTargetType =
+  | 'user'
+  | 'seller_application'
+  | 'report'
+  | 'equipment_request';
 
 export interface AdminAuditEvent {
   /** Acting staff member; null = system (bootstrap / CLI). */

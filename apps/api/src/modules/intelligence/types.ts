@@ -164,13 +164,20 @@ export interface AiProvider {
 // ---------------------------------------------------------------------------
 
 /** Every distinct AI workload. Accounting and routing are keyed by this. */
-export type AiFeature = 'diagnose' | 'starting_recipe' | 'chat' | 'classify';
+export type AiFeature =
+  | 'diagnose'
+  | 'starting_recipe'
+  | 'chat'
+  | 'classify'
+  /** Drafts a catalogue entry from a description somebody pasted (0011). */
+  | 'equipment_draft';
 
 export const AI_FEATURES: readonly AiFeature[] = [
   'diagnose',
   'starting_recipe',
   'chat',
   'classify',
+  'equipment_draft',
 ];
 
 /** Which plan the caller is on. Free is the only tier Phase 1 issues. */

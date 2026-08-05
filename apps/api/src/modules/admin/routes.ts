@@ -48,7 +48,26 @@ import {
   REPORT_RESOURCE,
   SELLER_APPLICATION_RESOURCE,
 } from './policies.js';
+import { getEnv } from '../../lib/env.js';
 import * as repo from './repository.js';
+import {
+  approveRequest,
+  attachDraft,
+  createEquipmentRequest,
+  listMyRequests,
+  listRequests,
+  rejectRequest,
+  type RequestStatus,
+} from './equipment-requests.js';
+import { insertEquipmentModel, upsertEquipmentBrand } from '../catalog/index.js';
+import { draftEquipment } from '../intelligence/index.js';
+import {
+  AiGateway,
+  AnthropicProvider,
+  OpenAiProvider,
+  defaultUsageStore,
+} from '../intelligence/index.js';
+import { EQUIPMENT_REQUEST_RESOURCE } from './policies.js';
 import { defaultAdminDb, execOf, withTransaction } from './repository.js';
 import {
   adminUserListQuery,
@@ -155,6 +174,163 @@ export async function registerAdminRoutes(
    */
   const staffGate = (request: FastifyRequest, resourceType: string, action: 'read' | 'moderate') =>
     authorize(actorOf(request), action, resourceType);
+
+  // -------------------------------------------------------------------------
+  // Equipment requests (0011, tier 2) — proposals for the shared catalogue.
+  // -------------------------------------------------------------------------
+
+  /**
+   * Built lazily so an app with no AI configured still boots and still accepts
+   * submissions — the drafting failure is recorded on the row rather than
+   * rejecting somebody's typing.
+   */
+  let gateway: AiGateway | null = null;
+  const getGateway = (): AiGateway => {
+    gateway ??= new AiGateway({
+      provider: getEnv().AI_PROVIDER === 'openai' ? new OpenAiProvider() : new AnthropicProvider(),
+      usage: defaultUsageStore,
+    });
+    return gateway;
+  };
+
+  app.post<{ Body: { description?: string; image_media_id?: string } }>(
+    `${prefix}/equipment-requests`,
+    mutation,
+    async (request, reply) => {
+      const actor = actorOf(request);
+      await authorize(actor, 'create', EQUIPMENT_REQUEST_RESOURCE);
+      const userId = actor.userId;
+      if (userId === null) throw badRequest('Authentication required.');
+
+      const description = (request.body?.description ?? '').trim();
+      if (description === '') throw badRequest('Tell us what the equipment is.');
+      if (description.length > 4000) throw badRequest('That is a bit long — 4000 characters or fewer.');
+
+      const created = await createEquipmentRequest(db, {
+        requesterId: userId,
+        submittedText: description,
+        imageMediaId: request.body?.image_media_id ?? null,
+      });
+      if (created.status === 'duplicate') {
+        // Already queued. Impatience, not an error.
+        return reply.status(200).send({ items: await listMyRequests(db, userId) });
+      }
+
+      // The draft is a convenience for the reviewer, so its failure must never
+      // cost the submission that is already safely stored.
+      try {
+        const draft = await draftEquipment(
+          actor,
+          { description },
+          { gateway: getGateway() },
+        );
+        await attachDraft(db, created.id, draft as unknown as Record<string, unknown>, null);
+      } catch (err) {
+        request.log.warn({ err, requestId: created.id }, 'equipment draft failed');
+        await attachDraft(db, created.id, null, (err as Error).message.slice(0, 300));
+      }
+
+      return reply.status(201).send({ items: await listMyRequests(db, userId) });
+    },
+  );
+
+  /** Your own submissions, so you can see what happened to them. */
+  app.get(`${prefix}/equipment-requests`, read, async (request) => {
+    const actor = actorOf(request);
+    await authorize(actor, 'list', EQUIPMENT_REQUEST_RESOURCE);
+    return { items: await listMyRequests(db, actor.userId!) };
+  });
+
+  /** The reviewer's queue. */
+  app.get<{ Querystring: { status?: RequestStatus } }>(
+    `${prefix}/admin/equipment-requests`,
+    read,
+    async (request) => {
+      await staffGate(request, EQUIPMENT_REQUEST_RESOURCE, 'moderate');
+      const status = request.query.status ?? 'pending';
+      return { items: await listRequests(db, status) };
+    },
+  );
+
+  app.post<{
+    Params: { id: string };
+    Body: {
+      brand?: string;
+      name?: string;
+      category?: string;
+      grind_scale_type?: string | null;
+      specs?: Record<string, unknown> | null;
+    };
+  }>(`${prefix}/admin/equipment-requests/:id/approve`, mutation, async (request) => {
+    await staffGate(request, EQUIPMENT_REQUEST_RESOURCE, 'moderate');
+    const reviewerId = actorOf(request).userId;
+    if (reviewerId === null) throw badRequest('Authentication required.');
+
+    const body = request.body ?? {};
+    // The reviewer's values, never ai_draft. Reading the draft here would make
+    // the human a rubber stamp — the queue exists because somebody looked.
+    if (!body.brand?.trim()) throw badRequest('A brand is required.');
+    if (!body.name?.trim()) throw badRequest('A model name is required.');
+    if (!body.category) throw badRequest('A category is required.');
+
+    const result = await approveRequest(
+      db,
+      {
+        id: request.params.id,
+        reviewerId,
+        brand: body.brand.trim(),
+        name: body.name.trim(),
+        category: body.category,
+        grindScaleType: body.category === 'grinder' ? (body.grind_scale_type ?? null) : null,
+        specs: body.specs ?? null,
+      },
+      {
+        upsertBrand: (name) => upsertEquipmentBrand(db, name),
+        insertModel: (row) => insertEquipmentModel(db, row as never) as never,
+      },
+    );
+
+    if (result.status === 'not_found') throw notFound('Request not found.');
+    if (result.status === 'already_decided') throw badRequest('That request was already decided.');
+    if (result.status === 'conflict') throw badRequest(result.message);
+
+    await recordAdminAudit(db, {
+      actorId: reviewerId,
+      action: 'admin.equipment_request_approved',
+      targetType: 'equipment_request',
+      targetId: request.params.id,
+      payload: { equipment_model_id: result.equipmentModelId ?? null },
+    });
+    return { items: await listRequests(db, 'pending') };
+  });
+
+  app.post<{ Params: { id: string }; Body: { note?: string } }>(
+    `${prefix}/admin/equipment-requests/:id/reject`,
+    mutation,
+    async (request) => {
+      await staffGate(request, EQUIPMENT_REQUEST_RESOURCE, 'moderate');
+      const reviewerId = actorOf(request).userId;
+      if (reviewerId === null) throw badRequest('Authentication required.');
+
+      const result = await rejectRequest(
+        db,
+        request.params.id,
+        reviewerId,
+        request.body?.note ?? '',
+      );
+      if (result.status === 'not_found') throw notFound('Request not found.');
+      if (result.status === 'already_decided') throw badRequest('That request was already decided.');
+
+      await recordAdminAudit(db, {
+        actorId: reviewerId,
+        action: 'admin.equipment_request_rejected',
+        targetType: 'equipment_request',
+        targetId: request.params.id,
+        payload: {},
+      });
+      return { items: await listRequests(db, 'pending') };
+    },
+  );
 
   /**
    * Loads the target account or 404s. Deliberately the same 404 for "no such

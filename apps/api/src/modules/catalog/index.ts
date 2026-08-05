@@ -102,3 +102,15 @@ export type {
   RoasterSummary,
   SearchHit,
 } from './types.js';
+
+/**
+ * Catalogue WRITERS, for the equipment-request review queue in `admin`.
+ *
+ * Exported deliberately narrowly: creating a model and resolving a brand, and
+ * nothing else. admin may import catalog (catalog imports neither admin nor
+ * intelligence), so the approval path composes without a cycle.
+ */
+export { insertEquipmentModel, upsertEquipmentBrand } from './repository.js';
+
+/** Slug derivation, so the approval path produces the same shape as the catalogue. */
+export { slugify } from './text.js';

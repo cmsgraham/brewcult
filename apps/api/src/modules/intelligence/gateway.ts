@@ -126,6 +126,22 @@ export const FEATURE_ROUTES: Readonly<Record<AiFeature, FeatureRoute>> = {
     thinking: false,
     maxTokens: 512,
   },
+  /**
+   * Drafting a catalogue entry from a pasted description.
+   *
+   * Default tier rather than cheap: this output is PROPOSED as shared reference
+   * data, and the failure mode is a confident wrong burr diameter entering a
+   * grind-conversion corpus. A human still approves it, but making the reviewer
+   * correct a sloppier draft every time is a false economy.
+   */
+  equipment_draft: {
+    feature: 'equipment_draft',
+    model: MODELS.default,
+    premiumModel: MODELS.default,
+    effort: 'low',
+    thinking: false,
+    maxTokens: 800,
+  },
 };
 
 export const routeFor = (feature: AiFeature, plan: AiPlan = 'free'): FeatureRoute => {

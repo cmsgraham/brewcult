@@ -832,3 +832,13 @@ svg {
   color: var(--bc-ink-muted);
   border: 1px solid var(--bc-line);
 }
+
+.bc-kit__history summary {
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--bc-ink-muted);
+  padding: 0.35rem 0;
+}
+.bc-kit__history[open] summary {
+  margin-bottom: 0.5rem;
+}

@@ -16,6 +16,7 @@ import {
   type OwnedEquipment,
 } from '../../lib/equipment-client';
 import { Alert } from '../ui/alert';
+import { EquipmentRequestForm } from './equipment-request-form';
 
 /**
  * "Your equipment", for real.
@@ -339,6 +340,10 @@ export function EquipmentManager() {
           </ul>
         ) : null}
       </div>
+
+      {/* Proposing it for everybody is a SECOND, slower thing — offered after
+          the instant option, never instead of it. */}
+      <EquipmentRequestForm />
     </div>
   );
 }
