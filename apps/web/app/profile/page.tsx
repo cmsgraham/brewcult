@@ -61,6 +61,22 @@ export default async function ProfilePage() {
       {/* The MFA page has existed since ID-07 with no entry point anywhere in
           the product — you could only reach it from the operator console's
           interstitial. This is that entry point. */}
+      {/* Every feature needs a way in (second_draft §30.4): a preferences screen
+          nobody can find is a preferences screen nobody uses, and the only
+          other route to it is the footer of an email they may have deleted. */}
+      <section aria-labelledby="email-heading" className="bc-stack">
+        <h2 id="email-heading">Email</h2>
+        <p className="bc-muted">
+          We send a weekly recap of your own brews and a note when someone builds on one of
+          your recipes. Both are one click to switch off, and we never send marketing.
+        </p>
+        <p>
+          <Link className="bc-button bc-button--secondary" href="/profile/notifications">
+            Email settings
+          </Link>
+        </p>
+      </section>
+
       <section aria-labelledby="security-heading" className="bc-stack">
         <h2 id="security-heading">Signing in safely</h2>
         <p className="bc-muted">

@@ -106,6 +106,11 @@ function button(url: string, label: string): string {
   return `<p style="margin:0 0 18px;"><a href="${escapeHtml(url)}" style="display:inline-block;background:${ESPRESSO};color:${CREAM};text-decoration:none;padding:12px 22px;border-radius:999px;font-weight:600;">${escapeHtml(label)}</a></p>`;
 }
 
+function unsubscribeFooter(url: string): string {
+  if (!url) return '';
+  return `<p style="margin:14px 0 0;font-size:12px;opacity:0.6;">Don't want these? <a href="${escapeHtml(url)}" style="color:${ESPRESSO};">Turn them off</a> — it takes one click and won't affect security emails.</p>`;
+}
+
 export interface RenderedMail {
   text: string;
   html: string;
@@ -196,6 +201,65 @@ export function renderMail(template: string, data: TemplateData): RenderedMail {
         ),
       };
 
+    /* --- notifications (switchable — see modules/notifications) ------------ */
+
+    case 'weekly_recap': {
+      const brews = data['brew_count'] ?? '0';
+      const plural = brews === '1' ? 'brew' : 'brews';
+      const highlight = data['highlight'] ?? '';
+      const unsub = data['unsubscribe_url'] ?? '';
+      return {
+        text:
+          `Your week in coffee.
+
+You logged ${brews} ${plural}.` +
+          (highlight ? `
+
+${highlight}` : '') +
+          `
+
+See the detail: ${appUrl}/brew` +
+          (unsub ? `
+
+Turn these off: ${unsub}` : ''),
+        html: shell(
+          'Your week in coffee',
+          `<p style="margin:0 0 16px;">You logged <strong>${escapeHtml(brews)} ${plural}</strong> this week.</p>` +
+            (highlight
+              ? `<p style="margin:0 0 16px;font-size:15px;">${escapeHtml(highlight)}</p>`
+              : '') +
+            button(`${appUrl}/brew`, 'See your brews') +
+            unsubscribeFooter(unsub),
+        ),
+      };
+    }
+
+    case 'recipe_forked': {
+      const title = data['recipe_title'] ?? 'your recipe';
+      const who = data['forker_handle'] ?? 'Someone';
+      const recipeUrl = data['recipe_url'] ?? `${appUrl}/recipes`;
+      const unsub = data['unsubscribe_url'] ?? '';
+      return {
+        text:
+          `${who} built on ${title}.
+
+Forking is how a recipe travels — they now have their own copy to adjust.` +
+          `
+
+See it: ${recipeUrl}` +
+          (unsub ? `
+
+Turn these off: ${unsub}` : ''),
+        html: shell(
+          'Someone built on your recipe',
+          `<p style="margin:0 0 16px;"><strong>${escapeHtml(who)}</strong> forked <strong>${escapeHtml(title)}</strong>.</p>` +
+            `<p style="margin:0 0 16px;font-size:14px;opacity:0.75;">Forking is how a recipe travels — they have their own copy to adjust, and yours is untouched.</p>` +
+            button(recipeUrl, 'See the fork') +
+            unsubscribeFooter(unsub),
+        ),
+      };
+    }
+
     default: {
       // An unknown template still sends something useful rather than nothing —
       // a missing case must not silently swallow a security notice.
@@ -217,6 +281,13 @@ export interface MailMessage {
   subject: string;
   text: string;
   html?: string;
+  /**
+   * Extra SMTP headers. Used for List-Unsubscribe / List-Unsubscribe-Post on
+   * anything a person can switch off — Gmail and Outlook surface their native
+   * "unsubscribe" control from these, and a sender without them is treated as
+   * one that does not offer the choice.
+   */
+  headers?: Record<string, string>;
 }
 
 export interface MailLogger {
@@ -254,6 +325,7 @@ export async function sendMail(message: MailMessage, log?: MailLogger): Promise<
       subject: message.subject,
       text: message.text,
       html: message.html ?? message.text.replace(/\n/g, '<br>'),
+      ...(message.headers ? { headers: message.headers } : {}),
     });
     log?.info?.(
       { to: message.to, subject: message.subject, messageId: (info as { messageId?: string }).messageId },

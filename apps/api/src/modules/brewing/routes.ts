@@ -14,7 +14,13 @@
 
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { listGrindConversions } from '../catalog/index.js';
+import {
+  defaultNotificationExec,
+  findRecipient,
+  sendNotification,
+} from '../notifications/index.js';
 import { requireAuth } from '../../lib/auth-plugin.js';
+import { getEnv } from '../../lib/env.js';
 import { badRequest, notFound } from '../../lib/errors.js';
 import { ANONYMOUS, authorize, can, type Actor } from '../../lib/policy.js';
 import { recordBrewingAudit } from './audit.js';
@@ -440,6 +446,34 @@ export async function registerBrewingRoutes(
         });
         return fork;
       });
+
+      // Tell the parent's author, AFTER the transaction has committed.
+      //
+      // Outside the transaction on purpose: the delivery ledger must record a
+      // fork that actually exists, and a mail claim rolled back with a failed
+      // commit would silently permit a duplicate later. Awaited but never
+      // allowed to throw — nobody should lose a fork because we could not tell
+      // its author about it. The notifications module decides whether the
+      // author wants to hear; this code does not check preferences itself.
+      if (parent.author_id && parent.author_id !== userId) {
+        const forker = await findRecipient(defaultNotificationExec, userId).catch(() => null);
+        await sendNotification(
+          defaultNotificationExec,
+          {
+            userId: parent.author_id,
+            type: 'recipe_forked',
+            // One notification per fork, however many times this runs.
+            dedupeKey: `recipe_forked:${row.id}`,
+            subject: 'Someone built on your recipe',
+            data: {
+              recipe_title: parent.title,
+              forker_handle: forker ? `@${forker.handle}` : 'Someone',
+              recipe_url: `${getEnv().APP_URL}/recipes/${row.id}`,
+            },
+          },
+          request.log,
+        );
+      }
 
       return reply.status(201).send(repo.toRecipe(row));
     },

@@ -621,6 +621,8 @@ API_URL=http://localhost:4000
 JWT_SECRET=                     # 64 random bytes; rotate per runbook
 COOKIE_DOMAIN=localhost
 AUTH_COOKIE_PATH=/api/v1/auth   # refresh-cookie scope, written as the BROWSER sees it
+SCHEDULER_RECAP=1               # weekly brew recap; set 0 on any box sharing a prod DB snapshot
+SCHEDULER_RECAP_SWEEP_MS=3600000
 
 # Database / cache / storage
 DATABASE_URL=postgres://brewcult:brewcult@postgres:5432/brewcult

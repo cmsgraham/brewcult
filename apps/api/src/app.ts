@@ -8,6 +8,10 @@ import { registerBrewingRoutes } from './modules/brewing/index.js';
 import { registerAdminRoutes } from './modules/admin/index.js';
 import { registerMediaRoutes } from './modules/media/index.js';
 import { registerIntelligenceRoutes } from './modules/intelligence/index.js';
+import {
+  registerNotificationRoutes,
+  setNotificationMailer,
+} from './modules/notifications/index.js';
 
 function health(status: HealthStatus['status']): HealthStatus {
   return {
@@ -75,6 +79,23 @@ export async function buildApp(): Promise<FastifyInstance> {
     );
   });
 
+  // The notifications transport. Same shape as identity's, with one addition:
+  // these messages carry List-Unsubscribe headers, so the mailer has to pass
+  // them through rather than assume every message is a bare to/subject/body.
+  setNotificationMailer(async (message) => {
+    const rendered = renderMail(message.template, message.data);
+    await sendMail(
+      {
+        to: message.to,
+        subject: message.subject,
+        text: rendered.text,
+        html: rendered.html,
+        headers: message.headers,
+      },
+      app.log,
+    );
+  });
+
   // Identity first: it installs the actor plugin, CSRF and the identity
   // policies that the catalog's staff-only routes authorize against.
   await registerIdentityRoutes(app);
@@ -83,6 +104,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await registerAdminRoutes(app);
   await registerMediaRoutes(app);
   await registerIntelligenceRoutes(app);
+  registerNotificationRoutes(app);
 
   return app;
 }

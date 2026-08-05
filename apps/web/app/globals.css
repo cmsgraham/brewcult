@@ -627,3 +627,42 @@ svg {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* --- notification preferences --- */
+.bc-prefs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--bc-line);
+  border-radius: var(--bc-radius);
+}
+.bc-prefs__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem;
+}
+.bc-prefs__row + .bc-prefs__row {
+  border-top: 1px solid var(--bc-line);
+}
+.bc-prefs__text {
+  flex: 1 1 auto;
+  min-width: 0; /* long copy must wrap, not widen the row */
+}
+.bc-prefs__label {
+  font-weight: 600;
+  cursor: pointer;
+}
+.bc-prefs__hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.9rem;
+}
+/* Big enough to hit with a thumb (§30.3) — the browser default is ~13px. */
+.bc-prefs__switch {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  margin-top: 0.15rem;
+  accent-color: var(--bc-ink);
+  cursor: pointer;
+}
