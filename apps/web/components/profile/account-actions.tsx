@@ -18,9 +18,17 @@ type Status =
  * broken, and it must never look like the *user* did something wrong.
  */
 export function AccountActions({
+  userId,
   exportEnabled,
   deletionEnabled,
 }: {
+  /**
+   * Needed because deletion is `DELETE /v1/users/:id`, not a `/me` alias. The
+   * API authorises it as owner-only (identity/policies.ts: `delete` requires
+   * isOwner), so passing an id here grants nothing — sending someone else's
+   * would simply be refused.
+   */
+  userId: string;
   exportEnabled: boolean;
   deletionEnabled: boolean;
 }) {
@@ -63,7 +71,11 @@ export function AccountActions({
   async function deleteAccount() {
     setStatus({ kind: 'working', action: 'delete' });
     try {
-      await apiFetch('/api/me', { method: 'DELETE' });
+      // `/api/v1/users/:id`. This called `/api/me`, which strips to `/me` and
+      // 404s — and the 404 handler below reports "coming soon", so a feature
+      // that has been implemented and working all along told every user it did
+      // not exist yet. apiFetch attaches the CSRF token for mutations itself.
+      await apiFetch(`/api/v1/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
       setStatus({
         kind: 'note',
         tone: 'success',

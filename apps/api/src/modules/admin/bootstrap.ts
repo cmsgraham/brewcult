@@ -67,7 +67,12 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { getEnv } from '../../lib/env.js';
 import { mfaRequiredForRole, setUserRole } from '../identity/index.js';
 import { recordAdminAudit } from './audit.js';
-import { execOf, findAdminUserByEmail, listStaffUsers } from './repository.js';
+import {
+  countActiveAdmins,
+  execOf,
+  findAdminUserByEmail,
+  listStaffUsers,
+} from './repository.js';
 import type { AdminDb, AdminUserRow, Role } from './types.js';
 
 /** How a grant was triggered — recorded in the audit payload. */
@@ -153,10 +158,36 @@ export async function promoteAllowlistedAdmin(
   db: AdminDb,
   email: string,
   allowlist?: Set<string>,
-): Promise<GrantOutcome | { status: 'not_allowlisted'; email: string }> {
+): Promise<
+  | GrantOutcome
+  | { status: 'not_allowlisted'; email: string }
+  | { status: 'bootstrap_closed'; existing_admins: number }
+> {
   const normalised = email.trim().toLowerCase();
   const list = allowlist ?? parseAdminEmails(getEnv().ADMIN_EMAILS);
   if (!list.has(normalised)) return { status: 'not_allowlisted', email: normalised };
+
+  // THE BOOTSTRAP CLOSES ITSELF once the platform has an active admin.
+  //
+  // ADMIN_EMAILS exists to solve exactly one problem: a fresh install has no
+  // administrator and no way to create one, because granting a role requires
+  // being staff already. The moment that deadlock is broken the variable has
+  // done its job — and every later promotion it performs is pure risk.
+  //
+  // Relying on the operator to delete the variable afterwards (which is what
+  // the runbook used to say) means the safety of the deployment depends on
+  // somebody remembering a manual step, on a box where an old .env.prod tends
+  // to be copied forward. Anyone who could ever receive mail at a listed
+  // address — an alias, a former colleague's forwarded account, a mailbox
+  // recreated on a domain you still own — would be handed admin on their next
+  // sign-in, silently and with no approval step.
+  //
+  // The CLI (`admin:grant`) deliberately does NOT go through here: it is the
+  // break-glass path for when nobody can sign in, it needs the database
+  // credentials to run, and it must keep working after this gate closes.
+  const existingAdmins = await countActiveAdmins(db);
+  if (existingAdmins > 0) return { status: 'bootstrap_closed', existing_admins: existingAdmins };
+
   return grantRoleByEmail(db, {
     email: normalised,
     role: 'admin',

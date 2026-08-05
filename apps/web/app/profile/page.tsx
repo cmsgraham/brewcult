@@ -109,6 +109,7 @@ export default async function ProfilePage() {
           walk away with is data worth investing in.
         </p>
         <AccountActions
+          userId={user.id}
           exportEnabled={config.features.accountExport}
           deletionEnabled={config.features.accountDeletion}
         />

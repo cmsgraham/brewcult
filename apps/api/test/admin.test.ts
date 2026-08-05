@@ -1367,6 +1367,29 @@ describe('audit log viewer', () => {
 
 // ===========================================================================
 describe('bootstrap (a) — the ADMIN_EMAILS allowlist', () => {
+  /**
+   * The allowlist bootstrap CLOSES once the platform has an active admin, and
+   * the shared harness creates several in its beforeAll. Park them for the
+   * duration of this block so these tests run against a genuinely
+   * un-bootstrapped deployment — the only state the mechanism is meant to run
+   * in — and put them back afterwards for the suites that follow.
+   */
+  let parkedAdmins: string[] = [];
+  beforeAll(async () => {
+    const res = await exec<{ id: string }>(
+      `SELECT id::text AS id FROM users WHERE role = 'admin' AND status = 'active'`,
+    );
+    parkedAdmins = res.rows.map((r) => r.id);
+    if (parkedAdmins.length > 0) {
+      await exec(`UPDATE users SET role = 'user' WHERE id = ANY($1::uuid[])`, [parkedAdmins]);
+    }
+  });
+  afterAll(async () => {
+    if (parkedAdmins.length > 0) {
+      await exec(`UPDATE users SET role = 'admin' WHERE id = ANY($1::uuid[])`, [parkedAdmins]);
+    }
+  });
+
   it('parses the allowlist forgivingly but never invents an entry', () => {
     expect([...parseAdminEmails('a@b.test, c@d.test;  e@f.test ')]).toEqual([
       'a@b.test',
@@ -1436,6 +1459,40 @@ describe('bootstrap (a) — the ADMIN_EMAILS allowlist', () => {
       to_role: 'admin',
       mfa_required: true,
     });
+  });
+
+  it('CLOSES once the platform has an admin — a listed address is no longer promoted', async () => {
+    // founder@ was promoted by the test above, so the deadlock ADMIN_EMAILS
+    // exists to break is now broken. From here the variable must be inert:
+    // leaving it in a .env.prod that gets copied forward should not hand admin
+    // to anyone who later receives mail at a listed address.
+    const admins = await exec<{ count: number }>(
+      `SELECT count(*)::int AS count FROM users WHERE role = 'admin' AND status = 'active'`,
+    );
+    expect(admins.rows[0]!.count).toBeGreaterThan(0);
+
+    // A DIFFERENT allowlisted address, verified and otherwise perfectly
+    // promotable — refused purely because the bootstrap has already served
+    // its purpose.
+    const latecomer = await registerAndVerify('second@brewcult.test');
+    const outcome = await promoteAllowlistedAdmin(
+      defaultAdminDb,
+      'second@brewcult.test',
+      new Set(['second@brewcult.test']),
+    );
+    expect(outcome.status).toBe('bootstrap_closed');
+
+    const row = await exec<{ role: string }>('SELECT role FROM users WHERE id = $1::uuid', [
+      latecomer.id,
+    ]);
+    expect(row.rows[0]!.role).toBe('user');
+
+    // A refusal is not an audit event — nothing was granted.
+    const audited = await exec<{ count: number }>(
+      `SELECT count(*)::int AS count FROM audit_log
+        WHERE action = 'admin.bootstrap_granted' AND payload->>'email' = 'second@brewcult.test'`,
+    );
+    expect(audited.rows[0]!.count).toBe(0);
   });
 
   it('is idempotent — logging in again writes no second audit row', async () => {
