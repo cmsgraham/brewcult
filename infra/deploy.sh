@@ -143,10 +143,28 @@ run_migrations() {
 build_and_restart() {  # takes one or more service names
   local services="$*"
   echo "→ Building: $services..."
+  # NOTE: deliberately NOT `--no-cache`. Building with --no-cache writes a fresh
+  # multi-hundred-MB cache entry on every deploy that can never be reused — on
+  # the Zentra box that leaked 48 GB over a few months and took the disk to 85%.
+  # If a build ever needs to ignore cache, do it as a one-off by hand.
   ssh_run "cd $REMOTE/infra && $COMPOSE build $services"
   echo "→ Restarting: $services..."
   ssh_run "cd $REMOTE/infra && $COMPOSE up -d $services"
+  bound_build_cache
   echo "✓ Deployed: $services"
+}
+
+# ── Keep the build cache bounded ─────────────────────────────────────────────
+# Cache is what makes the NEXT build fast, so we keep a working set rather than
+# dropping it all. Without a ceiling it grows until the disk is full, and a full
+# disk on a box that also runs Postgres is an outage, not an inconvenience.
+BUILD_CACHE_CEILING="${BUILD_CACHE_CEILING:-10GB}"
+bound_build_cache() {
+  echo "→ Trimming build cache above $BUILD_CACHE_CEILING..."
+  # --keep-storage was renamed --reserved-space in newer Docker; try the new
+  # flag first and fall back, so this works across engine versions.
+  ssh_run "docker builder prune -f --reserved-space=$BUILD_CACHE_CEILING >/dev/null 2>&1         || docker builder prune -f --keep-storage=$BUILD_CACHE_CEILING >/dev/null 2>&1         || true"
+  ssh_run "df -h / | tail -1"
 }
 
 # ── DEPLOYED hash bookkeeping (§6.4) ─────────────────────────────────────────

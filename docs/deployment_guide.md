@@ -398,7 +398,14 @@ Differences from Zentra's script (lessons + EF requirements):
 4. **Rollback**: `./deploy.sh --rollback` re-checks-out the previously deployed git tag
    locally and re-syncs. Every deploy writes the deployed commit hash to
    `/srv/brewcult/DEPLOYED` so "what's live?" is always answerable.
-5. rsync includes `db/migrations/`, excludes `.env*`, `node_modules`, `.git` (checksum
+5. **Build cache is bounded, and `--no-cache` is never used.** Zentra's script
+   builds with `--no-cache`, which writes a fresh multi-hundred-MB BuildKit
+   entry on every deploy that can never be reused; on the shared box that
+   leaked **48 GB** and took the disk to 85% full. BrewCult builds with cache
+   and trims to `BUILD_CACHE_CEILING` (default 10 GB) after each deploy, then
+   prints `df -h /` so disk drift is visible in the deploy output rather than
+   discovered during an outage.
+6. rsync includes `db/migrations/`, excludes `.env*`, `node_modules`, `.git` (checksum
    mode, `--delete` on source dirs — as in Zentra).
 
 ---
