@@ -499,28 +499,53 @@ volumes:
     external: true              # owned by the app project; mail reads only
 ```
 
-Setup steps (one-time, ~30 min):
+> **AS BUILT (2026-08-05).** BrewCult shares the existing `mail-usezentra`
+> docker-mailserver on the Zentra box rather than running its own. The steps
+> below are the standalone-VPS plan; what is actually deployed differs in four
+> places, and the differences are deliberate:
+>
+> | Plan | As built | Why |
+> |---|---|---|
+> | `hello@`, `legal@`, `dmarc@` | `noreply@` (send), `admin@` (receive), `support@` → alias to `admin@` | Fewer boxes nobody reads. `support@` is referenced by the email-changed security notice in `lib/mailer.ts`, and `admin@` is the live DMARC `rua`, so those two had to exist. |
+> | `SMTP_USER=app@brewcult.coffee` | `SMTP_USER=noreply@brewcult.coffee` | One send-only credential for one sending identity; a separate `app@` box added a password to rotate and nothing else. |
+> | `rua=mailto:dmarc@…` | `rua=mailto:admin@brewcult.coffee` | Matches the mailbox that exists. Reports to an address that rejects mail are reports nobody sees. |
+> | `SMTP_HOST=mail.brewcult.coffee` | `SMTP_HOST=mail.usezentra.app` | The MTA's Let's Encrypt cert is issued for its own hostname. Connecting as anything else fails STARTTLS hostname verification. SMTP does not require the envelope sender's domain to match the connection hostname, and OpenDKIM signs on the `From:` domain — so mail still leaves as brewcult.coffee, signed with brewcult.coffee's key. |
+>
+> PTR is set to `mail.usezentra.app` (one IP, one PTR, and that is the name the
+> server announces). Certificate renewal is Caddy's, copied into place by
+> `sync-mail-certs.timer` — see §5.4.
+>
+> Verified live: DKIM valid and aligned, SPF pass, TLS 1.3 on delivery, inbound
+> accepts `admin@`/`support@`/`noreply@`, rejects unknown recipients, and refuses
+> to relay for foreign domains from the public internet.
+
+Setup steps for a STANDALONE BrewCult mail server (one-time, ~30 min):
 1. TLS: nothing to do beyond §5.4 — the Caddyfile's `mail.brewcult.coffee` block makes
    Caddy issue and renew the cert; the mail container reads it from the shared volume and
    hot-reloads on renewal.
 2. `docker exec brewcult-mail setup email add hello@brewcult.coffee` (repeat for
    `support@`, `legal@`, `dmarc@`; `noreply@` is send-only — create it too so bounces land).
 3. `docker exec brewcult-mail setup config dkim` → generates the DKIM key (selector `mail`,
-   same as Zentra) → publish the printed TXT record.
-4. Create an SMTP credential for the app (`app@brewcult.coffee`) — the api/worker containers
-   authenticate with it over the Docker network / localhost:587.
-5. **Reverse DNS (PTR)**: set the VPS's rDNS to `mail.brewcult.coffee` in the hosting panel
-   (Linode/Akamai: Network tab). Gmail hard-penalizes missing PTR — this step is not optional.
+   same as Zentra) → publish the printed TXT record. NOTE: docker-mailserver rewrites
+   `/etc/opendkim/SigningTable` on start and keeps only the primary domain, so a
+   multi-domain server needs the `user-patches.sh` hook that restores the real tables
+   (installed on the shared box at `mail-server/data/config/user-patches.sh`).
+4. Create an SMTP credential for the app — the api/worker containers authenticate with it
+   over the Docker network / localhost:587.
+5. **Reverse DNS (PTR)**: set the VPS's rDNS to the mail hostname in the hosting panel
+   (Linode/Akamai: Network tab → the IPv4 row, NOT the IPv6 one). Gmail hard-penalizes a
+   default/dynamic-looking PTR — mail-tester scores it -1.36. Allow up to an hour for
+   Linode to push the change to its authoritative servers.
 6. Confirm the host provider has port 25 outbound open (Linode requires a support ticket on
    new accounts; the Zentra box already passed this hurdle).
 
 App env (`.env.prod`):
 ```text
-SMTP_HOST=mail.brewcult.coffee   # or the container name if on a shared Docker network
+SMTP_HOST=mail.usezentra.app     # the MTA's own hostname — see the AS BUILT note above
 SMTP_PORT=587
 SMTP_SECURE=false                # STARTTLS
-SMTP_USER=app@brewcult.coffee
-SMTP_PASS=<credential from step 4>
+SMTP_USER=noreply@brewcult.coffee
+SMTP_PASS=<generated at mailbox creation>
 SMTP_FROM=BrewCult <noreply@brewcult.coffee>
 ```
 
@@ -543,7 +568,7 @@ Mirroring Zentra's working records, at the DNS host for brewcult.coffee:
 | `MX` `brewcult.coffee` | `10 mail.brewcult.coffee` | Receiving |
 | `TXT` (SPF) | `v=spf1 mx ~all` — **one record only** (Zentra's exact policy) | Sender authorization |
 | `TXT` `mail._domainkey` | DKIM key from setup step 3 | Signature validation |
-| `TXT` `_dmarc` | `v=DMARC1; p=none; rua=mailto:dmarc@brewcult.coffee` → tighten to `p=quarantine` after ~2 weeks of clean reports (Zentra still runs `p=none`; tightening is the upgrade) | Spoofing protection |
+| `TXT` `_dmarc` | LIVE: `v=DMARC1; p=none; rua=mailto:admin@brewcult.coffee` → tighten to `p=quarantine` after ~2 weeks of clean reports (Zentra still runs `p=none`; tightening is the upgrade). The `rua` address must be a mailbox that ACCEPTS mail, or the aggregate reports you would tighten on the strength of are bounced unread. | Spoofing protection |
 | PTR (at the *hosting provider*, not DNS host) | `mail.brewcult.coffee` | Deliverability — required |
 
 Verification (F-21 acceptance): send test mail to a Gmail account → *Show original* →
