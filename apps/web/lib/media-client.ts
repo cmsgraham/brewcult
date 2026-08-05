@@ -53,6 +53,8 @@ export const MEDIA_KINDS = [
   'coffee_image',
   'equipment_image',
   'roaster_logo',
+  /** A photo attached to a catalogue suggestion — yours, private, never published. */
+  'equipment_submission',
 ] as const;
 
 export type MediaKind = (typeof MEDIA_KINDS)[number];

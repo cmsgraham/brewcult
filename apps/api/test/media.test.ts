@@ -89,6 +89,7 @@ const MIGRATIONS = [
   'db/migrations/0006_brewing.sql',
   'db/migrations/0007_admin.sql',
   'db/migrations/0008_media.sql',
+  'db/migrations/0012_equipment_submission_media.sql',
 ];
 
 let app: FastifyInstance;
@@ -483,6 +484,26 @@ describe('POST /v1/media — authentication and authorization', () => {
 
   it('403s a non-staff user uploading catalog imagery', async () => {
     const res = await upload(await jpeg(), { kind: 'coffee_image', token: owner.token });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('accepts a catalogue SUGGESTION photo from an ordinary account', async () => {
+    // The distinction that cost a 403 in production: 'equipment_image' is the
+    // picture on a public catalogue page and stays editorial; the photo somebody
+    // attaches to a suggestion is their own evidence for a reviewer.
+    const res = await upload(await jpeg(), { kind: 'equipment_submission', token: owner.token });
+    expect(res.statusCode).toBe(201);
+
+    const { rows } = await exec<{ owner_id: string | null }>(
+      'SELECT owner_id::text AS owner_id FROM media WHERE id = $1::uuid',
+      [res.json<MediaDto>().id],
+    );
+    // Personal media, so account deletion takes it with them.
+    expect(rows[0]!.owner_id).toBe(owner.id);
+  });
+
+  it('still refuses catalogue imagery from that same account', async () => {
+    const res = await upload(await jpeg(), { kind: 'equipment_image', token: owner.token });
     expect(res.statusCode).toBe(403);
   });
 
@@ -1058,6 +1079,9 @@ describe('assertMediaUsable — the seam brewing calls', () => {
   it('lists a user’s storage keys for the account-deletion job', async () => {
     const keys = await listOwnedStorageKeys(defaultMediaDb, owner.id);
     expect(keys.length).toBeGreaterThan(0);
-    for (const key of keys) expect(key).toMatch(/^(avatar|brew_photo)\//);
+    // Every SELF-SERVE kind, which is the point: personal media leaves with the
+    // person. Catalogue imagery has no owner and therefore never appears here.
+    for (const key of keys) expect(key).toMatch(/^(avatar|brew_photo|equipment_submission)\//);
+    expect(keys.some((key) => key.startsWith('equipment_submission/'))).toBe(true);
   });
 });

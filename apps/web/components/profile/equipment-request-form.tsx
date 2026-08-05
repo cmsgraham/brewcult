@@ -146,7 +146,7 @@ export function EquipmentRequestForm() {
       // and EXIF-stripped — so nothing downstream ever sees a raw upload.
       let mediaId: string | undefined;
       if (photo) {
-        const asset = await uploadMedia(photo, 'equipment_image');
+        const asset = await uploadMedia(photo, 'equipment_submission');
         mediaId = asset.id;
       }
       setRequests(

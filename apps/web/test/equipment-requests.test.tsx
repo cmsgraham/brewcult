@@ -239,7 +239,11 @@ describe('pasting a photo', () => {
 
     await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(2));
     const [uploadPath] = apiFetch.mock.calls[0]!;
-    expect(String(uploadPath)).toContain('equipment_image');
+    // 'equipment_submission', NOT 'equipment_image'. The latter is the picture
+    // on a public catalogue page and is staff-only to upload, so uploading a
+    // suggestion photo under that kind is a 403 for every ordinary account —
+    // which is exactly how this shipped the first time.
+    expect(String(uploadPath)).toContain('kind=equipment_submission');
     expect(apiFetch.mock.calls[1]![1].body).toEqual({
       description: 'A grinder I cannot name',
       image_media_id: 'media-9',

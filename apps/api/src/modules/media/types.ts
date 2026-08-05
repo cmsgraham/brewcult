@@ -52,6 +52,13 @@ export const MEDIA_KINDS = [
   'coffee_image',
   'equipment_image',
   'roaster_logo',
+  /**
+   * A photo attached to a catalogue SUGGESTION (0011/0012). Distinct from
+   * `equipment_image` on purpose: that one is the picture on a public catalogue
+   * page, platform-owned and staff-only to upload. This one is evidence for a
+   * reviewer, owned by the person who sent it, and never published.
+   */
+  'equipment_submission',
 ] as const;
 export type MediaKind = (typeof MEDIA_KINDS)[number];
 
@@ -60,7 +67,11 @@ export type MediaKind = (typeof MEDIA_KINDS)[number];
  * else is editorial: catalog imagery is platform content and goes through the
  * staff surface (`isStaff`, therefore MFA-gated).
  */
-export const SELF_SERVE_KINDS = ['avatar', 'brew_photo'] as const satisfies readonly MediaKind[];
+export const SELF_SERVE_KINDS = [
+  'avatar',
+  'brew_photo',
+  'equipment_submission',
+] as const satisfies readonly MediaKind[];
 
 export const STAFF_KINDS = [
   'coffee_image',

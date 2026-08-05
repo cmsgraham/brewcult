@@ -215,7 +215,9 @@ export async function registerAdminRoutes(
       // photo's contents are not.
       const imageMediaId = request.body?.image_media_id ?? null;
       if (imageMediaId) {
-        await assertMediaUsable(db, imageMediaId, userId, 'equipment_image');
+        // 'equipment_submission', NOT 'equipment_image': the latter is the
+        // picture on a public catalogue page, which is staff-only to upload.
+        await assertMediaUsable(db, imageMediaId, userId, 'equipment_submission');
       }
 
       const created = await createEquipmentRequest(db, {
