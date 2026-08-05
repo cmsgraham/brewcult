@@ -690,3 +690,31 @@ svg {
     min-height: 44px;
   }
 }
+
+/* Signed-out actions: a quiet link to log in, an emphasised one to sign up —
+   the two are not equal weight and should not look it. */
+.bc-nav__auth {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: 0.5rem;
+}
+.bc-nav__cta {
+  min-height: 36px; /* nav scale; the 44px rule applies to the mobile list */
+  padding: 0.35rem 0.9rem;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+@media (max-width: 720px) {
+  .bc-nav__auth {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+    margin-left: 0;
+    padding: 0.75rem 0.5rem;
+  }
+  .bc-nav__cta {
+    min-height: 44px;
+    justify-content: center;
+  }
+}

@@ -73,14 +73,33 @@ export function SiteNav({ items, signedIn = false }: SiteNavProps) {
                 </li>
               );
             })}
-            {/* Sign out belongs in the nav, not only on the profile page:
+            {/* The nav has to answer "how do I get in?" for a signed-out
+                visitor. Before this it showed Profile to everybody, which for
+                them was a link that bounced straight to /login — a dead end
+                dressed as a destination, with no way to sign in offered
+                anywhere in the chrome.
+
+                Sign out belongs here too, rather than only on the profile page:
                 leaving should be reachable from wherever you are, which matters
                 most on a shared or borrowed device (second_draft §30.4). */}
             {signedIn ? (
               <li className="bc-nav__signout">
                 <SignOutButton />
               </li>
-            ) : null}
+            ) : (
+              <li className="bc-nav__auth">
+                <Link className="bc-nav__link" href="/login" onClick={() => setOpen(false)}>
+                  Log in
+                </Link>
+                <Link
+                  className="bc-button bc-button--secondary bc-nav__cta"
+                  href="/register"
+                  onClick={() => setOpen(false)}
+                >
+                  Sign up
+                </Link>
+              </li>
+            )}
           </ul>
         </nav>
       </div>

@@ -101,13 +101,13 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   // Flags are evaluated server-side so the nav never flickers items in or out
   // (EF §2.5). A dead config endpoint yields the Phase-1 fallback.
   const config = await fetchClientConfig();
-  const navItems = visibleNavItems(config.features);
 
   // Cookie presence only — deliberately NOT a /me call. The nav renders on every
   // page, so an API round trip here would tax every navigation to decide whether
   // to draw one button. Reading the jar is free, and being wrong (an expired
   // token) costs a redirect to /login, which is where that person was headed.
   const signedIn = await hasSessionCookie();
+  const navItems = visibleNavItems(config.features, signedIn);
 
   return (
     <html lang="en" className={spaceGrotesk.variable}>

@@ -46,7 +46,8 @@ describe('nav feature-flag gating', () => {
   it('shows only the Phase-1 surfaces by default', () => {
     // Brew joined the default set when the logger shipped (Wave 3); the rest of
     // the §27 nav stays behind flags until its phase lands.
-    expect(visibleNavItems(flags()).map((item) => item.key)).toEqual([
+    // Signed IN, because Profile is auth-gated — see the signed-out case below.
+    expect(visibleNavItems(flags(), true).map((item) => item.key)).toEqual([
       'home',
       'brew',
       'ai',
@@ -55,8 +56,26 @@ describe('nav feature-flag gating', () => {
     ]);
   });
 
+  it('HIDES Profile from a signed-out visitor', () => {
+    // It redirects to /login for them, so offering it is a dead end dressed as
+    // a destination. Everything else stays: Brew, AI and Discover all serve
+    // anonymously, and hiding a page that works would remove the very reason
+    // somebody would sign up.
+    expect(visibleNavItems(flags(), false).map((item) => item.key)).toEqual([
+      'home',
+      'brew',
+      'ai',
+      'discover',
+    ]);
+  });
+
+  it('defaults to the signed-out view rather than leaking an auth-only link', () => {
+    // A caller that forgets the argument must fail CLOSED.
+    expect(visibleNavItems(flags()).map((item) => item.key)).not.toContain('profile');
+  });
+
   it('grows by flipping a flag, keeping §27 order', () => {
-    const items = visibleNavItems(flags({ navNews: true, navBrew: true }));
+    const items = visibleNavItems(flags({ navNews: true, navBrew: true }), true);
     expect(items.map((item) => item.key)).toEqual([
       'home',
       'brew',
@@ -76,6 +95,7 @@ describe('nav feature-flag gating', () => {
         navCommunity: true,
         navMarketplace: true,
       }),
+      true,
     );
     expect(all).toHaveLength(NAV_ITEMS.length);
   });
@@ -84,7 +104,7 @@ describe('nav feature-flag gating', () => {
 describe('SiteNav', () => {
   it('renders only the items it is given', () => {
     pathname = '/';
-    render(<SiteNav items={visibleNavItems(flags())} />);
+    render(<SiteNav items={visibleNavItems(flags(), true)} signedIn />);
 
     const nav = screen.getByRole('navigation', { name: 'Primary' });
     expect(within(nav).getByRole('link', { name: 'Home' })).toBeInTheDocument();
@@ -134,5 +154,32 @@ describe('isActiveNavItem', () => {
     expect(isActiveNavItem(discover, '/discover/ethiopia-yirgacheffe')).toBe(true);
     expect(isActiveNavItem(home, '/discover')).toBe(false);
     expect(isActiveNavItem(home, '/')).toBe(true);
+  });
+});
+
+describe('SiteNav — the signed-out visitor can actually get in', () => {
+  it('offers Log in and Sign up instead of Profile', () => {
+    pathname = '/';
+    render(<SiteNav items={visibleNavItems(flags(), false)} signedIn={false} />);
+
+    const nav = screen.getByRole('navigation', { name: 'Primary' });
+    expect(within(nav).getByRole('link', { name: 'Log in' })).toHaveAttribute('href', '/login');
+    expect(within(nav).getByRole('link', { name: 'Sign up' })).toHaveAttribute(
+      'href',
+      '/register',
+    );
+    // The dead end this replaced.
+    expect(within(nav).queryByRole('link', { name: 'Profile' })).toBeNull();
+    expect(within(nav).queryByRole('button', { name: 'Sign out' })).toBeNull();
+  });
+
+  it('offers Sign out and no auth prompts once signed in', () => {
+    pathname = '/';
+    render(<SiteNav items={visibleNavItems(flags(), true)} signedIn />);
+
+    const nav = screen.getByRole('navigation', { name: 'Primary' });
+    expect(within(nav).getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
+    expect(within(nav).queryByRole('link', { name: 'Log in' })).toBeNull();
+    expect(within(nav).queryByRole('link', { name: 'Sign up' })).toBeNull();
   });
 });

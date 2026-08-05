@@ -47,12 +47,28 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: '/marketplace',
     flag: 'navMarketplace',
   },
-  { key: 'profile', label: 'Profile', href: '/profile' },
+  // The only destination that genuinely needs a session: /profile redirects a
+  // signed-out visitor straight to /login. Brew, AI and Discover all serve
+  // anonymously, so they stay visible — hiding a page that works would cost a
+  // visitor the reason to sign up in the first place.
+  { key: 'profile', label: 'Profile', href: '/profile', requiresAuth: true },
 ] as const;
 
-/** Items the current visitor should see, in §27 order. */
-export function visibleNavItems(flags: FeatureFlags): NavItem[] {
-  return NAV_ITEMS.filter((item) => item.flag === undefined || flags[item.flag] === true);
+/**
+ * Items the current visitor should see, in §27 order.
+ *
+ * `requiresAuth` had been declared on NavItem since the nav was written and
+ * never once set or read — so "Profile" was shown to everybody, and a
+ * signed-out visitor clicking it got bounced to /login. That is a dead end
+ * dressed as a destination: the nav offered no way to sign IN, only a link
+ * that punished you for trying.
+ */
+export function visibleNavItems(flags: FeatureFlags, signedIn = false): NavItem[] {
+  return NAV_ITEMS.filter((item) => {
+    if (item.flag !== undefined && flags[item.flag] !== true) return false;
+    if (item.requiresAuth === true && !signedIn) return false;
+    return true;
+  });
 }
 
 /**
