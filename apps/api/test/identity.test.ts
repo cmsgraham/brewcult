@@ -1060,7 +1060,22 @@ describe('CSRF protection on cookie-authenticated mutations (ID-04)', () => {
     const access = res.cookies.find((c) => c.name === 'bc_access');
     const refresh = res.cookies.find((c) => c.name === 'bc_refresh');
     expect(access).toMatchObject({ httpOnly: true, sameSite: 'Lax', path: '/' });
-    expect(refresh).toMatchObject({ httpOnly: true, sameSite: 'Lax', path: '/v1/auth' });
+
+    // The refresh cookie's path must be written the way the BROWSER sees the
+    // URL, not the way this app routes it. Caddy (prod) and the Next dev
+    // rewrite both strip `/api`, so Fastify serves `/v1/auth/refresh` while the
+    // browser requests `/api/v1/auth/refresh`. Path matching happens in the
+    // browser against the URL it used.
+    //
+    // This assertion previously read `path: '/v1/auth'` — the internal route —
+    // so it went green while `bc_refresh` was never sent by any real browser
+    // and every session silently died 15 minutes after login. Verified against
+    // production with curl, which path-matches exactly as a browser does.
+    expect(refresh).toMatchObject({ httpOnly: true, sameSite: 'Lax', path: '/api/v1/auth' });
+    // Narrower than `/`: the long-lived credential must not ride along on
+    // ordinary API traffic.
+    expect(refresh?.path).not.toBe('/');
+
     // NODE_ENV=test → not production → no Secure flag, so http://localhost works.
     expect(access).not.toHaveProperty('secure', true);
   });

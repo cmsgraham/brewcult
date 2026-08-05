@@ -595,6 +595,7 @@ APP_URL=http://localhost:3000
 API_URL=http://localhost:4000
 JWT_SECRET=                     # 64 random bytes; rotate per runbook
 COOKIE_DOMAIN=localhost
+AUTH_COOKIE_PATH=/api/v1/auth   # refresh-cookie scope, written as the BROWSER sees it
 
 # Database / cache / storage
 DATABASE_URL=postgres://brewcult:brewcult@postgres:5432/brewcult

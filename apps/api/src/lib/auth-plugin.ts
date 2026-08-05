@@ -40,11 +40,21 @@ export const ACCESS_COOKIE = 'bc_access';
 /** Cookie carrying the rotating refresh token, scoped to the auth path. */
 export const REFRESH_COOKIE = 'bc_refresh';
 /**
- * Path the refresh cookie is scoped to. The browser therefore never attaches
- * the long-lived credential to ordinary API calls — only to the endpoints that
- * legitimately consume it (EF §2.3).
+ * The refresh cookie's path scope now lives in the environment as
+ * `AUTH_COOKIE_PATH`, because it must be written the way the BROWSER sees the
+ * URL, and the gateway prefix is a deployment fact this module cannot know.
+ *
+ * It used to be the constant `'/v1/auth'` — the API's own internal route. Caddy
+ * strips `/api` server-side, so the browser was requesting
+ * `/api/v1/auth/refresh`, path matching failed, and `bc_refresh` was NEVER sent
+ * on any request. Sessions therefore died silently 15 minutes after login (when
+ * the access token expired) with no way to renew, and signing in again bought
+ * only another 15 minutes.
+ *
+ * The old path is kept solely so logout can also clear cookies issued before
+ * the fix; nothing should scope a NEW cookie to it.
  */
-export const AUTH_COOKIE_PATH = '/v1/auth';
+export const LEGACY_AUTH_COOKIE_PATH = '/v1/auth';
 
 export const ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
 

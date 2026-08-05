@@ -10,15 +10,18 @@
  *  - SameSite=lax: top-level GET navigations keep the session (a link into the
  *    app stays logged in) while cross-site POST/PUT/DELETE do not carry it.
  *    Lax is not sufficient on its own, hence the CSRF token on mutations.
- *  - The refresh cookie is scoped to `/v1/auth`, so the long-lived credential is
- *    simply not attached to ordinary API traffic.
+ *  - The refresh cookie is scoped to AUTH_COOKIE_PATH, so the long-lived
+ *    credential is not attached to ordinary API traffic. That path is written
+ *    as the BROWSER sees it (`/api/v1/auth`), not as the API routes it
+ *    (`/v1/auth`) — Caddy strips `/api` server-side, and cookie path matching
+ *    happens in the browser against the URL it actually requested.
  */
 import type { CookieSerializeOptions } from '@fastify/cookie';
 import type { FastifyReply } from 'fastify';
 import {
   ACCESS_COOKIE,
   ACCESS_TOKEN_TTL_SECONDS,
-  AUTH_COOKIE_PATH,
+  LEGACY_AUTH_COOKIE_PATH,
   REFRESH_COOKIE,
 } from '../../lib/auth-plugin.js';
 import { getEnv, isProduction } from '../../lib/env.js';
@@ -43,7 +46,7 @@ export function accessCookieOptions(): CookieSerializeOptions {
 export function refreshCookieOptions(expiresAt?: Date): CookieSerializeOptions {
   return {
     ...baseCookieOptions(),
-    path: AUTH_COOKIE_PATH,
+    path: getEnv().AUTH_COOKIE_PATH,
     ...(expiresAt ? { expires: expiresAt } : {}),
   };
 }
@@ -59,7 +62,11 @@ export function setSessionCookies(reply: FastifyReply, session: IssuedSession): 
 
 export function clearSessionCookies(reply: FastifyReply): void {
   reply.clearCookie(ACCESS_COOKIE, { ...baseCookieOptions(), path: '/' });
-  reply.clearCookie(REFRESH_COOKIE, { ...baseCookieOptions(), path: AUTH_COOKIE_PATH });
+  reply.clearCookie(REFRESH_COOKIE, { ...baseCookieOptions(), path: getEnv().AUTH_COOKIE_PATH });
+  // Also clear the pre-fix scope. Browsers that signed in before the path was
+  // corrected still hold a bc_refresh at `/v1/auth`; it can never be sent, but
+  // logout should not leave a stale credential sitting in the jar.
+  reply.clearCookie(REFRESH_COOKIE, { ...baseCookieOptions(), path: LEGACY_AUTH_COOKIE_PATH });
 }
 
 /** True when this request carries ambient cookie authority (→ needs CSRF). */

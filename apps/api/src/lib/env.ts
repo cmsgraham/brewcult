@@ -16,6 +16,22 @@ const schema = z.object({
   API_URL: z.string().default('http://localhost:4000'),
   COOKIE_DOMAIN: z.string().default('localhost'),
 
+  /**
+   * Path scope for the refresh cookie, expressed as the BROWSER sees it.
+   *
+   * This is a public-URL concern, not an internal routing one, and the two are
+   * not the same string. Caddy (prod) and the Next dev rewrite both strip a
+   * leading `/api` before the request reaches Fastify, so the API serves
+   * `/v1/auth/refresh` while the browser is talking to `/api/v1/auth/refresh`.
+   * Cookie path matching happens in the browser against the URL IT used, so
+   * scoping the cookie to the internal path means it is never sent at all.
+   *
+   * Kept narrow on purpose (rather than `/`): the long-lived refresh credential
+   * should not ride along on ordinary API traffic. Override it if the API is
+   * ever mounted somewhere other than `/api`.
+   */
+  AUTH_COOKIE_PATH: z.string().default('/api/v1/auth'),
+
   DATABASE_URL: z.string().default('postgres://brewcult:brewcult@localhost:5433/brewcult'),
   REDIS_URL: z.string().default('redis://localhost:6379'),
 
