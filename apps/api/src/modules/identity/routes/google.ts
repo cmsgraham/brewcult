@@ -11,6 +11,8 @@
 import type { FastifyInstance } from 'fastify';
 import { transaction } from '../../../lib/db.js';
 import { getEnv } from '../../../lib/env.js';
+import { promoteAllowlistedAdmin } from '../../admin/bootstrap.js';
+import { defaultAdminDb } from '../../admin/repository.js';
 import { recordAuditEvent } from '../audit.js';
 import { setSessionCookies } from '../cookies.js';
 import { clientExec, poolExec, requestContext } from '../context.js';
@@ -106,6 +108,46 @@ export function registerGoogleRoutes(app: FastifyInstance): boolean {
         return reply.redirect(`${failureRedirect}account_not_active`);
       }
 
+      // ADMIN_EMAILS bootstrap.
+      //
+      // The zero-touch hook in modules/admin/bootstrap only fires on POST
+      // routes that carry a proven email in the BODY (/v1/auth/login and
+      // /v1/auth/verify-email). This callback is a GET with no body, so it is
+      // structurally invisible to that hook — meaning an operator who signs in
+      // with Google is never promoted and the admin console stays unreachable
+      // on a deployment where ADMIN_EMAILS is correctly set. bootstrap.ts
+      // anticipated this and exports promoteAllowlistedAdmin for callers like
+      // this one; it just was never wired up.
+      //
+      // Safe here: Google has asserted this address AND that it is verified
+      // (resolveGoogleIdentity refuses provider_email_unverified above), which
+      // is at least as strong as a password login. promoteAllowlistedAdmin
+      // re-checks the allowlist and re-checks email_verified_at itself, and
+      // writes its own system audit row. A failure must never turn a good
+      // sign-in into a 500, so it is logged and swallowed like the hook does.
+      let role = user.role;
+      try {
+        const promotion = await promoteAllowlistedAdmin(defaultAdminDb, user.email);
+        if (promotion.status === 'granted') {
+          role = promotion.user.role;
+          request.log.warn(
+            {
+              bootstrap: 'admin_emails',
+              via: 'google',
+              user_id: promotion.user.id,
+              from_role: promotion.previous_role,
+              to_role: promotion.user.role,
+            },
+            'ADMIN_EMAILS bootstrap promoted an account to admin — remove the address ' +
+              'from ADMIN_EMAILS once the operator has enrolled MFA',
+          );
+        } else if (promotion.status === 'already_granted') {
+          role = promotion.user.role;
+        }
+      } catch (err) {
+        request.log.error({ err }, 'ADMIN_EMAILS bootstrap failed on the google callback');
+      }
+
       // A Google assertion is one factor. If the account has TOTP on, the
       // browser is sent back to finish the challenge rather than being handed
       // a full session — otherwise OAuth would be an MFA bypass.
@@ -127,7 +169,11 @@ export function registerGoogleRoutes(app: FastifyInstance): boolean {
         const exec = clientExec(client);
         const issued = await issueSession(app, exec, {
           userId: user.id,
-          role: user.role,
+          // `role`, not `user.role`: the row may have just been promoted above,
+          // and the access token embeds the role. Using the stale value would
+          // hand out a `user` token to an account that is now an admin, so the
+          // console would keep refusing them until they signed in a second time.
+          role,
           mfa: false,
           context,
         });
