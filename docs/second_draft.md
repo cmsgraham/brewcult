@@ -1218,3 +1218,52 @@ Support`
 > trusted platform. Users discover what's happening in coffee, learn from other brewers,
 > improve every cup, and securely purchase the products that match their equipment and taste —
 > and every purchase makes the next brewer's cup better.
+
+---
+
+# 30. Interface standards **[AS BUILT 2026-08-05]**
+
+*These were assumed rather than written down, and every one of them was breached
+somewhere in the first build. Engineering rationale in engineering_foundations
+§9.9; this section is the product-side rule.*
+
+## 30.1 No emoji in the interface
+
+Emoji are somebody else's artwork. They render as a different drawing on every
+platform, in a palette we do not control, at a weight that never matches our
+type — and on iOS they make BrewCult look like Apple designed it. They also
+undercut §10's premise: a product asking people to take their own taste seriously
+should not label "Bitter" with a grimacing face.
+
+Use the stroke icon set (`components/ui/icon.tsx`): one 24px grid, 1.6 stroke,
+`currentColor` so icons inherit type colour and dark mode automatically. Where a
+text label already carries the meaning, use no icon at all — the taste row is
+four words and is better for it.
+
+The single exception is a third-party mark we are required to reproduce exactly
+(see 30.2).
+
+## 30.2 Third-party sign-in buttons follow their owner's spec, not ours
+
+Google's Identity branding guidelines prescribe the mark, its colours, the button
+height, corner radius and the permitted wording. An OAuth app can be refused at
+verification for a home-made button. Build it from their specification, keep the
+brand colours literal rather than tokenised, and leave a comment saying so — a
+later "let's harmonise the buttons" pass will otherwise quietly break compliance.
+
+## 30.3 Touch targets and reach
+
+- 44px minimum on every interactive control (Apple HIG, WCAG 2.5.5). This was
+  honoured only in the brew logger, where somebody had thought about thumbs.
+- Destructive actions are never adjacent to routine ones. Sign out sits at the
+  top of the profile page with the identity block; delete-account sits at the
+  bottom behind a confirmation step. On a phone those two must not be neighbours.
+- Long unbreakable strings (addresses, handles, slugs, recovery codes) must not
+  be able to set the page width — see §9.9.
+
+## 30.4 Every feature needs a way in
+
+Account deletion and sign-out both shipped working and unreachable. A capability
+with no entry point is indistinguishable from an unbuilt one, and worse: nothing
+in the backlog says it is missing. Whoever writes the story names the surface it
+is reached from.

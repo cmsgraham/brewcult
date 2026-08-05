@@ -75,6 +75,18 @@ working monsters get built.
    items in 4.6 answered.
 6. Observability: new user-facing behavior emits its product event (5.2).
 7. No TODOs without linked issues.
+8. **Reachable.** If the PR adds or fixes an endpoint, name the thing a person
+   clicks to reach it. "The endpoint exists" and "a user can get to it" are
+   different states — account deletion and sign-out both shipped complete and
+   unreachable (9.10).
+9. **Cross-boundary paths verified against the SERVER, not against the client's
+   assumption.** Any new or changed URL, cookie `Path` or request body that
+   crosses the web/api boundary needs one test that exercises the real route.
+   Five defects reached production behind green unit tests that asserted what
+   the client believed (9.2).
+10. **Public vs internal form checked.** Anything the browser interprets —
+    cookie paths, OAuth redirect URIs, links — is written in the gateway's
+    public form, not the API's internal one (9.1).
 
 ## 1.6 Repo & delivery mechanics
 - Monorepo (`apps/web`, `api`, `packages/shared-types`, `docs/`). Trunk-based, short-lived
@@ -432,3 +444,191 @@ rollback plan.
 2. Sections 20–22 remain valid; this doc supersedes them on engineering detail (auth, sync,
    security, privacy mechanics).
 3. New constraint on §14.3 premium plan: pricing must anticipate Apple IAP economics (2.4).
+
+---
+
+# 9. AS BUILT — what the first production deployment taught us
+
+*Added 2026-08-05, after BrewCult went live on the shared Zentra host. Everything
+above is the design as drawn; this section is what happened when it met a real
+server, and why. It is written for the NEXT application: each entry names a class
+of mistake, not just the instance we hit.*
+
+## 9.1 The gateway prefix is a system-wide contract, and it is invisible
+
+Caddy strips `/api` before the request reaches Fastify. The API therefore routes
+`/v1/auth/refresh` while the browser is talking to `/api/v1/auth/refresh`. Both
+statements are true at once, and **which one is correct depends on who is reading
+it**. Three separate production bugs came from this single fact:
+
+| Written as | Should have been | Symptom |
+|---|---|---|
+| refresh cookie `Path=/v1/auth` | `/api/v1/auth` | Cookie never sent. Every session died 15 min after login, password or OAuth. |
+| `GOOGLE_OAUTH_START='/api/v1/auth/google'` | `/api/auth/google` | Sign in with Google 404'd. |
+| `getSessionUser()` reading `/api/me` | `/api/v1/users/me` | Every server-rendered page decided you were signed out. |
+
+**The rule for next time:** anything the BROWSER interprets — cookie `Path`, OAuth
+`redirect_uri`, links, form actions — must be written in the PUBLIC form. Anything
+the server routes uses the internal form. Do not let one constant serve both.
+Where a value must be public, put it in the environment (`AUTH_COOKIE_PATH`)
+rather than deriving it in code, because the gateway prefix is a deployment fact
+the application cannot know.
+
+**Corollary:** a blanket refactor ("move everything under `/v1`") will silently
+break the exceptions. OAuth entry points are deliberately unversioned — the
+callback is registered in Google's console and matched byte for byte, so
+versioning it means shipping a `/v2` breaks every existing user's sign-in until a
+human edits a Google project. Exceptions like that need a comment saying why, at
+the site, or the next sweep will "fix" them again.
+
+## 9.2 A test written from the client's assumption confirms the bug
+
+Five defects this session were held in place by green tests:
+
+- the AI chat body asserted `{messages:[...]}` — the shape the API rejects
+- the Google button asserted `/api/v1/auth/google` — the path that 404s
+- the refresh cookie asserted `path:'/v1/auth'` — the path no browser sends
+- three admin suites stubbed `const ME = '/api/me'` — a route that does not exist
+
+None were sloppy. Each was written from the same assumption as the code it
+tested, and the web suite stubs `fetch`, so it can only ever confirm what the
+client BELIEVES. It is structurally incapable of catching a disagreement with the
+server.
+
+**The rule for next time:** unit tests on both sides of a network boundary prove
+internal consistency, not correctness. At least one test per contract must
+exercise the real server — boot the API in-process and assert the client's paths
+and payloads against actual routes and validation schemas. Budget this from day
+one; retrofitting it means first discovering which of your green tests are lies.
+
+## 9.3 Silent degradation is how a bug survives contact with users
+
+`getSessionUser()` converted any failure into "signed out" — including a 404 from
+a wrong path. On screen, a broken API, a dead network and a genuinely logged-out
+visitor were indistinguishable. The bug report was "login not working", and
+nothing anywhere said otherwise.
+
+**The rule for next time:** a function whose failure mode is a normal-looking
+answer must distinguish the expected negative from the unexpected failure. Return
+null for 401/403 and *log* everything else. Same class: `AccountActions` reported
+404 as "coming soon", so a working deletion endpoint told every user it did not
+exist yet — the code was honest about an unbuilt feature and wrong about which
+state it was in.
+
+## 9.4 Deploying is not the same as running
+
+`docker compose up -d` returns when a container is CREATED, not when its process
+survives. `deploy.sh` printed a success banner over a crash-looping API. It now
+polls health, dumps logs for anything that never came up, exits non-zero, and
+records the DEPLOYED hash only AFTER verification — otherwise `--rollback` would
+happily roll back to a commit that never ran.
+
+Two related ordering facts, both learned the hard way:
+
+- **Build dependencies before dependents.** `web` declares
+  `depends_on: api: service_healthy`, so building web first drags up whatever api
+  image is on the box. If that one is broken, compose aborts and `set -e` kills
+  the deploy *before* the fixed api is built — a deploy that cannot repair the
+  thing it is deploying.
+- **Ship every root file, not an enumerated list.** The first deploy died on a
+  missing `tsconfig.base.json` because the sync listed filenames. The Dockerfiles
+  `COPY . .` from the repo root, so anything at the root is potentially part of
+  the build.
+
+## 9.5 Module boundaries are load-bearing, and CI is the only thing enforcing them
+
+Wiring `ADMIN_EMAILS` into the Google callback meant importing the admin module
+from identity. That produced two boundary errors and three circular dependencies,
+because **admin already depends on identity**. dependency-cruiser caught exactly
+what it exists to catch.
+
+The fix was not a different import path — it was inverting control. Identity now
+publishes `request.provenEmail` (a fact about the request, stated without
+reference to who wants it) and the admin module's existing hook consumes it. The
+dependency stays one-way and both modules remain separable, which is the entire
+premise of ADR-002.
+
+**The rule for next time:** when a feature seems to need an import that points the
+wrong way, the feature is telling you the dependency is inverted. Publish a fact,
+subscribe to it. Reaching for the import is how a modular monolith quietly becomes
+a big ball of mud that still looks modular.
+
+## 9.6 Shared configuration leaks between services
+
+Every container reads one `.env.prod`. It sets `PORT=4000` for the API. The
+Next.js standalone server honours `PORT`, so `web` bound the API's port: its logs
+said "Ready", its healthcheck failed forever, and Caddy served 502 to everyone.
+
+**The rule for next time:** a shared env file is a shared namespace. Any variable
+with a generic name (`PORT`, `HOST`, `LOG_LEVEL`, `NODE_ENV`) must be pinned
+per-service in compose, where `environment:` overrides `env_file:`. Prefer
+service-scoped names for anything new.
+
+## 9.7 Bootstrap mechanisms must close themselves
+
+`ADMIN_EMAILS` exists to break one deadlock: a fresh install has no administrator
+and no way to create one, because granting a role requires already being staff.
+The runbook said to delete the variable afterwards — which makes the safety of the
+deployment depend on somebody remembering a manual step, on a box where an old
+`.env.prod` gets copied forward. Anyone who could later receive mail at a listed
+address would be handed admin on their next sign-in, silently.
+
+It now refuses once any active admin exists. The break-glass CLI deliberately
+bypasses that gate: it needs database credentials and must keep working when
+nobody can sign in at all.
+
+**The rule for next time:** any privileged bootstrap should be self-limiting by
+construction. "Remember to turn it off" is not a security control.
+
+## 9.8 Infrastructure facts that live outside the repository
+
+These cost real time because nothing in the codebase could have told us:
+
+- **Reverse DNS is owned by whoever owns the IP**, not by your DNS provider. It
+  goes on the IPv4 row (the IPv6 row sits right next to it in Linode's panel) and
+  can take an hour to reach the authoritative servers. A default
+  `*.linodeusercontent.com` PTR costs -1.36 on mail-tester and is a leading cause
+  of legitimate mail being filtered.
+- **One ACME client per host.** certbot renewals had been failing silently for
+  weeks because Caddy took port 80; the mail certificate expired on 2026-07-20 and
+  every STARTTLS client that validates certificates had been rejecting mail since.
+  Caddy now issues everything and a systemd timer copies the mail cert into place.
+  Expiry of a certificate nothing visibly depends on is invisible until somebody
+  reports mail "not arriving".
+- **docker-mailserver rewrites `/etc/opendkim/SigningTable` on every boot**,
+  keeping only the primary domain. A multi-domain server needs the documented
+  `user-patches.sh` hook, or the other domains send unsigned — which is not an
+  error anywhere, just a spam folder.
+
+## 9.9 Interface standards that were assumed and never written down
+
+- **Emoji are not iconography.** They render as a different drawing on every
+  platform, in colours you do not control, at a weight that never matches your
+  type — and on iOS they make the product look like Apple drew it. Use a stroke
+  icon set on one grid with `currentColor` so icons inherit type colour and dark
+  mode. Where a label already carries the meaning, use no icon at all.
+- **Third-party sign-in buttons have compliance requirements.** Google's Identity
+  branding guidelines specify the mark, dimensions, colours and permitted wording,
+  and an OAuth app can be refused at verification over a home-made button. Style it
+  from their spec, not from your design tokens, and say so in a comment so the next
+  restyle does not "harmonise" it.
+- **Tap targets are 44px minimum** (Apple HIG, WCAG 2.5.5). Ours were 44px only
+  where somebody had thought about thumbs; everything else was ~40px.
+- **A flex/grid child defaults to `min-width:auto`**, so one unbroken string — an
+  address, a slug, a base32 secret — sets the page width and gives every view
+  sideways scroll. `min-width:0` plus `overflow-wrap:anywhere` is the structural
+  guard.
+
+## 9.10 Features that existed but could not be reached
+
+Two shipped complete and unreachable, which is worse than unbuilt because nothing
+in the backlog says they are missing:
+
+- **Account deletion** was implemented, audited and session-revoking, but the UI
+  called a path that 404'd and therefore reported "coming soon".
+- **Sign out** existed only inside the security panel, put there to unstick an MFA
+  dead end. There was no way to leave the app from anywhere else.
+
+**The rule for next time:** "the endpoint exists" and "a user can reach it" are
+different states. A feature is not done until something a person can click reaches
+it, and the Definition of Done (§1.5) should say so.
