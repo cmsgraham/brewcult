@@ -88,8 +88,18 @@ function shell(heading: string, bodyHtml: string): string {
 </body></html>`;
 }
 
+/**
+ * The verification code, set large enough to read off a phone at arm's length
+ * but NOT large enough to trip SpamAssassin.
+ *
+ * This was 30px, which fires HTML_FONT_SIZE_HUGE — a spam heuristic, because
+ * enormous type is a shouting-headline tell. It is only a -0.001 penalty on its
+ * own, but spam scoring is cumulative and a transactional mail that must reach
+ * the inbox should not donate points for decoration. 22px with the same weight
+ * and letter-spacing is just as scannable and scores clean.
+ */
 function codeBlock(code: string): string {
-  return `<div style="font-size:30px;letter-spacing:8px;font-weight:700;background:${CREAM};border-radius:10px;padding:16px;text-align:center;margin:0 0 16px;">${escapeHtml(code)}</div>`;
+  return `<div style="font-size:22px;letter-spacing:8px;font-weight:700;background:${CREAM};border-radius:10px;padding:16px;text-align:center;margin:0 0 16px;">${escapeHtml(code)}</div>`;
 }
 
 function button(url: string, label: string): string {
