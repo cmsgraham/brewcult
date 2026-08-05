@@ -8,3 +8,13 @@ coverage/
 *.tsbuildinfo
 *.log
 .DS_Store
+
+# Google Cloud OAuth downloads. These arrive named `client_secret_<id>.apps.
+# googleusercontent.com.json` and contain a live client secret — the exact
+# filename you get by clicking "Download JSON" in the credentials console.
+# Nothing here ever needs to be in the repo: the app reads GOOGLE_CLIENT_ID and
+# GOOGLE_CLIENT_SECRET from the environment, and the file itself belongs in
+# /srv/brewcult/secrets on the server (mode 600).
+client_secret*.json
+*credentials*.json
+*.apps.googleusercontent.com.json
