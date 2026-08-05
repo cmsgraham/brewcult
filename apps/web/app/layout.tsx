@@ -6,6 +6,7 @@ import { SiteNav } from '../components/site-nav';
 import { brand } from '../lib/brand';
 import { fetchClientConfig } from '../lib/client-config';
 import { visibleNavItems } from '../lib/nav';
+import { hasSessionCookie } from '../lib/server-api';
 import './globals.css';
 
 /**
@@ -90,13 +91,19 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const config = await fetchClientConfig();
   const navItems = visibleNavItems(config.features);
 
+  // Cookie presence only — deliberately NOT a /me call. The nav renders on every
+  // page, so an API round trip here would tax every navigation to decide whether
+  // to draw one button. Reading the jar is free, and being wrong (an expired
+  // token) costs a redirect to /login, which is where that person was headed.
+  const signedIn = await hasSessionCookie();
+
   return (
     <html lang="en" className={spaceGrotesk.variable}>
       <body>
         <a className="bc-skip-link" href="#main">
           Skip to content
         </a>
-        <SiteNav items={navItems} />
+        <SiteNav items={navItems} signedIn={signedIn} />
         <main id="main" className="bc-main bc-shell" tabIndex={-1}>
           {children}
         </main>

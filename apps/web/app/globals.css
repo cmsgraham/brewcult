@@ -666,3 +666,27 @@ svg {
   accent-color: var(--bc-ink);
   cursor: pointer;
 }
+
+/* Sign out sits at the end of the nav, visually separated from destinations —
+   it is an action, not a place. */
+.bc-nav__signout {
+  display: flex;
+  align-items: center;
+  margin-left: 0.5rem;
+}
+.bc-nav__signout .bc-button {
+  min-height: 36px; /* nav-scale: the 44px rule applies to the mobile list below */
+  padding: 0.35rem 0.8rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+@media (max-width: 720px) {
+  .bc-nav__signout {
+    margin-left: 0;
+    padding: 0.6rem 0.5rem;
+  }
+  .bc-nav__signout .bc-button {
+    width: 100%;
+    min-height: 44px;
+  }
+}

@@ -112,7 +112,9 @@ const NO_REFRESH_PATHS = [
   '/api/v1/auth/register',
   '/api/v1/auth/logout',
   '/api/v1/auth/verify-email',
-  '/api/v1/auth/password-reset',
+  // Base prefix: shouldAttemptRefresh() matches this and anything beneath it,
+  // so both /password/forgot and /password/reset are covered.
+  '/api/v1/auth/password',
 ];
 
 export function shouldAttemptRefresh(path: string): boolean {
@@ -396,8 +398,11 @@ export const authApi = {
   verifyEmail: (input: { token: string }, options?: ApiRequestOptions) =>
     apiFetch<void>('/api/v1/auth/verify-email', { ...options, method: 'POST', body: input }),
 
+  // `/password/forgot`, not `/password-reset/request`. The invented pair 404'd,
+  // so "forgot your password" has never worked from the UI — found by the
+  // web-to-api contract test on its first run (engineering_foundations §9.2).
   requestPasswordReset: (input: { email: string }, options?: ApiRequestOptions) =>
-    apiFetch<void>('/api/v1/auth/password-reset/request', {
+    apiFetch<void>('/api/v1/auth/password/forgot', {
       ...options,
       method: 'POST',
       body: input,
@@ -407,7 +412,7 @@ export const authApi = {
     input: { token: string; password: string },
     options?: ApiRequestOptions,
   ) =>
-    apiFetch<void>('/api/v1/auth/password-reset/confirm', {
+    apiFetch<void>('/api/v1/auth/password/reset', {
       ...options,
       method: 'POST',
       body: input,

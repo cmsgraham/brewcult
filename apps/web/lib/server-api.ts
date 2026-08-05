@@ -74,3 +74,18 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     return null;
   }
 }
+
+/**
+ * Is a session cookie present?
+ *
+ * Presence, not validity — and that distinction is deliberate. This exists so
+ * the nav can decide whether to draw "Sign out" without an API round trip on
+ * every single page render. A stale cookie means somebody sees the control and
+ * gets sent to /login when they use it, which is the correct destination
+ * anyway. Anything that GRANTS access must still verify the token properly;
+ * this only decides whether to draw a button.
+ */
+export async function hasSessionCookie(): Promise<boolean> {
+  const jar = await cookies();
+  return jar.has('bc_access') || jar.has('bc_refresh');
+}

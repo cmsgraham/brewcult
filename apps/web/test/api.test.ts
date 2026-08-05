@@ -222,7 +222,12 @@ describe('error copy', () => {
 describe('shouldAttemptRefresh', () => {
   it('excludes every auth endpoint and nothing else', () => {
     expect(shouldAttemptRefresh('/api/v1/auth/refresh')).toBe(false);
-    expect(shouldAttemptRefresh('/api/v1/auth/password-reset/confirm')).toBe(false);
+    // The real reset endpoints. This asserted `/password-reset/confirm`, an
+    // invented path that 404s — so "forgot your password" never worked and the
+    // test agreed with the client rather than with the API. Found by the
+    // web→api contract check on its first run.
+    expect(shouldAttemptRefresh('/api/v1/auth/password/forgot')).toBe(false);
+    expect(shouldAttemptRefresh('/api/v1/auth/password/reset')).toBe(false);
     expect(shouldAttemptRefresh('/api/v1/users/me')).toBe(true);
     expect(shouldAttemptRefresh('/api/v1/coffees')).toBe(true);
   });

@@ -5,10 +5,20 @@ import { usePathname } from 'next/navigation';
 import { useId, useState } from 'react';
 import { isActiveNavItem, type NavItem } from '../lib/nav';
 import { BrandLockup } from './brand-lockup';
+import { SignOutButton } from './profile/sign-out-button';
 
 export interface SiteNavProps {
   /** Already filtered by feature flags on the server (EF §2.5). */
   items: readonly NavItem[];
+  /**
+   * Whether a session cookie is present. Decided on the server from the cookie
+   * jar alone — no API call — so the control never flickers in after hydration.
+   *
+   * Presence of the cookie is not proof the session is VALID, and that is fine:
+   * the cost of showing Sign out to somebody whose token has expired is a
+   * redirect to /login, which is where they were going anyway.
+   */
+  signedIn?: boolean;
 }
 
 /**
@@ -19,7 +29,7 @@ export interface SiteNavProps {
  * disclosure button with the aria-expanded/aria-controls pair — no icon-only
  * mystery-meat button, the control says "Menu".
  */
-export function SiteNav({ items }: SiteNavProps) {
+export function SiteNav({ items, signedIn = false }: SiteNavProps) {
   const pathname = usePathname() ?? '/';
   const [open, setOpen] = useState(false);
   const navId = useId();
@@ -63,6 +73,14 @@ export function SiteNav({ items }: SiteNavProps) {
                 </li>
               );
             })}
+            {/* Sign out belongs in the nav, not only on the profile page:
+                leaving should be reachable from wherever you are, which matters
+                most on a shared or borrowed device (second_draft §30.4). */}
+            {signedIn ? (
+              <li className="bc-nav__signout">
+                <SignOutButton />
+              </li>
+            ) : null}
           </ul>
         </nav>
       </div>
