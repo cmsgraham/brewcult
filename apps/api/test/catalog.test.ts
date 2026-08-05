@@ -98,7 +98,16 @@ const USER: Actor = { userId: '33333333-3333-4333-8333-333333333333', role: 'use
 const ADMIN_NO_MFA: Actor = { userId: ADMIN.userId, role: 'admin' };
 
 async function applyMigrations(): Promise<void> {
-  for (const file of ['0001_extensions.sql', '0002_identity.sql', '0003_catalog.sql']) {
+  // 0006 + 0008 join the list because the catalog projection now LEFT JOINs
+  // `media` for entity artwork, and 0008's deferred FK needs brew_sessions.
+  // 0004/0005 stay out: pg_trgm and the identity extras are not needed here.
+  for (const file of [
+    '0001_extensions.sql',
+    '0002_identity.sql',
+    '0003_catalog.sql',
+    '0006_brewing.sql',
+    '0008_media.sql',
+  ]) {
     const sql = readFileSync(join(MIGRATIONS, file), 'utf8')
       // PGlite has no pgvector build; the embedding columns land in a later
       // migration, so nothing in the catalog suite depends on it.

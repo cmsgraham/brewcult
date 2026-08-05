@@ -28,6 +28,8 @@ import { createBrewEngine, type BrewEngine } from '../../lib/offline/engine';
 import type { QueueState } from '../../lib/offline/queue';
 import { registerServiceWorker } from '../../lib/offline/service-worker';
 import { uuidv7 } from '../../lib/uuid';
+import { BrewPhotoField } from '../media/brew-photo';
+import { useBrewPhoto } from '../media/use-brew-photo';
 import { BagSwitcher } from './bag-switcher';
 import { CoffeePicker } from './coffee-picker';
 import { PostLogNote } from './post-log-note';
@@ -68,6 +70,10 @@ const EMPTY_SYNC: QueueState = {
  *   Path B  tweak card    → prefilled steppers, ~8–12s, `source: tweak`
  *   Path C  coffee picker → search + quick-add, once per bag, `source: new`
  *
+ * An optional photo rides alongside (§4) and is the one thing here that is
+ * explicitly *not* part of the log: it uploads in the background and attaches
+ * itself to a session that is already persisted. Path A never shows it.
+ *
  * Every log is written to IndexedDB *first* and rendered as logged immediately;
  * the idempotent PUT happens behind the user's back (§5, EF §2.2). The clock
  * that decides whether the 15-second bar is met starts when this component
@@ -103,6 +109,16 @@ export function BrewLogger({
   const [suggestion, setSuggestion] = useState<BrewSuggestion | null>(null);
   const [resumed, setResumed] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  /**
+   * The optional brew photo (§4). It owns its own upload entirely; the only
+   * thing the logging path below does with it is hand over the session id
+   * *after* the brew is already on the device, and that call is synchronous and
+   * cannot throw. A photo can therefore never slow, block or fail a log.
+   */
+  const photo = useBrewPhoto({ engine, ...(fetchImpl ? { fetchImpl } : {}) });
+  const photoRef = useRef(photo);
+  photoRef.current = photo;
 
   const timer = useRef(createLogTimer(() => nowFn.current()));
   const draftRef = useRef<BrewDraft | null>(null);
@@ -216,6 +232,13 @@ export function BrewLogger({
         // Persisted locally === logged. Everything after this is bookkeeping.
         await engine.logBrew(record);
 
+        // The brew is safe. Only *now* does the photo get told which session it
+        // belongs to — synchronous, non-throwing, never awaited. If the upload
+        // is still in flight it amends the session when it lands; if it failed
+        // or there is no signal it parks itself for later. Either way this line
+        // cannot add a millisecond to the measurement below.
+        photoRef.current.attachTo(session);
+
         emitTimeToLog(
           timer.current.measure({
             path: resolvedPath,
@@ -266,6 +289,10 @@ export function BrewLogger({
       const session = {
         ...current.record.session,
         ...(verdict ? { taste: { verdict } } : {}),
+        // Carried forward explicitly: a photo that landed after this record was
+        // captured lives in the store, not in `logged`, and rating a brew must
+        // not quietly detach its picture.
+        ...(photoRef.current.mediaId ? { photo_media_id: photoRef.current.mediaId } : {}),
         updated_at: new Date(at).toISOString(),
       };
       const record: LocalBrewRecord = { ...current.record, session };
@@ -378,6 +405,7 @@ export function BrewLogger({
       ) : null}
 
       {logged ? (
+        <>
         <PostLogNote
           payback={logged.payback}
           verdict={logged.record.session.taste?.verdict ?? null}
@@ -387,6 +415,7 @@ export function BrewLogger({
           onLogAnother={() => {
             setLogged(null);
             setMode('repeat');
+            photo.reset();
             timer.current.reset();
           }}
           {...(logged.payback.suggestion
@@ -400,6 +429,10 @@ export function BrewLogger({
           pending={sync.pending}
           shareText={`${draft.coffee?.label ?? 'This brew'} — ${summarizeDraft(draft)}`}
         />
+        {/* "Log first, attach after" — the path we actually want people on,
+            including everyone who came through Path A's single tap. */}
+        <BrewPhotoField controller={photo} variant="inline" logged />
+        </>
       ) : mode === 'picker' ? (
         <CoffeePicker
           recent={recent}
@@ -429,6 +462,7 @@ export function BrewLogger({
             void logBrew('B');
           }}
           onCancel={() => setMode('repeat')}
+          photoSlot={<BrewPhotoField controller={photo} />}
         />
       ) : (
         <RepeatCard

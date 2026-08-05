@@ -14,6 +14,7 @@
 
 import { query as poolQuery } from '../../lib/db.js';
 import { badRequest, conflict, notFound } from '../../lib/errors.js';
+import { mediaUrl } from '../media/index.js';
 import { decodeCursor, paginate } from './cursor.js';
 import { escapeLike, isUuid } from './text.js';
 import type {
@@ -123,6 +124,8 @@ interface CoffeeRow {
   id: string;
   slug: string;
   name: string;
+  image_key: string | null;
+  image_thumbnail_key: string | null;
   roast_level: RoastLevel;
   intended_use: IntendedUse;
   tasting_notes: string[] | null;
@@ -146,6 +149,19 @@ interface CoffeeRow {
   farm_story: string | null;
 }
 
+/**
+ * Absolute URLs on the media origin. Built through media's published helper so
+ * the URL shape lives in exactly one module; null when the entity has no
+ * artwork, which every client renders as its text-only state.
+ */
+function toImage(
+  key: string | null | undefined,
+  thumbnailKey: string | null | undefined,
+): { url: string; thumbnail_url: string } | null {
+  if (!key) return null;
+  return { url: mediaUrl(key), thumbnail_url: mediaUrl(thumbnailKey ?? key) };
+}
+
 function toCoffeeSummary(row: CoffeeRow): CoffeeSummary {
   return {
     id: row.id,
@@ -161,6 +177,7 @@ function toCoffeeSummary(row: CoffeeRow): CoffeeSummary {
         ? { id: row.origin_id, country: row.origin_country ?? '', region: row.origin_region }
         : null,
     process: row.process,
+    image: toImage(row.image_key, row.image_thumbnail_key),
     created_at: iso(row.created_at),
     updated_at: iso(row.updated_at),
   };
@@ -193,6 +210,7 @@ function toCoffeeLot(row: CoffeeRow): CoffeeLot | null {
 const COFFEE_COLUMNS = `
   cp.id, cp.slug, cp.name, cp.roast_level, cp.intended_use, cp.tasting_notes,
   cp.status, cp.created_at, cp.updated_at,
+  cpm.storage_key AS image_key, cpm.thumbnail_key AS image_thumbnail_key,
   r.id   AS roaster_id, r.slug AS roaster_slug, r.name AS roaster_name,
   cl.id  AS lot_id, cl.process, cl.process_detail, cl.varietals,
   cl.altitude_masl, cl.harvest_period,
@@ -201,6 +219,10 @@ const COFFEE_COLUMNS = `
 
 const COFFEE_FROM = `
   FROM coffee_products cp
+  -- Cross-module read of media (documented boundary exception, as in admin):
+  -- the alternative is an N+1 lookup per card. Writes still belong to media;
+  -- URL construction goes through media's published mediaUrl().
+  LEFT JOIN media cpm ON cpm.id = cp.image_media_id AND cpm.status = 'ready'
   JOIN roasters      r  ON r.id  = cp.roaster_id
   LEFT JOIN coffee_lots cl ON cl.id = cp.coffee_lot_id
   LEFT JOIN origins  o  ON o.id  = cl.origin_id

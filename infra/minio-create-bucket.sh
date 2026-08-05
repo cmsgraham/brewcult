@@ -15,4 +15,10 @@ until mc alias set local "$S3_ENDPOINT" "$S3_ACCESS_KEY" "$S3_SECRET_KEY" 2>/dev
 done
 
 mc mb -p "local/$S3_BUCKET"
-echo "Bucket ready: $S3_BUCKET"
+
+# Media objects are served straight from this origin by the browser (the API
+# never proxies image bytes), so the bucket needs anonymous read. Keys are
+# non-guessable, and nothing secret is ever stored here.
+mc anonymous set download "local/$S3_BUCKET"
+
+echo "Bucket ready: $S3_BUCKET (anonymous download enabled)"

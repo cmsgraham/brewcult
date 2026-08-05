@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { EntityImage } from '../media/entity-image';
 import type { CoffeeSummary, EquipmentSummary, RecipeView, RoasterSummary } from './catalog-api';
 import {
   EQUIPMENT_CATEGORY_LABEL,
@@ -18,6 +19,15 @@ import {
  *
  * Every card links, and every card names its neighbours (roaster, brand,
  * coffee) so the crawler walks the entity graph instead of hitting leaves.
+ *
+ * ── Images ───────────────────────────────────────────────────────────────────
+ * `EntityImage` reads whichever key the API ends up using for a picture
+ * (`image_url` / `imageUrl` / `image` / a nested media object) and renders
+ * **nothing at all** when there is none — which is every entity today. The
+ * text-only card is therefore unchanged until real artwork exists, rather than
+ * every grid growing a row of empty grey rectangles. `fallback="monogram"` is
+ * there for the day a surface wants uniform rows.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 
 export function CoffeeCard({ coffee }: { coffee: CoffeeSummary }) {
@@ -27,6 +37,7 @@ export function CoffeeCard({ coffee }: { coffee: CoffeeSummary }) {
 
   return (
     <li className="bc-card">
+      <EntityImage entity={coffee} alt={coffee.name} prefer="thumbnail" />
       <h3>
         <Link href={`/coffee/${coffee.slug}`}>{coffee.name}</Link>
       </h3>
@@ -49,6 +60,7 @@ export function CoffeeCard({ coffee }: { coffee: CoffeeSummary }) {
 export function RoasterCard({ roaster }: { roaster: RoasterSummary }) {
   return (
     <li className="bc-card">
+      <EntityImage entity={roaster} alt={roaster.name} prefer="thumbnail" shape="square" />
       <h3>
         <Link href={`/roaster/${roaster.slug}`}>{roaster.name}</Link>
       </h3>
@@ -64,6 +76,11 @@ export function RoasterCard({ roaster }: { roaster: RoasterSummary }) {
 export function EquipmentCard({ equipment }: { equipment: EquipmentSummary }) {
   return (
     <li className="bc-card">
+      <EntityImage
+        entity={equipment}
+        alt={`${equipment.brand.name} ${equipment.name}`}
+        prefer="thumbnail"
+      />
       <h3>
         <Link href={`/equipment/${equipment.slug}`}>
           {`${equipment.brand.name} ${equipment.name}`}

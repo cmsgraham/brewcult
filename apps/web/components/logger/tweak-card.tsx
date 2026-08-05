@@ -1,6 +1,7 @@
 'use client';
 
 import type { GrindCategory } from '@brewcult/shared-types';
+import type { ReactNode } from 'react';
 import {
   formatRatio,
   grindNumber,
@@ -31,6 +32,16 @@ export interface TweakCardProps {
   /** Yesterday's "try 0.5 coarser?" suggestion, offered as one tap. */
   suggestion?: BrewSuggestion | null;
   onApplySuggestion?: () => void;
+  /**
+   * Optional photo affordance (components/media). A slot rather than a direct
+   * import so this card keeps knowing nothing about uploads — and so the
+   * photo's lifecycle stays where it belongs: outside the log.
+   *
+   * §4 is emphatic that a photo never blocks a log, so whatever lands here is
+   * rendered *after* the numbers and *before* the primary action, and "Log
+   * brew" never consults it.
+   */
+  photoSlot?: ReactNode;
 }
 
 const GRIND_CATEGORIES: ReadonlyArray<{ value: GrindCategory; label: string }> = [
@@ -48,7 +59,11 @@ const GRIND_CATEGORIES: ReadonlyArray<{ value: GrindCategory; label: string }> =
  * Same card as Path A, every value prefilled and inline-editable. No modal, no
  * page change. Steppers rather than keyboards; ratio derived, never entered;
  * taste in one tap; the timer optional. The fields §4 deliberately cuts
- * (water chemistry, pour schedule, TDS, prose, photo) are not here at all.
+ * (water chemistry, pour schedule, TDS, prose) are not here at all.
+ *
+ * The one addition is `photoSlot` — §4 keeps a photo optional and off the
+ * critical path, so it arrives as a closed disclosure below the numbers and the
+ * primary action never waits for it.
  */
 export function TweakCard({
   draft,
@@ -61,6 +76,7 @@ export function TweakCard({
   busy = false,
   suggestion = null,
   onApplySuggestion,
+  photoSlot,
 }: TweakCardProps) {
   const grind = grindNumber(draft.grind_setting);
   const ratio = ratioOf(draft.dose_g, draft.water_g);
@@ -192,6 +208,8 @@ export function TweakCard({
         value={draft.verdict}
         onChange={(verdict) => apply(setVerdict(draft, verdict))}
       />
+
+      {photoSlot ?? null}
 
       <details className="bc-logger__more">
         <summary>More</summary>

@@ -1,0 +1,277 @@
+/*
+ * Media surfaces (uploader, avatar, entity image).
+ *
+ * Every colour is a token from app/globals.css, so the reversed brand palette
+ * (cream on espresso) comes for free in dark mode. Nothing here introduces a
+ * third brand hue — brand law is espresso and cream only (lib/brand.ts).
+ *
+ * Target sizes follow the logger's rules: every interactive element is at least
+ * 44px tall, because these controls get imprecise, one-handed taps too.
+ */
+
+/* --- uploader ----------------------------------------------------- */
+
+.uploader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.label {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.hint {
+  font-size: 0.85rem;
+  color: var(--bc-ink-muted);
+  margin: 0;
+}
+
+/*
+ * The drop zone is a <label>, so a click anywhere inside it opens the picker.
+ * The real <input type="file"> sits on top at zero opacity rather than
+ * display:none: it stays in the tab order, Enter/Space open the picker for free,
+ * and a native file drop lands on the input itself.
+ */
+.dropzone {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  min-height: 96px;
+  padding: 0.9rem 1rem;
+  cursor: pointer;
+  color: var(--bc-ink);
+  background: var(--bc-bg);
+  border: 1px dashed var(--bc-line);
+  border-radius: var(--bc-radius);
+}
+
+.dropzone:hover {
+  border-color: var(--bc-ink-muted);
+}
+
+.dropzone:focus-within {
+  outline: 3px solid var(--bc-focus);
+  outline-offset: 2px;
+}
+
+.dropzoneActive {
+  border-style: solid;
+  border-color: var(--bc-ink);
+  background: var(--bc-surface);
+}
+
+.dropzoneCompact {
+  min-height: 64px;
+  padding: 0.6rem 0.75rem;
+  gap: 0.65rem;
+}
+
+.input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* Firefox refuses pointer events on a zero-size file input; keep it sized. */
+.input::-webkit-file-upload-button {
+  cursor: pointer;
+}
+
+.dropzoneCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.dropzoneTitle {
+  font-weight: 600;
+  margin: 0;
+}
+
+.dropzoneSub {
+  font-size: 0.85rem;
+  color: var(--bc-ink-muted);
+  margin: 0;
+}
+
+.preview {
+  flex: 0 0 auto;
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: var(--bc-radius-sm);
+  border: 1px solid var(--bc-line);
+  background: var(--bc-surface);
+}
+
+.previewCompact {
+  width: 56px;
+  height: 56px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.actions button {
+  min-height: 44px;
+}
+
+.status {
+  font-size: 0.85rem;
+  color: var(--bc-ink-muted);
+  margin: 0;
+  min-height: 1.2em;
+}
+
+.error {
+  font-size: 0.85rem;
+  color: var(--bc-danger);
+  font-weight: 600;
+  margin: 0;
+}
+
+/*
+ * Indeterminate progress. We cannot report real bytes-sent through fetch, and a
+ * fake percentage would be a lie, so the bar says "working" and nothing more.
+ */
+.bar {
+  display: block;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--bc-line);
+  overflow: hidden;
+}
+
+.barFill {
+  display: block;
+  height: 100%;
+  width: 40%;
+  background: var(--bc-ink);
+  animation: media-indeterminate 1.1s ease-in-out infinite;
+}
+
+@keyframes media-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .barFill {
+    animation: none;
+    width: 100%;
+    opacity: 0.5;
+  }
+}
+
+/* --- avatar ------------------------------------------------------- */
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: 999px;
+  border: 1px solid var(--bc-line);
+  background: var(--bc-surface);
+  color: var(--bc-ink);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  user-select: none;
+}
+
+.avatarImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatarRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.avatarEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.avatarEditorControls {
+  flex: 1 1 16rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* --- entity image ------------------------------------------------- */
+
+.entityImage {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--bc-radius-sm);
+  border: 1px solid var(--bc-line);
+  background: var(--bc-surface);
+  margin-bottom: 0.35rem;
+}
+
+.entityImageSquare {
+  aspect-ratio: 1 / 1;
+}
+
+/*
+ * The intentional-looking absence. Used only where a grid needs uniform rows;
+ * the default when an entity has no picture is to render nothing at all, which
+ * is exactly the text-only card that ships today.
+ */
+.entityMonogram {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--bc-radius-sm);
+  border: 1px solid var(--bc-line);
+  background: var(--bc-surface);
+  color: var(--bc-ink-muted);
+  font-weight: 700;
+  font-size: 1.4rem;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.35rem;
+}
+
+/* --- brew photo (logger) ------------------------------------------ */
+
+.brewPhoto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+}
+
+.brewPhotoNote {
+  font-size: 0.82rem;
+  color: var(--bc-ink-muted);
+  margin: 0;
+}

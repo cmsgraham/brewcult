@@ -42,6 +42,7 @@ import {
   recipeReviewBody,
   syncChangesQuery,
 } from './schemas.js';
+import { assertMediaUsable } from '../media/index.js';
 import { diagnoseTaste } from './taste.js';
 import { iso as isoOf } from './types.js';
 import type {
@@ -603,6 +604,13 @@ export async function registerBrewingRoutes(
       const existing = await repo.findBrewSessionResource(db, request.params.id);
       if (existing) await authorize(actor, 'update', BREW_SESSION_RESOURCE, existing);
       else await authorize(actor, 'create', BREW_SESSION_RESOURCE);
+
+      // The 0008 FK only stops a DANGLING media id. This stops the IDOR:
+      // attaching a photo that belongs to someone else, or one uploaded for a
+      // different purpose (an avatar, a catalog image).
+      if (body.photo_media_id) {
+        await assertMediaUsable(db, body.photo_media_id, userId, 'brew_photo');
+      }
 
       const outcome = await repo.upsertBrewSession(db, {
         id: request.params.id,

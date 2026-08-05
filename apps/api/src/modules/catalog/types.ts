@@ -59,10 +59,18 @@ export interface CoffeeLot {
 }
 
 /** List-shaped coffee: enough to render a card, no lot story or batches. */
+/** Absolute URLs on the media origin; null when the entity has no artwork. */
+export interface EntityImage {
+  url: string;
+  thumbnail_url: string;
+}
+
 export interface CoffeeSummary {
   id: string;
   slug: string;
   name: string;
+  /** Absolute URLs on the media origin; null when the entity has no artwork. */
+  image?: { url: string; thumbnail_url: string } | null;
   roast_level: RoastLevel;
   intended_use: IntendedUse;
   tasting_notes: string[];

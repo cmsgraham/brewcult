@@ -1,9 +1,11 @@
 import { type Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { AvatarEditor } from '../../components/media/avatar-editor';
 import { AccountActions } from '../../components/profile/account-actions';
 import { Alert } from '../../components/ui/alert';
 import { fetchClientConfig } from '../../lib/client-config';
+import { readAvatarUrl } from '../../lib/media-client';
 import { getSessionUser } from '../../lib/server-api';
 
 export const metadata: Metadata = {
@@ -34,6 +36,32 @@ export default async function ProfilePage() {
           is in your inbox — <Link href="/verify-email">details here</Link>.
         </Alert>
       ) : null}
+
+      {/* Read tolerantly: the avatar field's exact spelling is still settling on
+          the API side, and an absent one simply means initials. */}
+      <section aria-labelledby="photo-heading" className="bc-stack">
+        <h2 id="photo-heading">Your photo</h2>
+        <AvatarEditor
+          initialUrl={readAvatarUrl(user)}
+          displayName={user.displayName ?? null}
+          handle={user.handle}
+        />
+      </section>
+
+      {/* The MFA page has existed since ID-07 with no entry point anywhere in
+          the product — you could only reach it from the operator console's
+          interstitial. This is that entry point. */}
+      <section aria-labelledby="security-heading" className="bc-stack">
+        <h2 id="security-heading">Signing in safely</h2>
+        <p className="bc-muted">
+          Two-factor authentication means a sign-in needs your password and a code from a
+          device you are holding. It takes about a minute to set up, and you can turn it off
+          again whenever you like.
+        </p>
+        <p style={{ marginBottom: 0 }}>
+          <Link href="/profile/security">Two-factor authentication →</Link>
+        </p>
+      </section>
 
       <section aria-labelledby="equipment-heading" className="bc-stack">
         <h2 id="equipment-heading">Your equipment</h2>

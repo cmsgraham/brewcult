@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { type CoffeeSummary } from '../../lib/api';
+import { EntityImage } from '../media/entity-image';
 
 const ROAST_LEVEL_LABEL: Record<string, string> = {
   light: 'Light roast',
@@ -23,6 +24,10 @@ export function CoffeeCard({ coffee }: { coffee: CoffeeSummary }) {
 
   return (
     <li className="bc-card">
+      {/* Renders only when the payload carries a picture. No image means the
+          card stays exactly as it ships today — a clean text card, which is an
+          intentional look, not a broken one. */}
+      <EntityImage entity={coffee} alt={coffee.name} prefer="thumbnail" />
       <h3>
         {/* Detail pages live at /coffee/[slug]; /discover is the browse surface. */}
         <Link href={`/coffee/${coffee.slug}`}>{coffee.name}</Link>

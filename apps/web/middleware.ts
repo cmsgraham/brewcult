@@ -30,7 +30,13 @@ export function middleware(request: NextRequest) {
     // 'unsafe-eval' is dev-only: the Next dev server compiles in the browser.
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ''}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https://media.brewcult.coffee",
+    // The media origin is a separate, cookie-less host. In development that is
+    // the local MinIO container, so images would otherwise be CSP-blocked on
+    // every dev machine while working fine in production — the worst kind of
+    // environment-only bug.
+    `img-src 'self' data: blob: https://media.brewcult.coffee${
+      process.env.NODE_ENV === 'production' ? '' : ' http://localhost:9000'
+    }`,
     "font-src 'self' data:",
     "connect-src 'self'",
     "frame-ancestors 'none'",

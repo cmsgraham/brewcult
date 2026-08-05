@@ -5,6 +5,7 @@ import { registerIdentityRoutes } from './modules/identity/index.js';
 import { registerCatalogRoutes } from './modules/catalog/index.js';
 import { registerBrewingRoutes } from './modules/brewing/index.js';
 import { registerAdminRoutes } from './modules/admin/index.js';
+import { registerMediaRoutes } from './modules/media/index.js';
 
 function health(status: HealthStatus['status']): HealthStatus {
   return {
@@ -65,6 +66,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await registerCatalogRoutes(app);
   await registerBrewingRoutes(app);
   await registerAdminRoutes(app);
+  await registerMediaRoutes(app);
 
   return app;
 }
