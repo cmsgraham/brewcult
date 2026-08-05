@@ -50,7 +50,10 @@ export function registerGoogleRoutes(app: FastifyInstance): boolean {
     async (request, reply) => {
       const env = getEnv();
       const context = requestContext(request);
-      const failureRedirect = `${env.APP_URL}/sign-in?error=`;
+      // `/login`, not `/sign-in`. The web app has no /sign-in route, so every
+      // failure path here used to dead-end on the 404 page with the reason in
+      // the query string and no way back.
+      const failureRedirect = `${env.APP_URL}/login?error=`;
 
       const namespace = app.googleOAuth2;
       if (!namespace) return reply.redirect(`${failureRedirect}google_unavailable`);
@@ -109,8 +112,14 @@ export function registerGoogleRoutes(app: FastifyInstance): boolean {
       const mfa = await findUserMfa(poolExec, user.id);
       if (mfa?.confirmed_at) {
         const challenge = signMfaChallengeToken(app, user.id);
+        // There is no /sign-in/mfa page — the MFA step is leg two of the login
+        // form, driven by component state. Sending the challenge as a query
+        // param on /login lets that form open directly on the code step, which
+        // is the difference between "enter your code" and a 404 holding a live
+        // challenge token. Before this, ANY account with TOTP enabled could not
+        // complete Google sign-in at all.
         return reply.redirect(
-          `${env.APP_URL}/sign-in/mfa?token=${encodeURIComponent(challenge)}`,
+          `${env.APP_URL}/login?mfa_token=${encodeURIComponent(challenge)}`,
         );
       }
 

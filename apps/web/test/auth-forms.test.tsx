@@ -275,3 +275,32 @@ describe('GoogleButton', () => {
     expect(container).toBeEmptyDOMElement();
   });
 });
+
+/**
+ * Google sign-in comes back to /login through a server-side redirect, so the
+ * only channel it has for state is the URL. Both of these paths were broken:
+ * the callback pointed at `/sign-in` and `/sign-in/mfa`, neither of which
+ * exists in this app — so a refused sign-in dead-ended on the 404 page, and
+ * any account with TOTP enabled could not complete Google sign-in AT ALL.
+ */
+describe('LoginForm handles what the Google callback hands back', () => {
+  it('opens directly on the code step when a challenge token arrives', () => {
+    render(<LoginForm initialMfaToken="challenge-token-abc" />);
+    expect(screen.getByLabelText('Authentication code')).toBeInTheDocument();
+    // Leg one must be gone — showing both would invite typing a password into
+    // a form that is no longer collecting one.
+    expect(screen.queryByLabelText('Password')).not.toBeInTheDocument();
+  });
+
+  it('shows a refusal message and still offers the email form', () => {
+    render(<LoginForm initialError="That account is not active." />);
+    expect(screen.getByText('That account is not active.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Password')).toBeInTheDocument();
+  });
+
+  it('is the ordinary credentials form when neither is present', () => {
+    render(<LoginForm />);
+    expect(screen.getByLabelText('Password')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Authentication code')).not.toBeInTheDocument();
+  });
+});

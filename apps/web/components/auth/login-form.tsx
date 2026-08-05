@@ -10,10 +10,24 @@ import { Field } from '../ui/field';
 
 type LoginField = 'email' | 'password';
 
-export function LoginForm({ next = '/profile' }: { next?: string }) {
+export function LoginForm({
+  next = '/profile',
+  initialMfaToken,
+  initialError,
+}: {
+  next?: string;
+  /**
+   * Set when Google sign-in bounced back needing a second factor. The OAuth
+   * callback is a server redirect and cannot hand state to the client any other
+   * way, so the challenge arrives as a query param and opens leg two directly.
+   */
+  initialMfaToken?: string;
+  /** A message from a failed Google round trip, already made human upstream. */
+  initialError?: string;
+}) {
   const router = useRouter();
   const [errors, setErrors] = useState<FieldErrors<LoginField>>({});
-  const [formError, setFormError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(initialError ?? null);
   const [pending, setPending] = useState(false);
   /**
    * Leg two of the login. The API answers an MFA-enrolled account with
@@ -21,7 +35,7 @@ export function LoginForm({ next = '/profile' }: { next?: string }) {
    * component state (never storage — it is short-lived and single-purpose) and
    * exchange it for a session once the code is in.
    */
-  const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [mfaToken, setMfaToken] = useState<string | null>(initialMfaToken ?? null);
   const [useRecoveryCode, setUseRecoveryCode] = useState(false);
 
   function finish() {
