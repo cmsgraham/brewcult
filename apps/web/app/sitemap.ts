@@ -11,7 +11,21 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://brewcult.coffee';
  * If the API is unreachable at build/request time we emit the static set rather
  * than failing the route — an incomplete sitemap is recoverable, a 500 is not.
  */
-export const revalidate = 3600;
+/**
+ * Rendered per REQUEST, not at build time.
+ *
+ * This was `revalidate = 3600`, which makes Next prerender it during
+ * `next build` — and the build runs inside Docker with no API container to
+ * talk to. So the catalog fetch below always failed, the fallback emitted the
+ * static routes alone, and that 8-entry result was baked into the image. Every
+ * deploy reset it, and the only thing that ever fixed it was an hour passing
+ * without a deploy.
+ *
+ * A sitemap is fetched by crawlers a handful of times a day. Generating it
+ * live costs four API reads and is always right, which is the correct trade
+ * for a file whose entire job is to be an accurate index.
+ */
+export const dynamic = 'force-dynamic';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: { path: string; priority: number; changeFrequency: 'daily' | 'monthly' }[] = [
@@ -34,7 +48,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const apiBase = process.env.API_INTERNAL_URL ?? 'http://localhost:4000';
     const pull = async (path: string): Promise<{ items?: unknown[] } | null> => {
-      const res = await fetch(`${apiBase}${path}`, { next: { revalidate: 3600 } });
+      const res = await fetch(`${apiBase}${path}`, { cache: 'no-store' });
       return res.ok ? ((await res.json()) as { items?: unknown[] }) : null;
     };
     const [coffees, roasters, equipment] = await Promise.all([
