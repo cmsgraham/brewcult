@@ -23,6 +23,7 @@ import {
   totpUri,
   verifyTotp,
 } from '../mfa.js';
+import { setSessionCookies } from '../cookies.js';
 import { verifyPassword } from '../passwords.js';
 import {
   confirmMfa,
@@ -40,6 +41,7 @@ import {
   mfaRecoveryCodesSchema,
 } from '../schemas.js';
 import { generateRecoveryCode } from '../secrets.js';
+import { issueSession, revokeFamily } from '../tokens.js';
 import { csrfGuard } from './guards.js';
 
 function freshRecoveryCodes(): string[] {
@@ -93,7 +95,24 @@ export function registerMfaRoutes(app: FastifyInstance): void {
       if (!result.valid) throw badRequest('That code is not valid.');
 
       const codes = freshRecoveryCodes();
-      await transaction(async (client) => {
+      /**
+       * Re-issue the session, MFA-backed.
+       *
+       * The access token carries `mfa` from the moment the session was minted,
+       * and `isStaff()` checks it. Without this an admin who has JUST proved
+       * possession of their authenticator still holds a session that says
+       * mfa=false — so every staff action refuses, on the exact account that
+       * enabled two-factor in order to perform them. The old route left a
+       * comment telling people to sign in again; a comment in the source is not
+       * a place a person looks when a button does nothing.
+       *
+       * The proof is at least as strong as the one the login challenge asks
+       * for: a valid TOTP code, presented on an already-authenticated session.
+       * The previous family is revoked so the pre-MFA session cannot continue
+       * alongside it.
+       */
+      const previousFamily = request.sessionId;
+      const session = await transaction(async (client) => {
         const exec = clientExec(client);
         await confirmMfa(exec, userId, result.timeStep ?? 0);
         await replaceRecoveryCodes(exec, userId, codes);
@@ -104,6 +123,16 @@ export function registerMfaRoutes(app: FastifyInstance): void {
           targetId: userId,
           payload: { recovery_codes_issued: codes.length },
         });
+        if (previousFamily) await revokeFamily(exec, previousFamily);
+        return issueSession(app, exec, {
+          userId,
+          role: user.role,
+          mfa: true,
+          context: {
+            userAgent: request.headers['user-agent'] ?? null,
+            ip: request.ip,
+          },
+        });
       });
 
       await sendIdentityMail(request.log, {
@@ -113,12 +142,10 @@ export function registerMfaRoutes(app: FastifyInstance): void {
         data: {},
       });
 
-      return reply.send({
-        status: 'enabled',
-        // Sign in again to obtain a session whose access token carries mfa=true;
-        // this one still says false, which is what `isStaff()` checks.
-        recovery_codes: codes,
-      });
+      // The browser is now holding an MFA-backed session; staff actions work
+      // without signing in again.
+      setSessionCookies(reply, session);
+      return reply.send({ status: 'enabled', recovery_codes: codes });
     },
   );
 

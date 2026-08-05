@@ -846,6 +846,45 @@ describe('TOTP MFA (ID-07)', () => {
     return { secret, recoveryCodes: confirm.json<{ recovery_codes: string[] }>().recovery_codes };
   }
 
+  it('hands back an MFA-backed session the moment enrolment is confirmed', async () => {
+    // Otherwise an admin who has just proved possession of their authenticator
+    // still holds a session saying mfa=false, and every staff action refuses —
+    // on the exact account that enabled two-factor in order to perform them.
+    const { tokens } = await newVerifiedUser();
+    const enrol = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/mfa/enrol',
+      headers: bearer(tokens.access_token),
+    });
+    const secret = enrol.json<{ secret: string }>().secret;
+
+    const confirm = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/mfa/confirm',
+      headers: bearer(tokens.access_token),
+      payload: { code: await currentTotpToken(secret) },
+    });
+    expect(confirm.statusCode).toBe(200);
+
+    // A fresh session arrives on the cookies, and its refresh row says mfa.
+    const access = confirm.cookies.find((c) => c.name === 'bc_access');
+    expect(access?.value).toBeTruthy();
+    const { rows } = await exec<{ mfa: boolean }>(
+      `SELECT mfa FROM refresh_tokens
+        WHERE revoked_at IS NULL AND rotated_at IS NULL
+        ORDER BY created_at DESC LIMIT 1`,
+    );
+    expect(rows[0]?.mfa).toBe(true);
+
+    // The pre-MFA family is revoked rather than left running alongside it.
+    const stale = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/refresh',
+      payload: { refresh_token: tokens.refresh_token },
+    });
+    expect(stale.statusCode).toBe(401);
+  });
+
   it('enrols, challenges at login and marks the session MFA-backed', async () => {
     const { account, tokens } = await newVerifiedUser();
     const { secret, recoveryCodes } = await enableMfa(tokens.access_token);
@@ -885,11 +924,14 @@ describe('TOTP MFA (ID-07)', () => {
   });
 
   it('does not let a pre-enrolment session gain MFA standing by refreshing', async () => {
-    const { tokens } = await newVerifiedUser();
+    const { account, tokens } = await newVerifiedUser();
     // This session was created before TOTP existed on the account.
     expect(app.jwt.verify<{ mfa: boolean }>(tokens.access_token).mfa).toBe(false);
 
-    await enableMfa(tokens.access_token);
+    // Enrol from a DIFFERENT session, so the pre-enrolment one is left alone by
+    // the re-issue above and this test can still ask its question.
+    const second = await login(account);
+    await enableMfa(second.access_token);
 
     const refreshed = await app.inject({
       method: 'POST',
@@ -898,7 +940,8 @@ describe('TOTP MFA (ID-07)', () => {
     });
     expect(refreshed.statusCode).toBe(200);
     const rotated = refreshed.json<Tokens>();
-    // Refreshing carries MFA standing forward; it never manufactures it.
+    // Refreshing carries MFA standing forward; it never manufactures it. The
+    // only thing that mints an mfa=true session is proving a code.
     expect(app.jwt.verify<{ mfa: boolean }>(rotated.access_token).mfa).toBe(false);
   });
 
