@@ -718,3 +718,79 @@ svg {
     justify-content: center;
   }
 }
+
+/* --- your equipment --- */
+.bc-kit {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--bc-line);
+  border-radius: var(--bc-radius);
+}
+.bc-kit__row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.9rem 1rem;
+}
+.bc-kit__row + .bc-kit__row {
+  border-top: 1px solid var(--bc-line);
+}
+.bc-kit__text {
+  flex: 1 1 12rem;
+  min-width: 0; /* long model names wrap instead of widening the row */
+  display: flex;
+  flex-direction: column;
+}
+.bc-kit__name {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.bc-kit__badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: var(--bc-ink);
+  color: var(--bc-bg);
+}
+.bc-kit__meta {
+  font-size: 0.88rem;
+}
+.bc-kit__actions {
+  display: flex;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+}
+.bc-kit__button {
+  min-height: 40px;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.88rem;
+}
+.bc-kit__add {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+.bc-kit__add .bc-input {
+  flex: 1 1 16rem;
+}
+@media (max-width: 32rem) {
+  .bc-kit__actions {
+    width: 100%;
+  }
+  .bc-kit__button {
+    flex: 1 1 auto;
+    min-height: 44px;
+  }
+  .bc-kit__add .bc-button {
+    width: 100%;
+  }
+}

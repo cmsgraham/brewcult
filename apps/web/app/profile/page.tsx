@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { AvatarEditor } from '../../components/media/avatar-editor';
 import { AccountActions } from '../../components/profile/account-actions';
+import { EquipmentManager } from '../../components/profile/equipment-manager';
 import { SignOutButton } from '../../components/profile/sign-out-button';
 import { Alert } from '../../components/ui/alert';
 import { fetchClientConfig } from '../../lib/client-config';
@@ -95,15 +96,7 @@ export default async function ProfilePage() {
           Whatever you own is the right starting point. Telling us about it lets suggestions
           talk in your grinder&rsquo;s numbers instead of somebody else&rsquo;s.
         </p>
-        <ul className="bc-card-grid">
-          <li className="bc-card">
-            <h3>No gear added yet</h3>
-            <p className="bc-card__meta">
-              Grinders, brewers, kettles and scales land here. The equipment picker arrives
-              with the brew logger — nothing to do for now.
-            </p>
-          </li>
-        </ul>
+        <EquipmentManager />
       </section>
 
       {/* EF §4.5 — plainly worded, at the place where the switch will live. */}

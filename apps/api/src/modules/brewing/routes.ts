@@ -35,6 +35,12 @@ import {
 import * as repo from './repository.js';
 import { defaultBrewingDb, withTransaction } from './repository.js';
 import {
+  addOwnedEquipment,
+  listOwnedEquipment,
+  removeOwnedEquipment,
+  setPrimaryEquipment,
+} from './user-equipment.js';
+import {
   brewListQuery,
   brewPrefillQuery,
   brewPutBody,
@@ -129,6 +135,90 @@ export async function registerBrewingRoutes(
 ): Promise<void> {
   const db = options.db ?? defaultBrewingDb;
   const prefix = options.prefix ?? '/v1';
+
+  // -------------------------------------------------------------------------
+  // Owned equipment — "what I actually have" (0010)
+  //
+  // Under /v1/my-equipment rather than /v1/equipment/... because catalog owns
+  // that namespace and /v1/equipment/:slug is a public catalogue page. Two
+  // different resources sharing a prefix is how you end up with a slug called
+  // "mine".
+  // -------------------------------------------------------------------------
+
+  app.get(`${prefix}/my-equipment`, authed, async (request) => ({
+    items: await listOwnedEquipment(db, requireUserId(request)),
+  }));
+
+  app.post<{ Body: { equipment_model_id?: string; nickname?: string; is_primary?: boolean } }>(
+    `${prefix}/my-equipment`,
+    authed,
+    async (request, reply) => {
+      const userId = requireUserId(request);
+      const body = request.body ?? {};
+      if (typeof body.equipment_model_id !== 'string' || body.equipment_model_id === '') {
+        throw badRequest('Tell us which piece of equipment.');
+      }
+      if (body.nickname !== undefined && body.nickname.length > 60) {
+        throw badRequest('That nickname is a bit long — 60 characters or fewer.');
+      }
+
+      const result = await addOwnedEquipment(db, {
+        userId,
+        equipmentModelId: body.equipment_model_id,
+        nickname: body.nickname ?? null,
+        isPrimary: body.is_primary === true,
+      });
+
+      // A model that is not in the catalogue is a bad request, not a 404 on
+      // this collection — the thing that does not exist is what they sent.
+      if (result.status === 'unknown_model') throw badRequest('We do not know that equipment.');
+      if (result.status === 'already_owned') {
+        // Adding the same thing twice is a double-click, not an error worth
+        // showing somebody. Answer with the list they were going to reload.
+        return reply.status(200).send({ items: await listOwnedEquipment(db, userId) });
+      }
+
+      await recordBrewingAudit(db, {
+        actorId: userId,
+        action: 'user_equipment.added',
+        targetType: 'user_equipment',
+        targetId: result.item.id,
+        payload: { equipment_model_id: result.item.equipment_model_id },
+      });
+      return reply.status(201).send({ items: await listOwnedEquipment(db, userId) });
+    },
+  );
+
+  app.patch<{ Params: { id: string } }>(
+    `${prefix}/my-equipment/:id`,
+    authed,
+    async (request) => {
+      const userId = requireUserId(request);
+      // Scoped by user_id in the query, so somebody else's id reads as absent
+      // rather than being found and then refused — no existence oracle.
+      const updated = await setPrimaryEquipment(db, userId, request.params.id);
+      if (!updated) throw notFound('Not in your equipment.');
+      return { items: await listOwnedEquipment(db, userId) };
+    },
+  );
+
+  app.delete<{ Params: { id: string } }>(
+    `${prefix}/my-equipment/:id`,
+    authed,
+    async (request) => {
+      const userId = requireUserId(request);
+      const removed = await removeOwnedEquipment(db, userId, request.params.id);
+      if (!removed) throw notFound('Not in your equipment.');
+      await recordBrewingAudit(db, {
+        actorId: userId,
+        action: 'user_equipment.removed',
+        targetType: 'user_equipment',
+        targetId: request.params.id,
+        payload: {},
+      });
+      return { items: await listOwnedEquipment(db, userId) };
+    },
+  );
 
   // -------------------------------------------------------------------------
   // Recipes (REC-01..REC-05, REC-07)

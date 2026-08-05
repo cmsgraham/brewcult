@@ -30,12 +30,17 @@ export type BrewingAuditAction =
   | 'recipe.deleted'
   | 'recipe.forked'
   | 'recipe.conflict_copy_created'
-  | 'brew.deleted';
+  | 'brew.deleted'
+  // Ownership claims (0010). Audited because "why does the assistant think I
+  // own a Niche?" is a question somebody will eventually ask, and the answer
+  // should be a record rather than a guess.
+  | 'user_equipment.added'
+  | 'user_equipment.removed';
 
 export interface BrewingAuditEvent {
   actorId: string | null;
   action: BrewingAuditAction;
-  targetType: 'recipe' | 'brew_session';
+  targetType: 'recipe' | 'brew_session' | 'user_equipment';
   targetId: string;
   payload?: Record<string, unknown>;
 }
