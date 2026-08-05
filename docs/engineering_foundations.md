@@ -707,3 +707,31 @@ minimum shout, when it does. "Skipped" in the output of a run reported as green
 is worse than no check, because it produces confidence without evidence. Set up
 the fixture the branch needs (here: two throwaway accounts, one uploading and
 one borrowing) rather than making the check conditional on the environment.
+
+## 9.15 A probe that does what the client cannot
+
+The browser's silent session refresh was a 403 for the entire life of the
+feature. `refreshSession()` bypasses `apiFetch` deliberately — that is how it
+avoids recursing through the 401 handler — and in doing so it bypassed the CSRF
+token handling that lives there. `csrfGuard` fires on any request carrying a
+session cookie, and a refresh carries one by definition.
+
+Two things were supposed to catch this and both said the opposite:
+
+- **The unit tests** asserted `401 → refresh → retry`: three calls, refresh at
+  index 1, correct URL, correct method. Every claim was true. None of them was
+  the header. The tests described the broken sequence faithfully and passed for
+  it — the §9.2 failure again, in a place that had already been fixed once.
+- **The production check** fetched a CSRF token before calling refresh, because
+  curl needs one to get a 200. The app did not. The script proved that the
+  ENDPOINT works, which was never in doubt, and said nothing about the client.
+
+The observable symptom was a number: nineteen sign-ins in a week and one token
+rotation. I read that as "the refresh is never called". It was called every time
+and refused every time.
+
+**The rule for next time:** a verification script must perform the client's
+sequence, not a sequence that reaches the same endpoint. If the script needs a
+step the app does not have — minting a token, setting a header, pre-seeding a
+cookie — that step is either missing from the app or the script is testing
+something else. Both are worth knowing, and only one of them is what was asked.
