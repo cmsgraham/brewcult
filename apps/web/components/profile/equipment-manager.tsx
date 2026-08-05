@@ -1,17 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { isApiError } from '../../lib/api';
 import {
   CATEGORY_LABEL,
   addMyEquipment,
   equipmentTitle,
-  fetchEquipmentOptions,
   fetchMyEquipment,
   makePrimaryEquipment,
   removeMyEquipment,
-  type EquipmentCategory,
-  type EquipmentOption,
+  searchEquipment,
+  type EquipmentSuggestion,
   type OwnedEquipment,
 } from '../../lib/equipment-client';
 import { Alert } from '../ui/alert';
@@ -20,29 +19,32 @@ import { Alert } from '../ui/alert';
  * "Your equipment", for real.
  *
  * This replaced a card reading "The equipment picker arrives with the brew
- * logger — nothing to do for now." The logger shipped, so the copy was
- * promising something against a milestone that had already passed, and there
- * was no way to add anything.
+ * logger — nothing to do for now." The logger shipped, so that copy promised
+ * something against a milestone that had already passed, and there was no way
+ * to add anything at all.
  *
- * Kept deliberately small: pick from the catalogue, optionally mark the one you
- * mean by default, remove it. No purchase dates, no photos, no condition —
- * every one of those is a field somebody has to maintain and none of them
- * changes a brewing suggestion (second_draft §10: ask for what you will use).
+ * Search rather than a dropdown: the catalogue is ~100 models and only grows,
+ * and people know their gear by name ("niche", "v60") long before they would
+ * find it by scrolling a grouped <select>.
+ *
+ * Kept deliberately small otherwise — no purchase dates, prices, condition or
+ * photos. Each is a field somebody has to maintain and none changes a brewing
+ * suggestion (second_draft §10: ask for what you will use).
  */
 export function EquipmentManager() {
   const [owned, setOwned] = useState<OwnedEquipment[] | null>(null);
-  const [options, setOptions] = useState<EquipmentOption[]>([]);
-  const [selected, setSelected] = useState('');
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<EquipmentSuggestion[]>([]);
+  const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const listId = 'equipment-search-results';
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([fetchMyEquipment(), fetchEquipmentOptions()])
-      .then(([mine, catalogue]) => {
-        if (cancelled) return;
-        setOwned(mine);
-        setOptions(catalogue);
+    fetchMyEquipment()
+      .then((mine) => {
+        if (!cancelled) setOwned(mine);
       })
       .catch(() => {
         if (!cancelled) {
@@ -55,27 +57,42 @@ export function EquipmentManager() {
     };
   }, []);
 
+  // Debounced so typing "comandante" is one request at the end rather than ten
+  // on the way there. 250ms is below the threshold where a search box starts to
+  // feel like it is ignoring you.
+  useEffect(() => {
+    const q = query.trim();
+    if (q === '') {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      searchEquipment(q)
+        .then((items) => {
+          if (!cancelled) setResults(items);
+        })
+        .catch(() => {
+          if (!cancelled) setResults([]);
+        })
+        .finally(() => {
+          if (!cancelled) setSearching(false);
+        });
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [query]);
+
   const ownedModelIds = useMemo(
     () => new Set((owned ?? []).map((item) => item.equipment_model_id)),
     [owned],
   );
 
-  /** Catalogue minus what you already have, grouped the way a shelf is. */
-  const grouped = useMemo(() => {
-    const groups = new Map<EquipmentCategory, EquipmentOption[]>();
-    for (const option of options) {
-      if (ownedModelIds.has(option.id)) continue;
-      const list = groups.get(option.category) ?? [];
-      list.push(option);
-      groups.set(option.category, list);
-    }
-    for (const list of groups.values()) {
-      list.sort((a, b) => `${a.brand?.name ?? ''} ${a.name}`.localeCompare(`${b.brand?.name ?? ''} ${b.name}`));
-    }
-    return groups;
-  }, [options, ownedModelIds]);
-
-  async function run(action: () => Promise<OwnedEquipment[]>): Promise<void> {
+  const run = useCallback(async (action: () => Promise<OwnedEquipment[]>): Promise<void> => {
     setBusy(true);
     setError(null);
     try {
@@ -87,7 +104,7 @@ export function EquipmentManager() {
     } finally {
       setBusy(false);
     }
-  }
+  }, []);
 
   if (owned === null) {
     return (
@@ -145,50 +162,71 @@ export function EquipmentManager() {
         </ul>
       )}
 
-      <div className="bc-kit__add">
-        <label className="bc-visually-hidden" htmlFor="add-equipment">
+      <div className="bc-kit__search">
+        <label className="bc-kit__label" htmlFor="equipment-search">
           Add equipment
         </label>
-        <select
-          id="add-equipment"
+        <input
+          id="equipment-search"
           className="bc-input"
-          value={selected}
-          disabled={busy || options.length === 0}
-          onChange={(event) => setSelected(event.target.value)}
-        >
-          <option value="">Add a piece of equipment…</option>
-          {[...grouped.entries()].map(([category, list]) => (
-            <optgroup key={category} label={CATEGORY_LABEL[category]}>
-              {list.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {[option.brand?.name, option.name].filter(Boolean).join(' ')}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-        <button
-          type="button"
-          className="bc-button"
-          disabled={busy || selected === ''}
-          onClick={() =>
-            void run(async () => {
-              const next = await addMyEquipment({ equipment_model_id: selected });
-              setSelected('');
-              return next;
-            })
-          }
-        >
-          Add
-        </button>
-      </div>
+          type="search"
+          autoComplete="off"
+          placeholder="Search grinders, brewers, kettles, scales…"
+          value={query}
+          disabled={busy}
+          onChange={(event) => setQuery(event.target.value)}
+          role="combobox"
+          aria-expanded={results.length > 0}
+          aria-controls={listId}
+          aria-autocomplete="list"
+        />
 
-      {options.length === 0 ? (
-        <p className="bc-muted" style={{ fontSize: '0.9rem' }}>
-          The equipment catalogue is still filling up. If yours is missing, it will appear here
-          as we add it.
+        {/* Every state gets a sentence. A search box that goes quiet when it
+            finds nothing reads as broken rather than as empty. */}
+        <p className="bc-muted bc-kit__status" role="status">
+          {query.trim() === ''
+            ? 'Type a brand or model — “niche”, “v60”, “stagg”.'
+            : searching
+              ? 'Searching…'
+              : results.length === 0
+                ? 'Nothing matched. If your gear is missing we will add it — the catalogue is still growing.'
+                : `${results.length} match${results.length === 1 ? '' : 'es'}`}
         </p>
-      ) : null}
+
+        {results.length > 0 ? (
+          <ul className="bc-kit__results" id={listId}>
+            {results.map((item) => {
+              const already = ownedModelIds.has(item.id);
+              return (
+                <li key={item.id} className="bc-kit__result">
+                  <span className="bc-kit__text">
+                    <span className="bc-kit__name">{item.label}</span>
+                    {item.sublabel ? (
+                      <span className="bc-muted bc-kit__meta">{item.sublabel}</span>
+                    ) : null}
+                  </span>
+                  <button
+                    type="button"
+                    className="bc-button bc-kit__button"
+                    disabled={busy || already}
+                    onClick={() =>
+                      void run(async () => {
+                        const next = await addMyEquipment({ equipment_model_id: item.id });
+                        setQuery('');
+                        setResults([]);
+                        return next;
+                      })
+                    }
+                  >
+                    {already ? 'Added' : 'Add'}
+                    <span className="bc-visually-hidden"> {item.label}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+      </div>
     </div>
   );
 }

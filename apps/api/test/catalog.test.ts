@@ -410,12 +410,24 @@ describe('GET /v1/roasters, /v1/equipment, /v1/origins', () => {
   });
 
   it('filters equipment by category and brand', async () => {
+    // Asserts the FILTER, not a head-count. This used to expect exactly 15
+    // grinders and 3 Baratzas, which coupled the test to how many rows the seed
+    // happened to contain — so adding real models to the catalogue broke it
+    // while nothing about the behaviour had changed. What matters is that
+    // everything coming back matches the filter, and that the filter is
+    // actually narrowing the set.
+    const all = await app.inject({ url: '/v1/equipment?limit=100' });
+    const allItems = all.json<{ items: { category: string }[] }>().items;
+
     const grinders = await app.inject({ url: '/v1/equipment?category=grinder&limit=100' });
-    expect(grinders.json<{ items: unknown[] }>().items).toHaveLength(15);
+    const grinderItems = grinders.json<{ items: { category: string }[] }>().items;
+    expect(grinderItems.length).toBeGreaterThan(0);
+    expect(grinderItems.every((e) => e.category === 'grinder')).toBe(true);
+    expect(grinderItems.length).toBeLessThan(allItems.length); // it narrowed
 
     const baratza = await app.inject({ url: '/v1/equipment?brand=baratza&limit=100' });
     const body = baratza.json<{ items: { brand: { name: string } }[] }>();
-    expect(body.items).toHaveLength(3);
+    expect(body.items.length).toBeGreaterThan(0);
     expect(body.items.every((e) => e.brand.name === 'Baratza')).toBe(true);
   });
 

@@ -5,7 +5,12 @@
     "category": "grinder",
     "name": "C40 MK4 Nitro Blade",
     "grind_scale_type": "rotational",
-    "specs": { "burr": "conical 39mm nitro blade", "drive": "hand", "clicks_per_rotation": 10, "capacity_g": 40 }
+    "specs": {
+      "burr": "conical 39mm nitro blade",
+      "drive": "hand",
+      "clicks_per_rotation": 10,
+      "capacity_g": 40
+    }
   },
   {
     "slug": "baratza-encore",
@@ -13,7 +18,12 @@
     "category": "grinder",
     "name": "Encore",
     "grind_scale_type": "stepped",
-    "specs": { "burr": "conical 40mm", "drive": "electric", "settings": 40, "capacity_g": 227 }
+    "specs": {
+      "burr": "conical 40mm",
+      "drive": "electric",
+      "settings": 40,
+      "capacity_g": 227
+    }
   },
   {
     "slug": "baratza-encore-esp",
@@ -21,7 +31,12 @@
     "category": "grinder",
     "name": "Encore ESP",
     "grind_scale_type": "stepped",
-    "specs": { "burr": "conical 40mm M2", "drive": "electric", "settings": 40, "espresso_range": "1-20 micro-steps" }
+    "specs": {
+      "burr": "conical 40mm M2",
+      "drive": "electric",
+      "settings": 40,
+      "espresso_range": "1-20 micro-steps"
+    }
   },
   {
     "slug": "baratza-virtuoso-plus",
@@ -29,7 +44,12 @@
     "category": "grinder",
     "name": "Virtuoso+",
     "grind_scale_type": "stepped",
-    "specs": { "burr": "conical 40mm M3", "drive": "electric", "settings": 40, "timer": "digital 40s" }
+    "specs": {
+      "burr": "conical 40mm M3",
+      "drive": "electric",
+      "settings": 40,
+      "timer": "digital 40s"
+    }
   },
   {
     "slug": "df64-gen-2",
@@ -37,7 +57,12 @@
     "category": "grinder",
     "name": "DF64 Gen 2",
     "grind_scale_type": "stepless",
-    "specs": { "burr": "flat 64mm DLC", "drive": "electric", "single_dose": true, "rpm": 1400 }
+    "specs": {
+      "burr": "flat 64mm DLC",
+      "drive": "electric",
+      "single_dose": true,
+      "rpm": 1400
+    }
   },
   {
     "slug": "niche-zero",
@@ -45,7 +70,12 @@
     "category": "grinder",
     "name": "Zero",
     "grind_scale_type": "stepless",
-    "specs": { "burr": "conical 63mm Mazzer", "drive": "electric", "single_dose": true, "dial": "0-50 marked, stepless" }
+    "specs": {
+      "burr": "conical 63mm Mazzer",
+      "drive": "electric",
+      "single_dose": true,
+      "dial": "0-50 marked, stepless"
+    }
   },
   {
     "slug": "eureka-mignon-specialita",
@@ -53,7 +83,12 @@
     "category": "grinder",
     "name": "Mignon Specialità",
     "grind_scale_type": "stepless",
-    "specs": { "burr": "flat 55mm", "drive": "electric", "timer": "touchscreen 2-dose", "hopper_g": 300 }
+    "specs": {
+      "burr": "flat 55mm",
+      "drive": "electric",
+      "timer": "touchscreen 2-dose",
+      "hopper_g": 300
+    }
   },
   {
     "slug": "fellow-ode-gen-2",
@@ -61,7 +96,12 @@
     "category": "grinder",
     "name": "Ode Brew Grinder Gen 2",
     "grind_scale_type": "stepped",
-    "specs": { "burr": "flat 64mm Gen 2 brew", "drive": "electric", "settings": "11 numbers x 3 micro-steps (31)", "filter_only": true }
+    "specs": {
+      "burr": "flat 64mm Gen 2 brew",
+      "drive": "electric",
+      "settings": "11 numbers x 3 micro-steps (31)",
+      "filter_only": true
+    }
   },
   {
     "slug": "fellow-opus",
@@ -69,7 +109,11 @@
     "category": "grinder",
     "name": "Opus Conical Burr Grinder",
     "grind_scale_type": "stepped",
-    "specs": { "burr": "conical 40mm 6-blade", "drive": "electric", "settings": "41+ with inner adjustment" }
+    "specs": {
+      "burr": "conical 40mm 6-blade",
+      "drive": "electric",
+      "settings": "41+ with inner adjustment"
+    }
   },
   {
     "slug": "1zpresso-jx-pro",
@@ -77,7 +121,12 @@
     "category": "grinder",
     "name": "JX-Pro",
     "grind_scale_type": "rotational",
-    "specs": { "burr": "conical 48mm", "drive": "hand", "clicks_per_rotation": 40, "microns_per_click": 12.5 }
+    "specs": {
+      "burr": "conical 48mm",
+      "drive": "hand",
+      "clicks_per_rotation": 40,
+      "microns_per_click": 12.5
+    }
   },
   {
     "slug": "1zpresso-k-ultra",
@@ -85,7 +134,13 @@
     "category": "grinder",
     "name": "K-Ultra",
     "grind_scale_type": "rotational",
-    "specs": { "burr": "conical 48mm K-core", "drive": "hand", "clicks_per_rotation": 100, "microns_per_click": 8.8, "external_dial": true }
+    "specs": {
+      "burr": "conical 48mm K-core",
+      "drive": "hand",
+      "clicks_per_rotation": 100,
+      "microns_per_click": 8.8,
+      "external_dial": true
+    }
   },
   {
     "slug": "kingrinder-k6",
@@ -93,7 +148,13 @@
     "category": "grinder",
     "name": "K6",
     "grind_scale_type": "rotational",
-    "specs": { "burr": "conical 48mm", "drive": "hand", "clicks_per_rotation": 60, "microns_per_click": 16, "external_adjustment": true }
+    "specs": {
+      "burr": "conical 48mm",
+      "drive": "hand",
+      "clicks_per_rotation": 60,
+      "microns_per_click": 16,
+      "external_adjustment": true
+    }
   },
   {
     "slug": "timemore-chestnut-c3",
@@ -101,7 +162,12 @@
     "category": "grinder",
     "name": "Chestnut C3",
     "grind_scale_type": "rotational",
-    "specs": { "burr": "conical 38mm S2C", "drive": "hand", "clicks_per_rotation": 12, "adjustment": "internal, clicks from zero" }
+    "specs": {
+      "burr": "conical 38mm S2C",
+      "drive": "hand",
+      "clicks_per_rotation": 12,
+      "adjustment": "internal, clicks from zero"
+    }
   },
   {
     "slug": "wilfa-uniform",
@@ -109,7 +175,12 @@
     "category": "grinder",
     "name": "Uniform",
     "grind_scale_type": "stepped",
-    "specs": { "burr": "flat 58mm", "drive": "electric", "settings": 41, "integrated_scale": "Plus model" }
+    "specs": {
+      "burr": "flat 58mm",
+      "drive": "electric",
+      "settings": 41,
+      "integrated_scale": "Plus model"
+    }
   },
   {
     "slug": "mahlkonig-x54",
@@ -117,118 +188,899 @@
     "category": "grinder",
     "name": "X54 Allround",
     "grind_scale_type": "stepped",
-    "specs": { "burr": "flat 54mm", "drive": "electric", "settings": "stepped dial, espresso to filter", "timer": "digital" }
+    "specs": {
+      "burr": "flat 54mm",
+      "drive": "electric",
+      "settings": "stepped dial, espresso to filter",
+      "timer": "digital"
+    }
   },
   {
     "slug": "hario-v60-02",
     "brand": "Hario",
     "category": "brewer",
     "name": "V60 Dripper 02",
-    "specs": { "type": "conical pour-over", "capacity_cups": "1-4", "material": "ceramic/plastic/glass variants", "filter": "V60-02 paper" }
+    "specs": {
+      "type": "conical pour-over",
+      "capacity_cups": "1-4",
+      "material": "ceramic/plastic/glass variants",
+      "filter": "V60-02 paper"
+    }
   },
   {
     "slug": "aeropress-original",
     "brand": "AeroPress",
     "category": "brewer",
     "name": "AeroPress Original",
-    "specs": { "type": "immersion + pressure", "capacity_ml": 250, "filter": "paper disc", "inverted_capable": true }
+    "specs": {
+      "type": "immersion + pressure",
+      "capacity_ml": 250,
+      "filter": "paper disc",
+      "inverted_capable": true
+    }
   },
   {
     "slug": "chemex-6-cup",
     "brand": "Chemex",
     "category": "brewer",
     "name": "Classic 6-Cup",
-    "specs": { "type": "pour-over carafe", "capacity_ml": 900, "filter": "Chemex bonded, thick", "material": "borosilicate glass" }
+    "specs": {
+      "type": "pour-over carafe",
+      "capacity_ml": 900,
+      "filter": "Chemex bonded, thick",
+      "material": "borosilicate glass"
+    }
   },
   {
     "slug": "kalita-wave-185",
     "brand": "Kalita",
     "category": "brewer",
     "name": "Wave 185",
-    "specs": { "type": "flat-bottom pour-over", "capacity_cups": "2-4", "filter": "Wave 185 paper", "drain_holes": 3 }
+    "specs": {
+      "type": "flat-bottom pour-over",
+      "capacity_cups": "2-4",
+      "filter": "Wave 185 paper",
+      "drain_holes": 3
+    }
   },
   {
     "slug": "bodum-chambord-1l",
     "brand": "Bodum",
     "category": "brewer",
     "name": "Chambord French Press 1L",
-    "specs": { "type": "immersion press", "capacity_ml": 1000, "filter": "metal mesh", "material": "glass/stainless" }
+    "specs": {
+      "type": "immersion press",
+      "capacity_ml": 1000,
+      "filter": "metal mesh",
+      "material": "glass/stainless"
+    }
   },
   {
     "slug": "moccamaster-kbgv-select",
     "brand": "Technivorm",
     "category": "brewer",
     "name": "Moccamaster KBGV Select",
-    "specs": { "type": "automatic drip", "capacity_l": 1.25, "brew_temp_c": "92-96", "scaa_certified": true }
+    "specs": {
+      "type": "automatic drip",
+      "capacity_l": 1.25,
+      "brew_temp_c": "92-96",
+      "scaa_certified": true
+    }
   },
   {
     "slug": "clever-dripper",
     "brand": "Clever",
     "category": "brewer",
     "name": "Clever Dripper",
-    "specs": { "type": "immersion + drip release", "capacity_ml": 500, "filter": "cone paper", "shutoff_valve": true }
+    "specs": {
+      "type": "immersion + drip release",
+      "capacity_ml": 500,
+      "filter": "cone paper",
+      "shutoff_valve": true
+    }
   },
   {
     "slug": "origami-dripper-m",
     "brand": "Origami",
     "category": "brewer",
     "name": "Dripper M",
-    "specs": { "type": "conical pour-over", "capacity_cups": "1-4", "filter": "cone or wave paper", "material": "porcelain" }
+    "specs": {
+      "type": "conical pour-over",
+      "capacity_cups": "1-4",
+      "filter": "cone or wave paper",
+      "material": "porcelain"
+    }
   },
   {
     "slug": "hario-switch-03",
     "brand": "Hario",
     "category": "brewer",
     "name": "Switch Immersion Dripper 03",
-    "specs": { "type": "hybrid immersion/percolation", "capacity_ml": 360, "filter": "V60-02/03 paper", "shutoff_valve": true }
+    "specs": {
+      "type": "hybrid immersion/percolation",
+      "capacity_ml": 360,
+      "filter": "V60-02/03 paper",
+      "shutoff_valve": true
+    }
   },
   {
     "slug": "gaggia-classic-pro",
     "brand": "Gaggia",
     "category": "machine",
     "name": "Classic Pro",
-    "specs": { "type": "single boiler espresso", "boiler": "aluminum 100ml", "portafilter_mm": 58, "steam_wand": "commercial" }
+    "specs": {
+      "type": "single boiler espresso",
+      "boiler": "aluminum 100ml",
+      "portafilter_mm": 58,
+      "steam_wand": "commercial"
+    }
   },
   {
     "slug": "la-marzocco-linea-micra",
     "brand": "La Marzocco",
     "category": "machine",
     "name": "Linea Micra",
-    "specs": { "type": "dual boiler espresso", "portafilter_mm": 58, "pid": true, "app_connected": true }
+    "specs": {
+      "type": "dual boiler espresso",
+      "portafilter_mm": 58,
+      "pid": true,
+      "app_connected": true
+    }
   },
   {
     "slug": "breville-bambino-plus",
     "brand": "Breville",
     "category": "machine",
     "name": "Bambino Plus",
-    "specs": { "type": "thermojet espresso", "portafilter_mm": 54, "heat_up_s": 3, "auto_milk": true }
+    "specs": {
+      "type": "thermojet espresso",
+      "portafilter_mm": 54,
+      "heat_up_s": 3,
+      "auto_milk": true
+    }
   },
   {
     "slug": "fellow-stagg-ekg",
     "brand": "Fellow",
     "category": "kettle",
     "name": "Stagg EKG Electric Kettle",
-    "specs": { "capacity_ml": 900, "temp_control_c": "57-100", "gooseneck": true, "hold_mode_min": 60 }
+    "specs": {
+      "capacity_ml": 900,
+      "temp_control_c": "57-100",
+      "gooseneck": true,
+      "hold_mode_min": 60
+    }
   },
   {
     "slug": "brewista-artisan-1l",
     "brand": "Brewista",
     "category": "kettle",
     "name": "Artisan Gooseneck Kettle 1.0L",
-    "specs": { "capacity_ml": 1000, "temp_control_c": "40-100", "gooseneck": true, "display": "digital" }
+    "specs": {
+      "capacity_ml": 1000,
+      "temp_control_c": "40-100",
+      "gooseneck": true,
+      "display": "digital"
+    }
   },
   {
     "slug": "acaia-pearl",
     "brand": "Acaia",
     "category": "scale",
     "name": "Pearl",
-    "specs": { "capacity_g": 2000, "resolution_g": 0.1, "response_ms": 20, "bluetooth": true }
+    "specs": {
+      "capacity_g": 2000,
+      "resolution_g": 0.1,
+      "response_ms": 20,
+      "bluetooth": true
+    }
   },
   {
     "slug": "timemore-black-mirror-basic-2",
     "brand": "Timemore",
     "category": "scale",
     "name": "Black Mirror Basic 2",
-    "specs": { "capacity_g": 2000, "resolution_g": 0.1, "auto_timer": true, "usb_c": true }
+    "specs": {
+      "capacity_g": 2000,
+      "resolution_g": 0.1,
+      "auto_timer": true,
+      "usb_c": true
+    }
+  },
+  {
+    "slug": "1zpresso-j-max",
+    "brand": "1Zpresso",
+    "category": "grinder",
+    "name": "J-Max",
+    "grind_scale_type": "rotational",
+    "specs": {
+      "burr": "conical 48mm",
+      "drive": "hand",
+      "adjustment": "external"
+    }
+  },
+  {
+    "slug": "1zpresso-j-ultra",
+    "brand": "1Zpresso",
+    "category": "grinder",
+    "name": "J-Ultra",
+    "grind_scale_type": "rotational",
+    "specs": {
+      "burr": "conical 48mm",
+      "drive": "hand",
+      "adjustment": "external"
+    }
+  },
+  {
+    "slug": "1zpresso-k-max",
+    "brand": "1Zpresso",
+    "category": "grinder",
+    "name": "K-Max",
+    "grind_scale_type": "rotational",
+    "specs": {
+      "burr": "conical 48mm",
+      "drive": "hand",
+      "adjustment": "external"
+    }
+  },
+  {
+    "slug": "1zpresso-q2",
+    "brand": "1Zpresso",
+    "category": "grinder",
+    "name": "Q2",
+    "grind_scale_type": "rotational",
+    "specs": {
+      "burr": "conical 38mm",
+      "drive": "hand"
+    }
+  },
+  {
+    "slug": "timemore-chestnut-c2",
+    "brand": "Timemore",
+    "category": "grinder",
+    "name": "Chestnut C2",
+    "grind_scale_type": "stepped",
+    "specs": {
+      "burr": "conical 38mm stainless",
+      "drive": "hand"
+    }
+  },
+  {
+    "slug": "timemore-chestnut-c3-esp",
+    "brand": "Timemore",
+    "category": "grinder",
+    "name": "Chestnut C3 ESP",
+    "grind_scale_type": "stepped",
+    "specs": {
+      "burr": "conical 38mm S2C",
+      "drive": "hand",
+      "focus": "espresso"
+    }
+  },
+  {
+    "slug": "kingrinder-k4",
+    "brand": "Kingrinder",
+    "category": "grinder",
+    "name": "K4",
+    "grind_scale_type": "rotational",
+    "specs": {
+      "burr": "conical 48mm",
+      "drive": "hand",
+      "adjustment": "external"
+    }
+  },
+  {
+    "slug": "kinu-m47-phoenix",
+    "brand": "Kinu",
+    "category": "grinder",
+    "name": "M47 Phoenix",
+    "grind_scale_type": "stepless",
+    "specs": {
+      "burr": "conical 47mm",
+      "drive": "hand"
+    }
+  },
+  {
+    "slug": "hario-skerton-pro",
+    "brand": "Hario",
+    "category": "grinder",
+    "name": "Skerton Pro",
+    "grind_scale_type": "stepped",
+    "specs": {
+      "burr": "conical ceramic",
+      "drive": "hand"
+    }
+  },
+  {
+    "slug": "porlex-mini-ii",
+    "brand": "Porlex",
+    "category": "grinder",
+    "name": "Mini II",
+    "grind_scale_type": "stepped",
+    "specs": {
+      "burr": "conical ceramic",
+      "drive": "hand"
+    }
+  },
+  {
+    "slug": "baratza-vario-plus",
+    "brand": "Baratza",
+    "category": "grinder",
+    "name": "Vario+",
+    "grind_scale_type": "stepped",
+    "specs": {
+      "burr": "flat 54mm ceramic",
+      "drive": "electric",
+      "adjustment": "macro + micro"
+    }
+  },
+  {
+    "slug": "baratza-sette-270",
+    "brand": "Baratza",
+    "category": "grinder",
+    "name": "Sette 270",
+    "grind_scale_type": "stepped",
+    "specs": {
+      "burr": "conical 40mm",
+      "drive": "electric",
+      "focus": "espresso"
+    }
+  },
+  {
+    "slug": "breville-smart-grinder-pro",
+    "brand": "Breville",
+    "category": "grinder",
+    "name": "Smart Grinder Pro",
+    "grind_scale_type": "stepped",
+    "specs": {
+      "burr": "conical stainless",
+      "drive": "electric",
+      "settings": 60
+    }
+  },
+  {
+    "slug": "timemore-sculptor-078s",
+    "brand": "Timemore",
+    "category": "grinder",
+    "name": "Sculptor 078S",
+    "grind_scale_type": "stepless",
+    "specs": {
+      "burr": "flat 78mm",
+      "drive": "electric"
+    }
+  },
+  {
+    "slug": "varia-vs3",
+    "brand": "Varia",
+    "category": "grinder",
+    "name": "VS3",
+    "grind_scale_type": "stepless",
+    "specs": {
+      "burr": "conical 38mm",
+      "drive": "electric"
+    }
+  },
+  {
+    "slug": "turin-df54",
+    "brand": "Turin",
+    "category": "grinder",
+    "name": "DF54",
+    "grind_scale_type": "stepless",
+    "specs": {
+      "burr": "flat 54mm",
+      "drive": "electric",
+      "single_dosing": true
+    }
+  },
+  {
+    "slug": "option-o-lagom-p64",
+    "brand": "Option-O",
+    "category": "grinder",
+    "name": "Lagom P64",
+    "grind_scale_type": "stepless",
+    "specs": {
+      "burr": "flat 64mm",
+      "drive": "electric",
+      "single_dosing": true
+    }
+  },
+  {
+    "slug": "weber-workshops-key",
+    "brand": "Weber Workshops",
+    "category": "grinder",
+    "name": "Key",
+    "grind_scale_type": "stepless",
+    "specs": {
+      "burr": "flat 83mm",
+      "drive": "electric",
+      "single_dosing": true
+    }
+  },
+  {
+    "slug": "mahlkonig-ek43s",
+    "brand": "Mahlkönig",
+    "category": "grinder",
+    "name": "EK43 S",
+    "grind_scale_type": "stepless",
+    "specs": {
+      "burr": "flat 98mm",
+      "drive": "electric"
+    }
+  },
+  {
+    "slug": "eureka-mignon-silenzio",
+    "brand": "Eureka",
+    "category": "grinder",
+    "name": "Mignon Silenzio",
+    "grind_scale_type": "stepless",
+    "specs": {
+      "burr": "flat 50mm",
+      "drive": "electric"
+    }
+  },
+  {
+    "slug": "niche-duo",
+    "brand": "Niche",
+    "category": "grinder",
+    "name": "Duo",
+    "grind_scale_type": "stepless",
+    "specs": {
+      "burr": "conical 83mm",
+      "drive": "electric",
+      "single_dosing": true
+    }
+  },
+  {
+    "slug": "fellow-ode-gen-1",
+    "brand": "Fellow",
+    "category": "grinder",
+    "name": "Ode Brew Grinder Gen 1",
+    "grind_scale_type": "stepped",
+    "specs": {
+      "burr": "flat 64mm",
+      "drive": "electric",
+      "settings": 31
+    }
+  },
+  {
+    "slug": "hario-v60-01",
+    "brand": "Hario",
+    "category": "brewer",
+    "name": "V60 Dripper 01",
+    "specs": {
+      "style": "conical pour-over",
+      "size": "1-2 cups"
+    }
+  },
+  {
+    "slug": "hario-v60-03",
+    "brand": "Hario",
+    "category": "brewer",
+    "name": "V60 Dripper 03",
+    "specs": {
+      "style": "conical pour-over",
+      "size": "1-6 cups"
+    }
+  },
+  {
+    "slug": "kalita-wave-155",
+    "brand": "Kalita",
+    "category": "brewer",
+    "name": "Wave 155",
+    "specs": {
+      "style": "flat-bottom pour-over",
+      "size": "1-2 cups"
+    }
+  },
+  {
+    "slug": "chemex-classic-3-cup",
+    "brand": "Chemex",
+    "category": "brewer",
+    "name": "Classic 3-Cup",
+    "specs": {
+      "style": "pour-over carafe",
+      "material": "borosilicate glass"
+    }
+  },
+  {
+    "slug": "chemex-classic-8-cup",
+    "brand": "Chemex",
+    "category": "brewer",
+    "name": "Classic 8-Cup",
+    "specs": {
+      "style": "pour-over carafe",
+      "material": "borosilicate glass"
+    }
+  },
+  {
+    "slug": "aeropress-go",
+    "brand": "AeroPress",
+    "category": "brewer",
+    "name": "AeroPress Go",
+    "specs": {
+      "style": "immersion + pressure",
+      "portable": true
+    }
+  },
+  {
+    "slug": "aeropress-xl",
+    "brand": "AeroPress",
+    "category": "brewer",
+    "name": "AeroPress XL",
+    "specs": {
+      "style": "immersion + pressure"
+    }
+  },
+  {
+    "slug": "aeropress-clear",
+    "brand": "AeroPress",
+    "category": "brewer",
+    "name": "AeroPress Clear",
+    "specs": {
+      "style": "immersion + pressure",
+      "material": "tritan"
+    }
+  },
+  {
+    "slug": "orea-brewer-v4",
+    "brand": "Orea",
+    "category": "brewer",
+    "name": "Brewer V4",
+    "specs": {
+      "style": "flat-bottom pour-over"
+    }
+  },
+  {
+    "slug": "april-brewer",
+    "brand": "April",
+    "category": "brewer",
+    "name": "April Brewer",
+    "specs": {
+      "style": "flat-bottom pour-over"
+    }
+  },
+  {
+    "slug": "fellow-stagg-x-dripper",
+    "brand": "Fellow",
+    "category": "brewer",
+    "name": "Stagg [X] Dripper",
+    "specs": {
+      "style": "flat-bottom pour-over"
+    }
+  },
+  {
+    "slug": "origami-dripper-s",
+    "brand": "Origami",
+    "category": "brewer",
+    "name": "Dripper S",
+    "specs": {
+      "style": "ribbed conical pour-over"
+    }
+  },
+  {
+    "slug": "cafec-flower-dripper-cup-1",
+    "brand": "Cafec",
+    "category": "brewer",
+    "name": "Flower Dripper Cup 1",
+    "specs": {
+      "style": "conical pour-over"
+    }
+  },
+  {
+    "slug": "blue-bottle-dripper",
+    "brand": "Blue Bottle",
+    "category": "brewer",
+    "name": "Dripper",
+    "specs": {
+      "style": "single-hole conical pour-over"
+    }
+  },
+  {
+    "slug": "melitta-pour-over-cone",
+    "brand": "Melitta",
+    "category": "brewer",
+    "name": "Pour-Over Cone 1x4",
+    "specs": {
+      "style": "wedge pour-over"
+    }
+  },
+  {
+    "slug": "bialetti-moka-express-3-cup",
+    "brand": "Bialetti",
+    "category": "brewer",
+    "name": "Moka Express 3-Cup",
+    "specs": {
+      "style": "stovetop moka"
+    }
+  },
+  {
+    "slug": "espro-p7-french-press",
+    "brand": "Espro",
+    "category": "brewer",
+    "name": "P7 French Press",
+    "specs": {
+      "style": "immersion",
+      "filter": "double micro-filter"
+    }
+  },
+  {
+    "slug": "next-level-pulsar",
+    "brand": "Next Level",
+    "category": "brewer",
+    "name": "Pulsar",
+    "specs": {
+      "style": "flat-bottom immersion / no-bypass"
+    }
+  },
+  {
+    "slug": "tricolate",
+    "brand": "Tricolate",
+    "category": "brewer",
+    "name": "Tricolate",
+    "specs": {
+      "style": "no-bypass percolation"
+    }
+  },
+  {
+    "slug": "december-dripper",
+    "brand": "December",
+    "category": "brewer",
+    "name": "December Dripper",
+    "specs": {
+      "style": "adjustable-flow conical"
+    }
+  },
+  {
+    "slug": "fellow-stagg-ekg-pro",
+    "brand": "Fellow",
+    "category": "kettle",
+    "name": "Stagg EKG Pro",
+    "specs": {
+      "gooseneck": true,
+      "variable_temperature": true,
+      "capacity_l": 0.9
+    }
+  },
+  {
+    "slug": "hario-v60-buono-1-2l",
+    "brand": "Hario",
+    "category": "kettle",
+    "name": "V60 Buono Drip Kettle 1.2L",
+    "specs": {
+      "gooseneck": true,
+      "stovetop": true,
+      "capacity_l": 1.2
+    }
+  },
+  {
+    "slug": "bonavita-interurban",
+    "brand": "Bonavita",
+    "category": "kettle",
+    "name": "Interurban Kettle",
+    "specs": {
+      "gooseneck": true,
+      "variable_temperature": true
+    }
+  },
+  {
+    "slug": "timemore-fish-smart-kettle",
+    "brand": "Timemore",
+    "category": "kettle",
+    "name": "Fish Smart Electric Kettle",
+    "specs": {
+      "gooseneck": true,
+      "variable_temperature": true
+    }
+  },
+  {
+    "slug": "cafec-tsubame-drip-pot",
+    "brand": "Cafec",
+    "category": "kettle",
+    "name": "Tsubame Stainless Drip Pot",
+    "specs": {
+      "gooseneck": true,
+      "stovetop": true
+    }
+  },
+  {
+    "slug": "balmuda-the-pot",
+    "brand": "Balmuda",
+    "category": "kettle",
+    "name": "The Pot",
+    "specs": {
+      "gooseneck": true,
+      "capacity_l": 0.6
+    }
+  },
+  {
+    "slug": "acaia-lunar",
+    "brand": "Acaia",
+    "category": "scale",
+    "name": "Lunar",
+    "specs": {
+      "resolution_g": 0.1,
+      "timer": true,
+      "focus": "espresso"
+    }
+  },
+  {
+    "slug": "acaia-pearl-s",
+    "brand": "Acaia",
+    "category": "scale",
+    "name": "Pearl S",
+    "specs": {
+      "resolution_g": 0.1,
+      "timer": true
+    }
+  },
+  {
+    "slug": "timemore-black-mirror-nano",
+    "brand": "Timemore",
+    "category": "scale",
+    "name": "Black Mirror Nano",
+    "specs": {
+      "resolution_g": 0.1,
+      "timer": true,
+      "focus": "espresso"
+    }
+  },
+  {
+    "slug": "timemore-black-mirror-plus",
+    "brand": "Timemore",
+    "category": "scale",
+    "name": "Black Mirror Plus",
+    "specs": {
+      "resolution_g": 0.1,
+      "timer": true
+    }
+  },
+  {
+    "slug": "hario-v60-drip-scale",
+    "brand": "Hario",
+    "category": "scale",
+    "name": "V60 Drip Scale",
+    "specs": {
+      "resolution_g": 0.1,
+      "timer": true
+    }
+  },
+  {
+    "slug": "felicita-arc",
+    "brand": "Felicita",
+    "category": "scale",
+    "name": "Arc",
+    "specs": {
+      "resolution_g": 0.1,
+      "timer": true
+    }
+  },
+  {
+    "slug": "brewista-smart-scale-ii",
+    "brand": "Brewista",
+    "category": "scale",
+    "name": "Smart Scale II",
+    "specs": {
+      "resolution_g": 0.1,
+      "timer": true
+    }
+  },
+  {
+    "slug": "difluid-microbalance",
+    "brand": "DiFluid",
+    "category": "scale",
+    "name": "Microbalance",
+    "specs": {
+      "resolution_g": 0.1,
+      "timer": true
+    }
+  },
+  {
+    "slug": "rancilio-silvia",
+    "brand": "Rancilio",
+    "category": "machine",
+    "name": "Silvia",
+    "specs": {
+      "type": "single boiler",
+      "portafilter_mm": 58
+    }
+  },
+  {
+    "slug": "breville-barista-express",
+    "brand": "Breville",
+    "category": "machine",
+    "name": "Barista Express",
+    "specs": {
+      "type": "single boiler with built-in grinder"
+    }
+  },
+  {
+    "slug": "breville-dual-boiler",
+    "brand": "Breville",
+    "category": "machine",
+    "name": "Dual Boiler",
+    "specs": {
+      "type": "dual boiler",
+      "portafilter_mm": 58
+    }
+  },
+  {
+    "slug": "lelit-marax",
+    "brand": "Lelit",
+    "category": "machine",
+    "name": "MaraX",
+    "specs": {
+      "type": "heat exchanger",
+      "portafilter_mm": 58
+    }
+  },
+  {
+    "slug": "lelit-bianca",
+    "brand": "Lelit",
+    "category": "machine",
+    "name": "Bianca",
+    "specs": {
+      "type": "dual boiler",
+      "flow_control": true,
+      "portafilter_mm": 58
+    }
+  },
+  {
+    "slug": "profitec-pro-600",
+    "brand": "Profitec",
+    "category": "machine",
+    "name": "Pro 600",
+    "specs": {
+      "type": "dual boiler",
+      "portafilter_mm": 58
+    }
+  },
+  {
+    "slug": "ecm-synchronika",
+    "brand": "ECM",
+    "category": "machine",
+    "name": "Synchronika",
+    "specs": {
+      "type": "dual boiler",
+      "portafilter_mm": 58
+    }
+  },
+  {
+    "slug": "la-marzocco-linea-mini",
+    "brand": "La Marzocco",
+    "category": "machine",
+    "name": "Linea Mini",
+    "specs": {
+      "type": "saturated group",
+      "portafilter_mm": 58
+    }
+  },
+  {
+    "slug": "rocket-appartamento",
+    "brand": "Rocket",
+    "category": "machine",
+    "name": "Appartamento",
+    "specs": {
+      "type": "heat exchanger",
+      "portafilter_mm": 58
+    }
+  },
+  {
+    "slug": "flair-58",
+    "brand": "Flair",
+    "category": "machine",
+    "name": "58",
+    "specs": {
+      "type": "manual lever",
+      "portafilter_mm": 58
+    }
+  },
+  {
+    "slug": "cafelat-robot",
+    "brand": "Cafelat",
+    "category": "machine",
+    "name": "Robot Barista",
+    "specs": {
+      "type": "manual lever"
+    }
   }
 ]

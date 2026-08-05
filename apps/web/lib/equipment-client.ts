@@ -96,18 +96,34 @@ export async function removeMyEquipment(
   return body?.items ?? [];
 }
 
+/** One row from the shared autocomplete endpoint. */
+export interface EquipmentSuggestion {
+  id: string;
+  slug: string;
+  label: string;
+  /** The catalogue's own word for the category, e.g. "grinder". */
+  sublabel: string | null;
+}
+
 /**
- * The catalogue, for the picker.
+ * Search the catalogue.
  *
- * `limit=100` because the API caps it there and answers 400 above — the same
- * trap that left the sitemap silently empty (§9.3). One page is plenty for the
- * current catalogue; when it outgrows that this becomes a search box.
+ * Uses the shared `/v1/autocomplete` endpoint filtered to equipment rather than
+ * listing everything: at 98 models a dropdown is already a scrolling chore, and
+ * the catalogue only grows. Searching server-side also means a match on brand
+ * OR model works without shipping the whole list to every browser.
+ *
+ * The API rejects an all-whitespace query with a 400, so callers must not send
+ * one — `searchEquipment` returns early instead of asking.
  */
-export async function fetchEquipmentOptions(
+export async function searchEquipment(
+  query: string,
   options?: ApiRequestOptions,
-): Promise<EquipmentOption[]> {
-  const body = await apiFetch<{ items?: EquipmentOption[] }>(
-    '/api/v1/equipment?limit=100',
+): Promise<EquipmentSuggestion[]> {
+  const q = query.trim();
+  if (q === '') return [];
+  const body = await apiFetch<{ items?: EquipmentSuggestion[] }>(
+    `/api/v1/autocomplete?types=equipment&limit=8&q=${encodeURIComponent(q)}`,
     options,
   );
   return body?.items ?? [];
