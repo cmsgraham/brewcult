@@ -632,3 +632,39 @@ in the backlog says they are missing:
 **The rule for next time:** "the endpoint exists" and "a user can reach it" are
 different states. A feature is not done until something a person can click reaches
 it, and the Definition of Done (§1.5) should say so.
+
+## 9.11 A database rule that no form asks about
+
+Approving a catalogue proposal failed for every grinder. The catalogue has
+required grinders to declare a grind scale since 0003 — the grind converter
+cannot answer without one — but the approval form never asked for it, so the
+INSERT hit the constraint every time. Worse than the failure was the message:
+the catch assumed any write error was a slug collision, so a reviewer was told
+"something with that name is already in the catalogue" and went looking for a
+duplicate that did not exist.
+
+Two separate mistakes, and the second is the expensive one. A wrong error
+message does not just fail — it sends someone to investigate the wrong thing.
+
+**The rule for next time:** when a form writes to a table, the form's required
+fields are the table's NOT NULLs and CHECKs, and that correspondence is worth
+checking by reading the migration rather than by remembering it. In a catch
+around a write, distinguish the error kinds you can name (a unique violation,
+a named constraint) and pass through the underlying message for the rest —
+never collapse everything into the one failure you happened to think of first.
+
+## 9.12 An id from a client is a claim, not a fact
+
+The equipment submission accepted an `image_media_id` and stored it without
+checking who owned it. Media ids are uuids in a table anyone can insert into by
+uploading, so a submission could have attached somebody else's photo — the
+classic IDOR, in a field that looks like plumbing rather than a permission.
+
+`assertMediaUsable(db, id, userId, kind)` already existed for exactly this and
+was simply not called. It now runs BEFORE the row is written, so the answer is
+403 rather than a request that stored fine and quietly dropped the image.
+
+**The rule for next time:** every foreign key that arrives from a browser needs
+an ownership check on the way in, and the check belongs before the write so the
+refusal is honest. If a helper for it already exists, the absence of a call to
+it is the bug.
