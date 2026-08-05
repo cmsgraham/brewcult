@@ -1,5 +1,6 @@
 import { initialsFrom, readImageUrl } from '../../lib/media-client';
 import styles from './media.module.css';
+import { BeanIcon } from '../ui/icon';
 
 /**
  * A catalog entity's picture — a bag of coffee, a grinder, a roaster's mark.
@@ -62,7 +63,7 @@ export function EntityImage({
         aria-label={`${alt} — no photo yet`}
         data-testid="entity-monogram"
       >
-        <span aria-hidden="true">{initials === '' ? '☕' : initials}</span>
+        {initials === '' ? <BeanIcon /> : <span aria-hidden="true">{initials}</span>}
       </span>
     );
   }

@@ -237,8 +237,33 @@ describe('ResetPasswordForm', () => {
 describe('GoogleButton', () => {
   it('is a plain link to the redirect endpoint, not a fetch', () => {
     render(<GoogleButton enabled next="/profile" />);
-    const link = screen.getByRole('link', { name: 'Continue with Google' });
+    const link = screen.getByRole('link', { name: 'Sign in with Google' });
     expect(link).toHaveAttribute('href', '/api/v1/auth/google?next=%2Fprofile');
+  });
+
+  /**
+   * Google's Identity branding guidelines are a condition of using the API, and
+   * an OAuth app can be refused at verification for a home-made button. These
+   * assertions exist so a future restyle cannot quietly drop the mark or invent
+   * unapproved wording.
+   */
+  it('carries the official four-colour Google mark, un-recoloured', () => {
+    const { container } = render(<GoogleButton enabled />);
+    const svg = container.querySelector('svg');
+    expect(svg).not.toBeNull();
+    const fills = Array.from(svg?.querySelectorAll('path') ?? []).map((p) =>
+      p.getAttribute('fill'),
+    );
+    expect(fills).toEqual(['#EA4335', '#4285F4', '#FBBC05', '#34A853']);
+    // currentColor anywhere here would mean the logo is inheriting our palette.
+    expect(fills).not.toContain('currentColor');
+  });
+
+  it('uses approved wording only', () => {
+    const { rerender } = render(<GoogleButton enabled />);
+    expect(screen.getByRole('link').textContent).toBe('Sign in with Google');
+    rerender(<GoogleButton enabled label="Sign up with Google" />);
+    expect(screen.getByRole('link').textContent).toBe('Sign up with Google');
   });
 
   it('disappears when the client-config flag says Google is unavailable', () => {

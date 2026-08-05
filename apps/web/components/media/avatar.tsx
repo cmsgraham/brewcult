@@ -1,5 +1,6 @@
 import { initialsFrom, readAvatarUrl } from '../../lib/media-client';
 import styles from './media.module.css';
+import { BeanIcon } from '../ui/icon';
 
 /**
  * A person's picture, or an honest stand-in for one.
@@ -78,7 +79,7 @@ export function Avatar({
       ) : initials !== '' ? (
         <span aria-hidden="true">{initials}</span>
       ) : (
-        <span aria-hidden="true">☕</span>
+        <BeanIcon />
       )}
       {url ? null : <span className="bc-visually-hidden">{altText} — no photo yet</span>}
     </span>

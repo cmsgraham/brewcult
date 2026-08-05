@@ -2,6 +2,7 @@
 
 import { useId, useState } from 'react';
 import type { CoffeeRef } from '../../lib/brewing-client';
+import { BeanIcon } from '../ui/icon';
 
 export interface BagSwitcherProps {
   active: CoffeeRef | null;
@@ -26,7 +27,7 @@ export function BagSwitcher({ active, recent, onSwitch, onNewCoffee }: BagSwitch
     <div className="bc-logger__bag">
       <div className="bc-logger__bag-row">
         <h2 className="bc-logger__coffee">
-          <span aria-hidden="true">☕ </span>
+          <BeanIcon className="bc-logger__coffee-icon" />
           {active?.label ?? 'No bag chosen yet'}
         </h2>
         <button

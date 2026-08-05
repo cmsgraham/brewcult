@@ -749,6 +749,44 @@ async function readErrorEnvelope(res: Response): Promise<ApiError> {
   }
 }
 
+/** The API's `history` cap (chatBody in the intelligence module's schemas.ts). */
+const HISTORY_LIMIT = 20;
+
+/**
+ * UI conversation -> the API's request body.
+ *
+ * These two shapes are NOT the same and the difference is load-bearing. The UI
+ * keeps one flat `AiChatMessage[]` because that is what it renders. The API
+ * takes the new turn as `message` and the preceding turns as `history`, with
+ * `text` rather than `content`, because only the new turn is subject to the
+ * 4,000-character input cap.
+ *
+ * Posting the UI's array verbatim -- which is what this did -- fails Zod with
+ * "expected string, received undefined" and returns 400 before a single token
+ * is generated. On screen that is indistinguishable from the model having
+ * nothing to say: you type, you press send, and nothing ever comes back.
+ * Nothing caught it because the web tests stub `fetch`, so both sides were
+ * internally consistent and disagreed only in production.
+ */
+export function toChatBody(messages: AiChatMessage[]): { message: string; history?: { role: 'user' | 'assistant'; text: string }[] } {
+  // The last USER turn is the question; anything after it would be an
+  // optimistic placeholder for the answer we are about to stream.
+  let index = -1;
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (messages[i]?.role === 'user') { index = i; break; }
+  }
+  const current = index >= 0 ? messages[index] : undefined;
+  const history = (index >= 0 ? messages.slice(0, index) : messages)
+    .filter((m) => m.content.trim() !== '')
+    .slice(-HISTORY_LIMIT)
+    .map((m) => ({ role: m.role, text: m.content }));
+
+  return {
+    message: current?.content ?? '',
+    ...(history.length > 0 ? { history } : {}),
+  };
+}
+
 /**
  * POST the conversation and stream the answer back.
  *
@@ -766,7 +804,7 @@ export async function streamAiChat({
 }: StreamAiChatOptions): Promise<void> {
   const doFetch: FetchLike = fetchImpl ?? ((input, init) => fetch(input, init));
   const url = resolveApiUrl(AI_PATHS.chat, baseUrl);
-  const payload = JSON.stringify({ messages });
+  const payload = JSON.stringify(toChatBody(messages));
 
   const send = async (csrf: string | null): Promise<Response> => {
     const headers = new Headers({

@@ -433,6 +433,68 @@ svg {
   font-weight: 500;
 }
 
+/* --- "Sign in with Google" -------------------------------------------------
+   Google's Identity branding guidelines, not our design system. The colours,
+   height, radius and logo size below are prescribed by Google and an app can
+   fail OAuth verification for restyling them, so this block deliberately does
+   NOT use --bc-* tokens: it must not drift when the brand palette changes.   */
+.bc-gsi {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid #747775;
+  border-radius: 4px;
+  background: #fff;
+  color: #1f1f1f;
+  font-family: Roboto, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.25px;
+  text-decoration: none;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+.bc-gsi:hover {
+  background: #f7f8f8; /* Google's specified hover state, not opacity */
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+}
+.bc-gsi:active {
+  background: #f0f1f1;
+}
+.bc-gsi:focus-visible {
+  outline: 2px solid #0b57d0;
+  outline-offset: 2px;
+}
+.bc-gsi__icon {
+  display: inline-flex;
+  flex: 0 0 18px;
+  height: 18px;
+}
+.bc-gsi__label {
+  /* The wordmark must not wrap or ellipsize into something unapproved. */
+  white-space: nowrap;
+}
+@media (prefers-color-scheme: dark) {
+  .bc-gsi {
+    border-color: #8e918f;
+    background: #131314;
+    color: #e3e3e3;
+  }
+  .bc-gsi:hover {
+    background: #1c1d1f;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px 1px rgba(0, 0, 0, 0.15);
+  }
+  .bc-gsi:active {
+    background: #242528;
+  }
+  .bc-gsi:focus-visible {
+    outline-color: #a8c7fa;
+  }
+}
+
 .bc-alert {
   border: 1px solid var(--bc-line);
   border-left-width: 4px;

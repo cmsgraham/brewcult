@@ -42,7 +42,6 @@ export function TasteRow({ value, onChange, legend = 'How was it?', compact = fa
               aria-label={`${option.label} — ${option.hint}`}
               onClick={() => onChange(selected ? null : option.verdict)}
             >
-              <span aria-hidden="true">{option.emoji}</span>
               <span>{option.label}</span>
             </button>
           );

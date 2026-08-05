@@ -21,7 +21,9 @@ export default async function RegisterPage() {
         Every great brewer started with bitter coffee. Beginner questions are welcome here,
         whatever gear is on your counter.
       </p>
-      <GoogleButton enabled={config.features.googleAuth} />
+      {/* "Sign up with Google" is the approved wording for a registration
+          context; the sign-in page keeps the default. */}
+      <GoogleButton enabled={config.features.googleAuth} label="Sign up with Google" />
       <RegisterForm />
     </div>
   );

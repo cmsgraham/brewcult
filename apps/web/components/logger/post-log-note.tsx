@@ -6,6 +6,7 @@ import { DialInAdvice } from '../ai/dial-in-advice';
 import type { FetchLike } from '../../lib/api';
 import type { PaybackLine } from '../../lib/brewing-client';
 import { TasteRow } from './taste-row';
+import { CheckIcon } from '../ui/icon';
 
 export interface PostLogNoteProps {
   payback: PaybackLine;
@@ -85,7 +86,8 @@ export function PostLogNote({
   return (
     <div className="bc-logger__logged bc-stack" role="status" aria-live="polite">
       <p className="bc-logger__logged-title">
-        <span aria-hidden="true">✅ </span>Logged.
+        <CheckIcon className="bc-logger__logged-icon" />
+        Logged.
       </p>
 
       {/* Advice is only worth asking for once there is a taste to explain — an

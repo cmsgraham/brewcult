@@ -512,17 +512,24 @@ export function summarizeDraft(draft: BrewDraft): string {
  * Taste (§6.7) and the post-log payback line (§6)
  * ------------------------------------------------------------------ */
 
+/**
+ * The four taste verdicts.
+ *
+ * These carried emoji faces until it became clear they were doing no work: the
+ * label already says "Bitter", and a grimacing face renders as four different
+ * house styles across platforms — only adding noise to a control that has to be
+ * tapped in under fifteen seconds. The selected state carries the weight now.
+ */
 export const TASTE_OPTIONS: ReadonlyArray<{
   verdict: TasteVerdict;
   label: string;
-  emoji: string;
   /** Client-side hint only — the authoritative mapping is server-side. */
   hint: string;
 }> = [
-  { verdict: 'bitter', label: 'Bitter', emoji: '😖', hint: 'usually over-extracted' },
-  { verdict: 'sour', label: 'Sour', emoji: '😝', hint: 'usually under-extracted' },
-  { verdict: 'weak', label: 'Weak', emoji: '💧', hint: 'usually under-extracted' },
-  { verdict: 'good', label: 'Good', emoji: '✅', hint: 'a keeper' },
+  { verdict: 'bitter', label: 'Bitter', hint: 'usually over-extracted' },
+  { verdict: 'sour', label: 'Sour', hint: 'usually under-extracted' },
+  { verdict: 'weak', label: 'Weak', hint: 'usually under-extracted' },
+  { verdict: 'good', label: 'Good', hint: 'a keeper' },
 ];
 
 export interface BrewSuggestion {

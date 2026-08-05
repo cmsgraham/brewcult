@@ -19,6 +19,7 @@ import {
 import { BrewTimer } from './brew-timer';
 import { Stepper } from './stepper';
 import { TasteRow } from './taste-row';
+import { LockIcon } from '../ui/icon';
 
 export interface TweakCardProps {
   draft: BrewDraft;
@@ -178,7 +179,7 @@ export function TweakCard({
             }
             onClick={() => apply(toggleRatioLock(draft))}
           >
-            <span aria-hidden="true">🔒 </span>
+            <LockIcon />{' '}
             {draft.follow === 'water' ? 'water follows dose' : 'dose follows water'}
           </button>
         </div>

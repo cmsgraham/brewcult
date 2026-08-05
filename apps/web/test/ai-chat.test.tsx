@@ -20,7 +20,7 @@ import userEvent from '@testing-library/user-event';
 import { type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AssistantChat } from '../components/ai/assistant-chat';
-import { createSseParser, parseAiFrame, resetAiStreamState } from '../lib/ai-client';
+import { createSseParser, parseAiFrame, resetAiStreamState, toChatBody } from '../lib/ai-client';
 import { resetRefreshState } from '../lib/api';
 
 vi.mock('next/link', () => ({
@@ -177,8 +177,12 @@ describe('assistant chat', () => {
     const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('/api/v1/ai/chat');
     expect(init.method).toBe('POST');
+    // The API's `chatBody`, not the UI's message array. This assertion used to
+    // say `{messages:[{role,content}]}`, which is what the client sent and what
+    // the API rejects with 400 — the test enshrined the bug, so the suite stayed
+    // green while every real send failed.
     expect(JSON.parse(String(init.body))).toEqual({
-      messages: [{ role: 'user', content: 'why is my coffee sour?' }],
+      message: 'why is my coffee sour?',
     });
   });
 
@@ -365,5 +369,64 @@ describe('assistant chat', () => {
     await waitFor(() => expect(screen.getByText('tokens arriving')).toBeInTheDocument());
 
     expect(document.activeElement).toBe(box);
+  });
+});
+
+/**
+ * The wire contract, pinned.
+ *
+ * This suite stubs `fetch`, which is precisely why the original defect shipped:
+ * the client posted its own UI shape (`{messages:[{role,content}]}`), the API
+ * validates a different one (`{message, history:[{role,text}]}`), and with the
+ * network stubbed both halves were internally consistent. In production every
+ * send was rejected with 400 before a token was generated — which on screen is
+ * indistinguishable from the assistant simply never answering.
+ *
+ * These assertions mirror `chatBody` in the API's intelligence/schemas.ts. If
+ * that schema changes, this must fail.
+ */
+describe('chat request body matches the API contract', () => {
+  it('sends the newest user turn as `message`, not an array', () => {
+    const body = toChatBody([{ role: 'user', content: 'why is it sour?' }]);
+    expect(body.message).toBe('why is it sour?');
+    expect(body).not.toHaveProperty('messages');
+  });
+
+  it('sends prior turns as `history` with `text`, never `content`', () => {
+    const body = toChatBody([
+      { role: 'user', content: 'first question' },
+      { role: 'assistant', content: 'first answer' },
+      { role: 'user', content: 'follow-up' },
+    ]);
+    expect(body.message).toBe('follow-up');
+    expect(body.history).toEqual([
+      { role: 'user', text: 'first question' },
+      { role: 'assistant', text: 'first answer' },
+    ]);
+  });
+
+  it('omits history entirely on the first turn rather than sending []', () => {
+    expect(toChatBody([{ role: 'user', content: 'hello' }]).history).toBeUndefined();
+  });
+
+  it('caps history at the 20 the API accepts, keeping the most recent', () => {
+    const many = Array.from({ length: 30 }, (_, i) => ({
+      role: (i % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant',
+      content: `turn ${i}`,
+    }));
+    many.push({ role: 'user', content: 'the actual question' });
+    const body = toChatBody(many);
+    expect(body.message).toBe('the actual question');
+    expect(body.history).toHaveLength(20);
+    expect(body.history?.at(-1)).toEqual({ role: 'assistant', text: 'turn 29' });
+  });
+
+  it('ignores an optimistic empty assistant bubble appended before streaming', () => {
+    const body = toChatBody([
+      { role: 'user', content: 'question' },
+      { role: 'assistant', content: '' },
+    ]);
+    expect(body.message).toBe('question');
+    expect(body.history).toBeUndefined();
   });
 });
