@@ -59,6 +59,21 @@ export const MODELS = {
   cheap: 'claude-haiku-4-5',
 } as const;
 
+/**
+ * Model ids are provider-specific, so the §16.1 tiers above are the ANTHROPIC
+ * names and get translated when another provider is selected. Routing, effort
+ * and budgets are unchanged — only the id differs.
+ */
+export function modelFor(tier: 'default' | 'premium' | 'cheap'): string {
+  const env = getEnv();
+  if (env.AI_PROVIDER !== 'openai') return MODELS[tier];
+  return tier === 'cheap'
+    ? env.OPENAI_MODEL_CLASSIFY
+    : tier === 'premium'
+      ? env.OPENAI_MODEL_PREMIUM
+      : env.OPENAI_MODEL_DEFAULT;
+}
+
 export interface FeatureRoute {
   feature: AiFeature;
   model: string;
@@ -115,7 +130,10 @@ export const FEATURE_ROUTES: Readonly<Record<AiFeature, FeatureRoute>> = {
 
 export const routeFor = (feature: AiFeature, plan: AiPlan = 'free'): FeatureRoute => {
   const route = FEATURE_ROUTES[feature];
-  return plan === 'premium' ? { ...route, model: route.premiumModel } : route;
+  const tier = feature === 'classify' ? 'cheap' : plan === 'premium' ? 'premium' : 'default';
+  // Resolved per call rather than at module load so a provider switch needs no
+  // restart-order reasoning, and so tests can flip AI_PROVIDER freely.
+  return { ...route, model: modelFor(tier) };
 };
 
 // ---------------------------------------------------------------------------

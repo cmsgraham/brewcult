@@ -13,9 +13,11 @@
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { requireAuth } from '../../lib/auth-plugin.js';
+import { getEnv } from '../../lib/env.js';
 import { badRequest } from '../../lib/errors.js';
 import { ANONYMOUS, type Actor } from '../../lib/policy.js';
 import { AiGateway, AnthropicProvider } from './gateway.js';
+import { OpenAiProvider } from './provider-openai.js';
 import { chat, diagnose, startingRecipe, type ChatEvent } from './features.js';
 import { chatBody, diagnoseBody, issuesOf, startingRecipeBody } from './schemas.js';
 import { defaultUsageStore, type UsageStore } from './usage.js';
@@ -48,7 +50,13 @@ export async function registerIntelligenceRoutes(
   options: IntelligenceRouteOptions = {},
 ): Promise<void> {
   const db = options.db ?? defaultDb;
-  const provider = options.provider ?? new AnthropicProvider();
+  // Provider selection (AI_PROVIDER). Anthropic is the reference implementation
+  // the prompts and injection evals were tuned against; the OpenAI adapter sits
+  // behind the same seam, so tools, policies, budgets and sanitisation are
+  // identical either way.
+  const provider =
+    options.provider ??
+    (getEnv().AI_PROVIDER === 'openai' ? new OpenAiProvider() : new AnthropicProvider());
   const gateway = new AiGateway({ provider, usage: options.usage ?? defaultUsageStore });
   const prefix = options.prefix ?? '/v1';
   const planFor = options.planFor ?? (() => 'free' as const);

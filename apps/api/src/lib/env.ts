@@ -39,7 +39,19 @@ const schema = z.object({
   S3_BUCKET: z.string().default('brewcult-media'),
   MEDIA_BASE_URL: z.string().default('http://localhost:9000/brewcult-media'),
 
+  /**
+   * Which AiProvider implementation the intelligence module uses.
+   * 'anthropic' is the reference implementation (second_draft §16); 'openai'
+   * is the adapter behind the same seam (provider-openai.ts).
+   */
+  AI_PROVIDER: z.enum(['anthropic', 'openai']).default('anthropic'),
   ANTHROPIC_API_KEY: z.string().default(''),
+  OPENAI_API_KEY: z.string().default(''),
+  OPENAI_BASE_URL: z.string().default('https://api.openai.com/v1'),
+  /** Model ids per feature tier when AI_PROVIDER=openai. */
+  OPENAI_MODEL_DEFAULT: z.string().default('gpt-4.1'),
+  OPENAI_MODEL_PREMIUM: z.string().default('gpt-5'),
+  OPENAI_MODEL_CLASSIFY: z.string().default('gpt-4.1-mini'),
   AI_DAILY_TOKEN_BUDGET_FREE: z.coerce.number().default(50_000),
 
   SENTRY_DSN: z.string().default(''),
