@@ -212,6 +212,16 @@ export function listStaff(db: AdminDb): Promise<AdminUserRow[]> {
  */
 const BOOTSTRAP_TRIGGERS = new Set(['/v1/auth/login', '/v1/auth/verify-email']);
 
+/**
+ * Routes that prove the address a different way: no request body, because they
+ * are a browser redirect, so identity publishes `request.provenEmail` instead.
+ *
+ * Google's callback belongs here. Without it ADMIN_EMAILS does nothing at all
+ * on a deployment whose operator signs in with Google — the console simply
+ * stays unreachable, with nothing to explain why.
+ */
+const PROVEN_EMAIL_TRIGGERS = new Set(['/auth/google/callback']);
+
 export interface BootstrapHookResult {
   installed: boolean;
   /** Number of addresses on the allowlist — logged, never the addresses. */
@@ -221,6 +231,22 @@ export interface BootstrapHookResult {
 function emailFromBody(request: FastifyRequest): string | null {
   const body = request.body as { email?: unknown } | undefined;
   return typeof body?.email === 'string' && body.email.length > 0 ? body.email : null;
+}
+
+/**
+ * The address this request is allowed to bootstrap on, or null.
+ *
+ * Two shapes, one rule: the route must not be able to reach a success status
+ * without the address having been PROVEN. POST routes carry it in a body they
+ * authenticated against; the OAuth callback carries it on `provenEmail`, set
+ * only after Google asserted the address and asserted it verified.
+ */
+function bootstrapEmail(request: FastifyRequest, path: string): string | null {
+  if (request.method === 'POST' && BOOTSTRAP_TRIGGERS.has(path)) return emailFromBody(request);
+  if (request.method === 'GET' && PROVEN_EMAIL_TRIGGERS.has(path)) {
+    return request.provenEmail ?? null;
+  }
+  return null;
 }
 
 /**
@@ -235,13 +261,17 @@ export function registerBootstrapHook(app: FastifyInstance, db: AdminDb): Bootst
 
   app.addHook('onResponse', async (request, reply) => {
     try {
-      if (request.method !== 'POST') return;
-      if (reply.statusCode < 200 || reply.statusCode >= 300) return;
+      // 2xx for the POST routes; the OAuth callback answers 302 on success, so
+      // a 2xx-only gate would silently skip it. `provenEmail` is the real proof
+      // in that case — it is set only after the address was verified — and a
+      // failed callback redirects without ever setting it.
+      const ok =
+        (reply.statusCode >= 200 && reply.statusCode < 300) ||
+        (reply.statusCode >= 300 && reply.statusCode < 400 && request.provenEmail !== undefined);
+      if (!ok) return;
 
       const path = request.url.split('?')[0] ?? '';
-      if (!BOOTSTRAP_TRIGGERS.has(path)) return;
-
-      const email = emailFromBody(request);
+      const email = bootstrapEmail(request, path);
       if (email === null) return;
       if (!allowlist.has(email.trim().toLowerCase())) return;
 

@@ -31,6 +31,22 @@ declare module 'fastify' {
   interface FastifyInstance {
     googleOAuth2?: OAuth2Namespace;
   }
+  interface FastifyRequest {
+    /**
+     * An email address THIS request proved control of, set only after the proof
+     * succeeded. Currently the Google callback, where the provider asserted the
+     * address and asserted that it is verified.
+     *
+     * Published for observers (the admin module's ADMIN_EMAILS bootstrap reads
+     * it in `onResponse`) so that identity never has to import them. admin
+     * already depends on identity, so a call in the other direction would be a
+     * cycle — see the note at the assignment site.
+     *
+     * Not a credential and not an authorisation: it says "this address was
+     * proven here", nothing about what anyone may do with it.
+     */
+    provenEmail?: string;
+  }
 }
 
 export const GOOGLE_START_PATH = '/auth/google';

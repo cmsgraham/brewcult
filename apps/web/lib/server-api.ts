@@ -55,6 +55,12 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     // or a dead API is indistinguishable from a logged-out visitor on screen,
     // which is exactly how the bug above survived: the symptom was "login does
     // not work", and nothing anywhere said why.
+    // EF §7.2 wants structured pino logs, but the web container has no logger
+    // and this module is `server-only`, so this writes to the container's
+    // stdout — exactly where an operator looks. The alternative is silence, and
+    // silence here is what let a 404 masquerade as "signed out" for a whole
+    // session while every page quietly redirected to /login.
+    // eslint-disable-next-line no-console
     console.error('[server-api] session lookup failed — treating as signed out:', error);
     return null;
   }

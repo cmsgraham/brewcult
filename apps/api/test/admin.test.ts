@@ -37,7 +37,7 @@ const holder = vi.hoisted(() => {
   process.env.API_URL = 'http://localhost:4000';
   // The ADMIN_EMAILS bootstrap is installed for the whole run, so the hook is
   // exercised in situ against identity's real login/verify-email routes.
-  process.env.ADMIN_EMAILS = 'founder@brewcult.test, ghost@brewcult.test';
+  process.env.ADMIN_EMAILS = 'founder@brewcult.test, ghost@brewcult.test, oauth@brewcult.test';
   delete process.env.GOOGLE_CLIENT_ID;
   delete process.env.GOOGLE_CLIENT_SECRET;
   return { db: null as PGlite | null };
@@ -261,6 +261,21 @@ beforeAll(async () => {
   // THE SEAM: identity's real `revokeAllFamiliesForUser`, injected exactly the
   // way `app.ts` will inject it. Nothing about revocation is stubbed.
   await registerAdminRoutes(app, { revokeSessions: revokeAllFamiliesForUser });
+
+  /**
+   * Stands in for identity's Google callback, which cannot run here (it needs
+   * real OAuth credentials, so its routes are not registered). What it
+   * reproduces is the ONLY part the admin module can see: a GET that answers
+   * 302 and publishes `request.provenEmail`.
+   *
+   * Registered at the real callback path, because the hook matches on it.
+   */
+  app.get('/auth/google/callback', async (request, reply) => {
+    const proven = (request.query as { email?: string }).email;
+    if (proven) request.provenEmail = proven;
+    return reply.redirect('/');
+  });
+
   await app.ready();
 
   admin = await staffAccount('admin');
@@ -1425,6 +1440,55 @@ describe('bootstrap (a) — the ADMIN_EMAILS allowlist', () => {
         WHERE action = 'admin.bootstrap_granted' AND payload->>'email' = 'ghost@brewcult.test'`,
     );
     expect(audited.rows[0]!.count).toBe(0);
+  });
+
+  it('promotes on the OAuth callback, which has no request body at all', async () => {
+    // The body-reading hook is structurally blind to this route: it is a GET
+    // that answers 302. Without the provenEmail seam, ADMIN_EMAILS does nothing
+    // whatsoever on a deployment whose operator signs in with Google, and the
+    // console just stays unreachable with nothing to explain why.
+    const operator = await registerAndVerify('oauth@brewcult.test');
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/google/callback?email=oauth%40brewcult.test',
+    });
+    expect(res.statusCode).toBe(302); // a redirect, not a 2xx
+
+    const after = await exec<{ role: string }>('SELECT role FROM users WHERE id = $1::uuid', [
+      operator.id,
+    ]);
+    expect(after.rows[0]!.role).toBe('admin');
+
+    const audited = await exec<{ actor_id: string | null; payload: Record<string, unknown> }>(
+      `SELECT actor_id::text AS actor_id, payload FROM audit_log
+        WHERE action = 'admin.bootstrap_granted' AND target_id = $1`,
+      [operator.id],
+    );
+    expect(audited.rows).toHaveLength(1);
+    expect(audited.rows[0]!.actor_id).toBeNull(); // system, not a user
+    expect(audited.rows[0]!.payload).toMatchObject({
+      mechanism: 'admin_emails_allowlist',
+      to_role: 'admin',
+    });
+
+    // Put the world back so the tests after this one still see an open gate.
+    await exec('UPDATE users SET role = $1 WHERE id = $2::uuid', ['user', operator.id]);
+  });
+
+  it('ignores a redirect that never proved an address', async () => {
+    // A REFUSED Google sign-in also redirects. It must not bootstrap anything:
+    // the callback only sets provenEmail once the provider has asserted the
+    // address AND asserted it verified.
+    const before = await exec<{ count: number }>(
+      `SELECT count(*)::int AS count FROM audit_log WHERE action = 'admin.bootstrap_granted'`,
+    );
+    const res = await app.inject({ method: 'GET', url: '/auth/google/callback' });
+    expect(res.statusCode).toBe(302);
+    const after = await exec<{ count: number }>(
+      `SELECT count(*)::int AS count FROM audit_log WHERE action = 'admin.bootstrap_granted'`,
+    );
+    expect(after.rows[0]!.count).toBe(before.rows[0]!.count);
   });
 
   it('promotes on a real login through identity’s own route, with a system audit row', async () => {
