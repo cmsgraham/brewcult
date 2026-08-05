@@ -2,7 +2,8 @@ import { type Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { NotificationPreferences } from '../../../components/profile/notification-preferences';
-import { getSessionUser } from '../../../lib/server-api';
+import { SessionRestoreScreen } from '../../../components/session-restore-screen';
+import { canRestoreSession, getSessionUser } from '../../../lib/server-api';
 
 export const metadata: Metadata = {
   title: 'Email settings',
@@ -15,7 +16,13 @@ export const dynamic = 'force-dynamic';
 
 export default async function NotificationsPage() {
   const user = await getSessionUser();
-  if (!user) redirect('/login?next=%2Fprofile%2Fnotifications');
+  // A null user here is not proof of a stranger — the refresh cookie is
+  // scoped to the auth path, so a page navigation carries nothing once the
+  // access cookie has expired. Ask the browser before giving up on them.
+  if (!user) {
+    if (await canRestoreSession()) return <SessionRestoreScreen next="/profile/notifications" />;
+    redirect('/login?next=%2Fprofile%2Fnotifications');
+  }
 
   return (
     <div className="bc-stack">

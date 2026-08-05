@@ -168,6 +168,49 @@ export function resetRefreshState(): void {
 }
 
 /**
+ * The flag the API sets alongside a session. Holds no token — it only says a
+ * refresh is worth attempting. See modules/identity/cookies.ts.
+ */
+export const SESSION_HINT_COOKIE = 'bc_session';
+
+/** Is there a session on this device worth trying to restore? */
+export function hasSessionHint(): boolean {
+  if (!isBrowser()) return false;
+  return document.cookie.split('; ').some((pair) => pair.startsWith(`${SESSION_HINT_COOKIE}=`));
+}
+
+/**
+ * Forget the hint.
+ *
+ * Called when a refresh has just failed, so the next page load does not try
+ * again and again. Deleting it is safe from script precisely because it grants
+ * nothing: the worst case is one page render that draws "Log in" for somebody
+ * whose session was in fact fine, and their next API call fixes that.
+ */
+export function forgetSessionHint(): void {
+  if (!isBrowser()) return;
+  document.cookie = `${SESSION_HINT_COOKIE}=; Max-Age=0; Path=/; SameSite=Lax${
+    window.location.protocol === 'https:' ? '; Secure' : ''
+  }`;
+}
+
+/**
+ * Restore a session the server render could not see.
+ *
+ * The refresh cookie is scoped to the auth path, so a page navigation carries
+ * no credential once the 15-minute access cookie has expired — the server
+ * renders the signed-out shell no matter how valid the session is. Only the
+ * browser can recover it, by calling the one endpoint the cookie IS sent to.
+ * That is this.
+ */
+export async function restoreSession(fetchImpl?: FetchLike): Promise<boolean> {
+  const doFetch = fetchImpl ?? (globalThis.fetch as FetchLike);
+  const ok = await refreshSession(doFetch);
+  if (!ok) forgetSessionHint();
+  return ok;
+}
+
+/**
  * CSRF double-submit token. Cookie-authenticated mutations are rejected by the
  * API's csrfGuard unless the token from `GET /v1/auth/csrf` is echoed in
  * `x-csrf-token`. Handled here rather than per-caller so no future mutation can

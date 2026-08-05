@@ -8,7 +8,8 @@ import { SignOutButton } from '../../components/profile/sign-out-button';
 import { Alert } from '../../components/ui/alert';
 import { fetchClientConfig } from '../../lib/client-config';
 import { readAvatarUrl } from '../../lib/media-client';
-import { getSessionUser } from '../../lib/server-api';
+import { SessionRestoreScreen } from '../../components/session-restore-screen';
+import { canRestoreSession, getSessionUser } from '../../lib/server-api';
 
 export const metadata: Metadata = {
   title: 'Your profile',
@@ -22,7 +23,13 @@ export const dynamic = 'force-dynamic';
 export default async function ProfilePage() {
   const [user, config] = await Promise.all([getSessionUser(), fetchClientConfig()]);
 
-  if (!user) redirect('/login?next=%2Fprofile');
+  // A null user here is not proof of a stranger — the refresh cookie is
+  // scoped to the auth path, so a page navigation carries nothing once the
+  // access cookie has expired. Ask the browser before giving up on them.
+  if (!user) {
+    if (await canRestoreSession()) return <SessionRestoreScreen next="/profile" />;
+    redirect('/login?next=%2Fprofile');
+  }
 
   return (
     <div className="bc-stack">

@@ -11,7 +11,13 @@
  */
 import 'server-only';
 import { cookies } from 'next/headers';
-import { ApiError, apiFetch, type ApiRequestOptions, type SessionUser } from './api';
+import {
+  ApiError,
+  SESSION_HINT_COOKIE,
+  apiFetch,
+  type ApiRequestOptions,
+  type SessionUser,
+} from './api';
 
 export async function serverApiFetch<T = unknown>(
   path: string,
@@ -87,5 +93,27 @@ export async function getSessionUser(): Promise<SessionUser | null> {
  */
 export async function hasSessionCookie(): Promise<boolean> {
   const jar = await cookies();
-  return jar.has('bc_access') || jar.has('bc_refresh');
+  // The hint counts here. It is set for as long as the refresh token lives and
+  // is visible on page navigations, which is exactly when the two credential
+  // cookies are not — that combination is what made every returning visitor
+  // render as a stranger.
+  return jar.has('bc_access') || jar.has('bc_refresh') || jar.has(SESSION_HINT_COOKIE);
+}
+
+/**
+ * The session lookup failed, but this device claims to have one.
+ *
+ * A page in this state must NOT redirect to /login: the refresh cookie is
+ * scoped to the auth path, so the browser is the only party that can prove the
+ * session still exists, and a redirect navigates away before it gets the
+ * chance. Render the restore screen instead and let the browser answer.
+ */
+export async function canRestoreSession(): Promise<boolean> {
+  const jar = await cookies();
+  // The access cookie's absence is the whole signal. It and the token inside it
+  // expire together, so "no access cookie but a hint" means precisely: this
+  // device has a session, and the credential that could prove it was not sent
+  // with this request. An access cookie that IS present and still gets refused
+  // is a real refusal — revoked, demoted, deleted — and belongs at /login.
+  return !jar.has('bc_access') && jar.has(SESSION_HINT_COOKIE);
 }

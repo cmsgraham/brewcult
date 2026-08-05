@@ -5,7 +5,9 @@
  * cookies exist so the web app never has to keep a token in JavaScript-reachable
  * storage (an XSS then cannot exfiltrate the session).
  *
- *  - HttpOnly on both cookies: script can neither read nor forge them.
+ *  - HttpOnly on both CREDENTIAL cookies: script can neither read nor forge
+ *    them. There is a third, `bc_session`, which is a readable flag holding no
+ *    token — see `sessionHintCookieOptions` below for why.
  *  - Secure in production only, so http://localhost development still works.
  *  - SameSite=lax: top-level GET navigations keep the session (a link into the
  *    app stays logged in) while cross-site POST/PUT/DELETE do not carry it.
@@ -23,6 +25,7 @@ import {
   ACCESS_TOKEN_TTL_SECONDS,
   LEGACY_AUTH_COOKIE_PATH,
   REFRESH_COOKIE,
+  SESSION_HINT_COOKIE,
 } from '../../lib/auth-plugin.js';
 import { getEnv, isProduction } from '../../lib/env.js';
 import type { IssuedSession } from './types.js';
@@ -43,6 +46,37 @@ export function accessCookieOptions(): CookieSerializeOptions {
   return { ...baseCookieOptions(), path: '/', maxAge: ACCESS_TOKEN_TTL_SECONDS };
 }
 
+/**
+ * A flag the BROWSER can read: "this device has a session worth restoring".
+ *
+ * ── WHY THIS EXISTS ─────────────────────────────────────────────────────────
+ * The refresh cookie is deliberately scoped to AUTH_COOKIE_PATH, so a page
+ * navigation carries no credential at all once the 15-minute access cookie has
+ * expired. The server therefore renders the signed-out shell, and the only
+ * thing that can recover the session is the browser calling /auth/refresh.
+ *
+ * Without a hint, the only way to know whether that call is worth making is to
+ * make it — on every cold page view, for every anonymous visitor and every
+ * crawler. This cookie is how a returning person is distinguished from a first
+ * one, cheaply.
+ *
+ * ── WHY IT IS SAFE TO EXPOSE ────────────────────────────────────────────────
+ * It holds no token and grants nothing. Its entire content is `1`. Reading it
+ * tells script exactly what the rendered page already says — whether to draw
+ * "Sign out" or "Log in". Nothing on the server may treat it as authority, and
+ * nothing does: `requireAuth` reads the access token and only the access token.
+ *
+ * It is NOT HttpOnly on purpose — a hint script cannot read is not a hint.
+ */
+export function sessionHintCookieOptions(expiresAt?: Date): CookieSerializeOptions {
+  return {
+    ...baseCookieOptions(),
+    httpOnly: false,
+    path: '/',
+    ...(expiresAt ? { expires: expiresAt } : {}),
+  };
+}
+
 export function refreshCookieOptions(expiresAt?: Date): CookieSerializeOptions {
   return {
     ...baseCookieOptions(),
@@ -58,10 +92,14 @@ export function setSessionCookies(reply: FastifyReply, session: IssuedSession): 
     session.refreshToken,
     refreshCookieOptions(session.refreshTokenExpiresAt),
   );
+  // Outlives the access cookie on purpose: its whole job is to be there after
+  // the access cookie has gone, so the browser knows a refresh is worth trying.
+  reply.setCookie(SESSION_HINT_COOKIE, '1', sessionHintCookieOptions(session.refreshTokenExpiresAt));
 }
 
 export function clearSessionCookies(reply: FastifyReply): void {
   reply.clearCookie(ACCESS_COOKIE, { ...baseCookieOptions(), path: '/' });
+  reply.clearCookie(SESSION_HINT_COOKIE, { ...baseCookieOptions(), httpOnly: false, path: '/' });
   reply.clearCookie(REFRESH_COOKIE, { ...baseCookieOptions(), path: getEnv().AUTH_COOKIE_PATH });
   // Also clear the pre-fix scope. Browsers that signed in before the path was
   // corrected still hold a bc_refresh at `/v1/auth`; it can never be sent, but
@@ -71,5 +109,8 @@ export function clearSessionCookies(reply: FastifyReply): void {
 
 /** True when this request carries ambient cookie authority (→ needs CSRF). */
 export function hasSessionCookie(cookies: Record<string, string | undefined> | undefined): boolean {
+  // The hint is deliberately NOT consulted here. This answers "does this
+  // request carry ambient authority the CSRF guard must cover", and a flag that
+  // grants nothing carries none.
   return Boolean(cookies?.[ACCESS_COOKIE] ?? cookies?.[REFRESH_COOKIE]);
 }

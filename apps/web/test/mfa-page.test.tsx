@@ -29,8 +29,25 @@ vi.mock('next/link', () => ({
   ),
 }));
 
+/**
+ * The cookie jar the page sees. `jar` is reassignable per test because the
+ * page's behaviour on a failed session lookup now DEPENDS on it: with a session
+ * hint and no access cookie, a redirect would throw away a valid month-long
+ * session that only the browser can prove.
+ */
+let jarCookies: Record<string, string> = { bc_access: 'stub' };
+
 vi.mock('next/headers', () => ({
-  cookies: () => Promise.resolve({ toString: () => 'bc_access=stub' }),
+  cookies: () =>
+    Promise.resolve({
+      toString: () =>
+        Object.entries(jarCookies)
+          .map(([name, value]) => `${name}=${value}`)
+          .join('; '),
+      has: (name: string) => name in jarCookies,
+      get: (name: string) =>
+        name in jarCookies ? { name, value: jarCookies[name] } : undefined,
+    }),
 }));
 
 /** `redirect()` throws in Next; the stub mirrors that so callers can assert it. */
@@ -98,6 +115,7 @@ const me = (overrides: Record<string, unknown>) => ({
 
 beforeEach(() => {
   requested = [];
+  jarCookies = { bc_access: 'stub' };
 });
 
 afterEach(() => {
@@ -112,6 +130,18 @@ describe('/profile/security access', () => {
       name: 'RedirectError',
       to: '/login?next=%2Fprofile%2Fsecurity',
     });
+  });
+
+  it('offers to restore instead of redirecting when the device has a session', async () => {
+    // No access cookie (it expired) but the hint says a session exists. The
+    // refresh cookie is scoped to the auth path, so this request could not
+    // carry it — redirecting here is how a valid session got thrown away on
+    // every visit after fifteen minutes.
+    jarCookies = { bc_session: '1' };
+    mockApi({ [ME]: { status: 401, body: { error: 'unauthorized', message: '' } } });
+
+    const output = render(await SecurityPage());
+    expect(output.getByText('Signing you back in…')).toBeInTheDocument();
   });
 
   it('redirects rather than 500s when the identity API is unreachable', async () => {

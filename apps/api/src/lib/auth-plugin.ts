@@ -39,6 +39,13 @@ declare module 'fastify' {
 export const ACCESS_COOKIE = 'bc_access';
 /** Cookie carrying the rotating refresh token, scoped to the auth path. */
 export const REFRESH_COOKIE = 'bc_refresh';
+
+/**
+ * A readable flag saying "this browser has a session worth restoring". Holds no
+ * token, grants nothing, and is never read by any guard in this file — see the
+ * long note in modules/identity/cookies.ts for why it exists at all.
+ */
+export const SESSION_HINT_COOKIE = 'bc_session';
 /**
  * The refresh cookie's path scope now lives in the environment as
  * `AUTH_COOKIE_PATH`, because it must be written the way the BROWSER sees the

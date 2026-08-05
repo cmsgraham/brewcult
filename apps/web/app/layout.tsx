@@ -2,11 +2,12 @@ import { type Metadata, type Viewport } from 'next';
 import { Space_Grotesk } from 'next/font/google';
 import { type ReactNode } from 'react';
 import { SiteFooter } from '../components/site-footer';
+import { SessionRestorer } from '../components/session-restorer';
 import { SiteNav } from '../components/site-nav';
 import { brand } from '../lib/brand';
 import { fetchClientConfig } from '../lib/client-config';
 import { visibleNavItems } from '../lib/nav';
-import { hasSessionCookie } from '../lib/server-api';
+import { canRestoreSession, hasSessionCookie } from '../lib/server-api';
 import './globals.css';
 
 /**
@@ -106,7 +107,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   // page, so an API round trip here would tax every navigation to decide whether
   // to draw one button. Reading the jar is free, and being wrong (an expired
   // token) costs a redirect to /login, which is where that person was headed.
-  const signedIn = await hasSessionCookie();
+  const [signedIn, restorable] = await Promise.all([hasSessionCookie(), canRestoreSession()]);
   const navItems = visibleNavItems(config.features, signedIn);
 
   return (
@@ -116,6 +117,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           Skip to content
         </a>
         <SiteNav items={navItems} signedIn={signedIn} />
+        {/* Recovers a session the server render could not see. Renders nothing;
+            see the component for why a page navigation carries no credential. */}
+        <SessionRestorer restorable={restorable} />
         <main id="main" className="bc-main bc-shell" tabIndex={-1}>
           {children}
         </main>

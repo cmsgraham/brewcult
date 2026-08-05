@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { SecurityPanel } from '../../../components/security/security-panel';
 import { fetchMfaStatus } from '../../../lib/mfa-client';
-import { serverApiFetch } from '../../../lib/server-api';
+import { SessionRestoreScreen } from '../../../components/session-restore-screen';
+import { canRestoreSession, serverApiFetch } from '../../../lib/server-api';
 
 export const metadata: Metadata = {
   title: 'Two-factor authentication',
@@ -28,7 +29,12 @@ export const dynamic = 'force-dynamic';
 export default async function SecurityPage() {
   const actor = await fetchMfaStatus(serverApiFetch);
 
-  if (!actor) redirect('/login?next=%2Fprofile%2Fsecurity');
+  // Same reasoning as /profile: a page render cannot see a scoped refresh
+  // cookie, so "no actor" may only mean "ask the browser".
+  if (!actor) {
+    if (await canRestoreSession()) return <SessionRestoreScreen next="/profile/security" />;
+    redirect('/login?next=%2Fprofile%2Fsecurity');
+  }
 
   return (
     <div className="bc-stack">

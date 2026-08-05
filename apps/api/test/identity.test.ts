@@ -1080,6 +1080,76 @@ describe('CSRF protection on cookie-authenticated mutations (ID-04)', () => {
     expect(access).not.toHaveProperty('secure', true);
   });
 
+  it('sets a readable session hint that outlives the access cookie', async () => {
+    const account = await registerAccount();
+    await verifyAccount(account);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/login',
+      payload: { email: account.email, password: PASSWORD },
+    });
+
+    const hint = res.cookies.find((c) => c.name === 'bc_session');
+    // Readable BY DESIGN. The refresh cookie is scoped to the auth path, so a
+    // page navigation carries no credential once the access cookie has expired
+    // — the browser is the only party that can recover the session, and it
+    // needs to know a recovery is worth attempting. Production ran a week with
+    // 19 sign-ins and one refresh because nothing told it.
+    expect(hint).toMatchObject({ path: '/', sameSite: 'Lax' });
+    // No HttpOnly attribute at all — that absence is the feature.
+    expect(hint?.httpOnly).toBeFalsy();
+    expect(hint?.value).toBe('1');
+
+    // It holds no token. Anything that reads it as authority is a bug.
+    expect(hint?.value).not.toContain('.');
+
+    // And it outlives the access cookie, which is the entire point.
+    const access = res.cookies.find((c) => c.name === 'bc_access');
+    expect(access?.maxAge).toBeLessThan(60 * 60);
+    expect(hint?.expires).toBeInstanceOf(Date);
+    expect((hint?.expires as Date).getTime()).toBeGreaterThan(Date.now() + 24 * 60 * 60 * 1000);
+  });
+
+  it('grants nothing: the hint alone is still an anonymous request', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/v1/users/me',
+      headers: { cookie: 'bc_session=1' },
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('clears the hint on logout, so the browser stops trying to restore', async () => {
+    const account = await registerAccount();
+    await verifyAccount(account);
+    const login = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/login',
+      payload: { email: account.email, password: PASSWORD },
+    });
+    const csrf = await app.inject({
+      method: 'GET',
+      url: '/v1/auth/csrf',
+      headers: { cookie: cookieHeader(login) },
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/logout',
+      headers: {
+        // Double-submit: the token goes in BOTH the header and the cookie jar.
+        cookie: [cookieHeader(login), cookieHeader(csrf)].join('; '),
+        'x-csrf-token': csrf.json<{ csrf_token: string }>().csrf_token,
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const hint = res.cookies.find((c) => c.name === 'bc_session');
+    expect(hint?.value).toBe('');
+    expect(hint?.path).toBe('/');
+  });
+
   it('rejects a cookie-authenticated mutation without a CSRF token and accepts it with one', async () => {
     const account = await registerAccount();
     await verifyAccount(account);
