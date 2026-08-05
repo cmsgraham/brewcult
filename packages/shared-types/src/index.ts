@@ -21,3 +21,5 @@ export interface HealthStatus {
   /** ISO-8601 timestamp of the check. */
   timestamp: string;
 }
+
+export * from './brewing.js';

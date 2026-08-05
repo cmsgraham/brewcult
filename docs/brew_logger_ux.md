@@ -200,22 +200,22 @@ Emitted from the logger itself (BREW-08 events):
 
 ---
 
-## 8. Open questions for the design sprint
+## 8. Design decisions (resolved 2026-08-05, Wave 3 kickoff)
 
-1. **Espresso variant.** The card above is filter-shaped. Espresso needs
-   dose-in/yield-out/time and its own repeat card (§6.3 two schemas). Same three
-   paths, different fields — build filter first, or both at once?
-2. **Multi-coffee households.** If a user has 3 open bags, is the repeat card
-   per-coffee (a small carousel) or is there one "active bag" the user switches?
-   Proposal: active bag with a fast switcher; carousel if usage says otherwise.
-3. **Rating timing.** Taste happens ~60s after brewing. Log-then-rate (a nudge
-   shortly after) may capture better data than rate-at-log — but adds a step.
-   Proposal: allow both; rate-at-log inline, plus one optional nudge.
-4. **Where does the timer live?** In-logger (above) vs. a separate brew-along
-   mode with pour prompts. Brew-along is a Wave-3+ delight feature; keep the
-   plain timer here.
-
----
+1. **Filter first; espresso schema-ready, UI second.** The beachhead persona is
+   the prosumer filter brewer (§2.2), and a single logger that serves both
+   shapes well is harder than two focused ones. The *data model* carries both
+   from day one (`FilterParams | EspressoParams` in the shared contract), so the
+   espresso card is additive UI work with no migration. Espresso lands right
+   after the filter logger clears its 15s bar with real users.
+2. **Active bag with a fast switcher**, not a carousel. One repeat card for the
+   coffee you're brewing now; switching bags is one tap from the card header.
+   Revisit if usage shows people genuinely alternate within a session.
+3. **Both rating paths.** Inline one-tap taste at log time (Path B), plus one
+   optional nudge a few minutes later for people who logged before tasting.
+   Never two prompts for the same session.
+4. **Plain timer in the logger.** Optional, non-modal, survives backgrounding.
+   Brew-along mode with pour prompts is a later delight feature, not Wave 3.
 
 ## 9. Build order (feeds Wave 3 tasks)
 
