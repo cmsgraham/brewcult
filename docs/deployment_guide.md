@@ -664,7 +664,244 @@ it to `.env.example` + this guide fails code review (DoD).
 
 ---
 
-# 10. Runbooks (quick reference)
+# 10. Launch runbook — standing up the next site
+
+*Written after launching BrewCult onto the box that already ran Zentra, in the
+order the steps actually have to happen. Every "⚠" below cost real time on that
+launch; none of them are hypothetical.*
+
+**Rough shape:** an afternoon if DNS is already delegated and the host has port
+25 open. The long poles are DNS/PTR propagation and Google's OAuth consent
+screen, both of which are waiting rather than working — start them first.
+
+## 10.1 Before you touch a server
+
+- [ ] Domain registered, and you can edit its DNS (not just the registrar's parking page)
+- [ ] Host confirmed to allow **outbound port 25** (Linode requires a support ticket on new accounts; an existing box that already sends mail has cleared this)
+- [ ] Decide: own VPS, or co-hosted beside an existing app? Co-hosting is cheaper and fine — §10.3 is the whole difference.
+
+## 10.2 Server preparation
+
+```bash
+# Swap FIRST. A 4 GB box running one app plus a `next build` will OOM, and the
+# kill lands on whichever container the kernel likes least — often the
+# neighbour's database, not the thing you were building.
+sudo fallocate -l 4G /swapfile2 && sudo chmod 600 /swapfile2
+sudo mkswap /swapfile2 && sudo swapon /swapfile2
+echo '/swapfile2 none swap sw 0 0' | sudo tee -a /etc/fstab
+
+# The shared edge network, created ONCE per host and declared `external: true`
+# in every stack that joins it — so `docker compose down` on one app cannot
+# delete the network the other is still using.
+docker network create edge
+
+sudo mkdir -p /srv/<app>/secrets
+sudo chown $USER:$USER /srv/<app> /srv/<app>/secrets
+chmod 700 /srv/<app>/secrets
+```
+
+## 10.3 Co-hosting rules (skip only if the app is alone on its VPS)
+
+**⚠ Name every service `<app>-<role>`, not `web`/`api`.** Docker's embedded DNS
+resolves a name across *every* network a container is attached to. The moment
+one Caddy is attached to two stacks that both define `web`, the name has two
+answers and gets round-robined between unrelated applications — intermittently
+serving the other app's HTML to your visitors. Service name == container_name
+throughout, so `docker compose ps` and `docker ps` agree.
+
+**⚠ One TLS terminator per host.** The first app's Caddy owns :80/:443 and the
+ACME account. The second app's Caddy goes behind a compose profile so it stays
+stopped:
+
+```yaml
+services:
+  <app>-caddy:
+    profiles: ["edge"]     # standalone-host only
+  <app>-web:
+    networks: [default, edge]
+  <app>-api:
+    networks: [default, edge]
+networks:
+  default:
+  edge:
+    external: true
+```
+
+Then add the new site's blocks to the **existing** Caddyfile, attach that Caddy
+to `edge` (`docker network connect edge <existing>-caddy`), and — critically —
+**write `edge` into the neighbour's compose file too**, or its next
+`docker compose up -d` recreates Caddy without the network and your site 502s
+while the neighbour looks perfectly healthy.
+
+Reload rather than restart: `docker exec <caddy> caddy reload --config /etc/caddy/Caddyfile`.
+
+## 10.4 DNS (do this early — propagation is the long pole)
+
+| Type | Name | Value | Notes |
+|---|---|---|---|
+| A | `@` | server IP | |
+| CNAME | `www` | `<domain>.` | A CNAME to the apex is *better* than a second A record — it follows automatically if the IP changes |
+| A | `media` | server IP | object storage behind the edge |
+| A | `mail` | server IP | |
+| MX | `@` | `mail.<domain>` priority 10 | |
+| TXT | `@` | `v=spf1 mx ~all` | |
+| TXT | `_dmarc` | `v=DMARC1; p=none; rua=mailto:admin@<domain>` | ⚠ the `rua` address must be a mailbox that **accepts mail**, or the reports you would tighten on are bounced unread |
+| TXT | `mail._domainkey` | *(after DKIM generation — §10.6)* | never guess this value; a wrong DKIM record is worse than none |
+
+**⚠ Reverse DNS is set by whoever owns the IP, not your DNS provider.** In
+Linode: the instance → Network → the **IPv4** row (the IPv6 row sits right next
+to it) → Edit RDNS → the mail hostname. Allow up to an hour to reach the
+authoritative servers; check with `dig +short -x <ip> @<their-ns>`, not a public
+resolver, or you are reading cache. A default `*.linodeusercontent.com` PTR
+costs **-1.36** on mail-tester and is a top cause of legitimate mail filtering.
+
+## 10.5 Secrets
+
+- `.env.prod` lives at `/srv/<app>/.env.prod`, mode 600, **generated on the server** — `openssl rand -hex 32` for JWT, -hex 24 for database and object-storage passwords. Secrets that never leave the box never leak from a transcript, a clipboard or a chat log.
+- **⚠ `.gitignore` must cover `client_secret*.json`** as well as `.env*`. That is the literal filename Google Cloud hands you when you click *Download JSON*, and it contains a live secret.
+- Credential files (OAuth JSON, mailbox passwords) go in `/srv/<app>/secrets/`, mode 600. The app reads *environment variables*, never those files — they are kept only as a record of which credential is which.
+
+## 10.6 Mail
+
+Adding a domain to an existing docker-mailserver is far less work than a second
+mail server, and it inherits the warmed sending IP.
+
+```bash
+docker exec <mail> setup email add noreply@<domain> "$(openssl rand -hex 16)"
+docker exec <mail> setup email add admin@<domain>   "$(openssl rand -hex 16)"
+docker exec <mail> setup alias add support@<domain> admin@<domain>
+docker exec <mail> setup config dkim domain <domain>     # per-domain, leaves others alone
+docker exec <mail> cat /tmp/docker-mailserver/opendkim/keys/<domain>/mail.txt
+```
+
+Publish the DKIM TXT, then verify with the tool rather than by eye:
+`docker exec <mail> opendkim-testkey -d <domain> -s mail -vvv` → **key OK**
+("key not secure" just means the zone has no DNSSEC; it is not a failure).
+
+**⚠ docker-mailserver rewrites `/etc/opendkim/SigningTable` on every start**,
+keeping only its primary domain. A multi-domain server needs the documented
+`user-patches.sh` hook in the config volume to restore the real tables and
+`supervisorctl restart opendkim`. Without it the extra domains send **unsigned**
+— which raises no error anywhere, it just lands in spam.
+
+**⚠ `SMTP_HOST` must be the MTA's own hostname** (`mail.<first-domain>`), not
+the new domain's. The certificate is issued for that name, so connecting as
+anything else fails STARTTLS hostname verification. SMTP does not require the
+sender domain to match the connection hostname, and OpenDKIM signs on the
+`From:` domain — so mail still leaves as the new brand, signed with its key.
+
+**⚠ Create every address the product actually references.** Grep the codebase
+for `@<domain>` before launch: BrewCult's account-security email told people to
+write to `support@`, which bounced.
+
+## 10.7 TLS and certificate renewal
+
+**⚠ One ACME client per host.** If Caddy owns port 80, certbot's http-01
+challenge can never succeed again — and it fails *silently*. On the Zentra box
+this went unnoticed until a certificate had been expired for two weeks and every
+STARTTLS client that validates certificates had been rejecting mail the whole
+time.
+
+Give Caddy a cert-only block for the mail hostname:
+
+```
+mail.<domain> { respond "ok" 200 }
+```
+
+…then copy what it issues into the path docker-mailserver reads
+(`/etc/letsencrypt/live/<host>/{fullchain,privkey}.pem`) with a daily systemd
+timer, restarting postfix/dovecot only when the file actually changed. Disable
+the now-unusable `certbot.timer`.
+
+## 10.8 Google OAuth — a client per app, always
+
+**⚠ Do not share an OAuth client between products.** The consent screen shows
+the name registered on the *client*, so a second app borrowing the first one
+asks people to "continue to <the other product>" at the exact moment you are
+requesting trust.
+
+1. **New project** named after the app
+2. **OAuth consent screen → Branding**: app name, logo, support email, and the app's domain under *Authorized domains*
+3. **Scopes**: `openid`, `email`, `profile` only — all non-sensitive, so no verification review
+4. **Credentials → OAuth client ID → Web application**
+   - Authorized redirect URI: `https://<domain>/api/auth/google/callback`
+   - JavaScript origins: **empty** (this is a server-side redirect flow)
+5. Download the JSON → `/srv/<app>/secrets/`, mode 600 → copy `client_id` and `client_secret` into `.env.prod` → restart the api
+
+Verify the swap without opening a browser:
+`curl -sI https://<domain>/api/auth/google | grep -i location` and check `client_id`.
+
+**⚠ The OAuth entry points are deliberately unversioned** (`/api/auth/google`,
+not `/api/v1/auth/google`). The callback is registered in Google's console and
+matched byte for byte, so versioning it means shipping `/v2` breaks every
+existing user's sign-in until a human edits a Google project.
+
+## 10.9 First deploy
+
+Order matters and the script encodes it: **build the api before the web**, since
+web `depends_on: api: service_healthy` and starting web first drags up whatever
+api image is already on the box — if that one is broken, compose aborts before
+the fixed api is ever built.
+
+After the deploy, confirm the containers *stayed* up. `docker compose up -d`
+returns when a container is **created**, not when its process survives; without
+a health gate the script prints a success banner over a crash loop.
+
+## 10.10 First administrator
+
+Set `ADMIN_EMAILS=<you>` before the first sign-in. The allowlist promotes a
+**verified** account on login and then closes itself once any active admin
+exists, so the variable can be left in place safely. If nobody can sign in at
+all, the break-glass CLI (`npm run admin:grant`) needs only database credentials.
+
+## 10.11 Content and search presence
+
+**⚠ Seed the real half only.** Development fixtures usually contain invented
+businesses. Publishing those to an indexed site asserts companies exist that do
+not — a trust problem before it is an SEO one. Gate them
+(`SEED_SCOPE=equipment`) and ship only data that is true.
+
+**⚠ The sitemap must render per request, not at build time.** `next build` runs
+inside Docker where no API container exists, so a prerendered sitemap is born
+empty and every deploy resets it. Also check the page size the API accepts —
+BrewCult's sitemap requested `limit=200` against a cap of 100, so every pull
+400'd and it silently listed **no** entity URLs at all.
+
+Then, in Search Console:
+
+1. Verify by **DNS TXT** (a *Domain* property covers every subdomain and both protocols)
+2. **⚠ Submit the sitemap as a full URL** — `https://<domain>/sitemap.xml`. A domain property spans many hosts, so a bare `sitemap.xml` is rejected as "Invalid sitemap address"
+3. URL Inspection → Request Indexing on the homepage
+4. Optional: import the verified property into Bing Webmaster Tools — small traffic share, but it feeds ChatGPT and Copilot
+
+Emit an **Organization + WebSite** JSON-LD pair on the homepage: per-page markup
+describes each subject, but only this tells a search engine who publishes the
+site. Omit `sameAs` until the profiles exist and omit `SearchAction` unless
+there is a real `?q=` URL — both are claims, and a wrong one is worse than none.
+
+## 10.12 Post-launch verification
+
+| Check | How | Target |
+|---|---|---|
+| Deliverability | mail-tester.com — send a **real** product email, not "test" | 10/10 |
+| DKIM/SPF/DMARC alignment | the same report | all pass |
+| Forward-confirmed rDNS | `dig -x <ip>` matches the SMTP banner | match |
+| Inbound mail | RCPT TO a real and a bogus address **from off-box** | 250 / 550 |
+| Open relay | RCPT TO a foreign domain **from off-box** | 554 denied |
+| Crawlability | `curl -A Googlebot` on `/`, `/sitemap.xml`, `/robots.txt` | 200 + correct content-types |
+| Sitemap URLs | fetch every `<loc>` | all 200 |
+
+**⚠ Probe mail from OFF the box.** Postfix trusts `127.0.0.1` by default, so a
+local relay test answers 250 for any recipient and looks alarming while proving
+nothing.
+
+Two weeks after launch, once aggregate reports have collected in `admin@`, move
+DMARC from `p=none` to `p=quarantine`. Read a few reports first — that is the
+entire reason for waiting.
+
+---
+
+# 11. Runbooks (quick reference)
 
 | Task | Command / procedure |
 |---|---|
@@ -677,11 +914,19 @@ it to `.env.example` + this guide fails code review (DoD).
 | Manual backup now | `ssh vps docker exec brewcult-scheduler npm run backup:now` |
 | Restore test (quarterly, ST-05) | pull latest dump → restore into fresh dev compose → run smoke tests |
 | Rotate JWT secret | set new secret alongside old (dual-verify window) → deploy → drop old after refresh TTL |
-| Certificate issues | `./infra/deploy.sh caddy` (restart is more reliable than reload — Zentra lesson) |
+| Certificate issues | Edit the SHARED Caddyfile, then `docker exec <caddy> caddy reload --config /etc/caddy/Caddyfile` (reload is zero-downtime; the box serves a second live app) |
+| Mail cert not renewing | `sudo systemctl start sync-mail-certs.service` — copies Caddy's cert into `/etc/letsencrypt/live/…`; runs daily by timer |
+| Add a mail domain | `setup email add` → `setup config dkim domain <d>` → publish TXT → `opendkim-testkey -d <d> -s mail` → **recreate** the container (restart is not enough: `/etc/opendkim` only refreshes on a new container) |
+| Check DKIM is really signing | `docker exec <mail> cat /etc/opendkim/SigningTable` — the RUNTIME table, not the one in the config volume |
+| Seed production | `SEED_SCOPE=equipment` — never `all` on a public site (invented roasters/coffees, see §10.11) |
+| Swap the Google OAuth client | drop the JSON in `/srv/<app>/secrets/`, copy id+secret into `.env.prod`, recreate api, verify with `curl -sI /api/auth/google` |
+| Is the sitemap real? | `curl -s /sitemap.xml \| grep -c '<url>'` — 8 means the catalog fetch failed and you are serving hubs only |
+| Disable weekly digest on a box sharing a prod DB snapshot | `SCHEDULER_RECAP=0` |
+| Contract check (web ↔ api paths) | `npx vitest run --root apps/api test/web-contract.test.ts` — runs in CI; catches a client path the API does not serve |
 
 ---
 
-# 11. Evolution triggers (when this guide gets superseded)
+# 12. Evolution triggers (when this guide gets superseded)
 
 Per EF §7.3/§7.4 — revisit this document when any of: staging environment needed by a second
 contributor · zero-downtime deploys become a requirement (blue-green or k8s) · first module
