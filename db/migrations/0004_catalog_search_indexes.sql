@@ -18,8 +18,6 @@
 --     Keep the two in sync; the repository should switch its FTS queries to
 --     read these columns so the GIN indexes below are actually used.
 
-BEGIN;
-
 -- 1. Trigram support for autocomplete (substring matching cannot use a btree).
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
@@ -35,13 +33,22 @@ CREATE INDEX IF NOT EXISTS idx_equipment_brands_name_trgm
 -- 2. Full-text search documents. Generated columns keep the vector in sync with
 --    the row automatically; cross-table terms (roaster/origin names) stay in the
 --    repository's join-time query until a materialised view is justified.
+-- array_to_string() is only STABLE (an element type's output function may be),
+-- so Postgres rejects it in a generated column. For text[] the output is
+-- genuinely immutable, so a thin IMMUTABLE wrapper is safe and is the standard
+-- workaround. Likewise to_tsvector needs its config passed as a regconfig
+-- literal — the text form resolves the config at runtime and is only STABLE.
+CREATE OR REPLACE FUNCTION brewcult_text_array_to_string(arr text[])
+  RETURNS text LANGUAGE sql IMMUTABLE PARALLEL SAFE
+  AS $$ SELECT array_to_string(arr, ' ') $$;
+
 ALTER TABLE coffee_products
   ADD COLUMN IF NOT EXISTS search_document tsvector
   GENERATED ALWAYS AS (
     to_tsvector(
-      'english',
+      'english'::regconfig,
       coalesce(name, '') || ' ' ||
-      coalesce(array_to_string(tasting_notes, ' '), '') || ' ' ||
+      coalesce(brewcult_text_array_to_string(tasting_notes), '') || ' ' ||
       coalesce(roast_level, '') || ' ' ||
       coalesce(intended_use, '')
     )
@@ -52,7 +59,7 @@ CREATE INDEX IF NOT EXISTS idx_coffee_products_fts
 ALTER TABLE roasters
   ADD COLUMN IF NOT EXISTS search_document tsvector
   GENERATED ALWAYS AS (
-    to_tsvector('english', coalesce(name, '') || ' ' || coalesce(location, ''))
+    to_tsvector('english'::regconfig, coalesce(name, '') || ' ' || coalesce(location, ''))
   ) STORED;
 CREATE INDEX IF NOT EXISTS idx_roasters_fts
   ON roasters USING gin (search_document);
@@ -60,7 +67,7 @@ CREATE INDEX IF NOT EXISTS idx_roasters_fts
 ALTER TABLE equipment_models
   ADD COLUMN IF NOT EXISTS search_document tsvector
   GENERATED ALWAYS AS (
-    to_tsvector('english', coalesce(name, '') || ' ' || coalesce(category, ''))
+    to_tsvector('english'::regconfig, coalesce(name, '') || ' ' || coalesce(category, ''))
   ) STORED;
 CREATE INDEX IF NOT EXISTS idx_equipment_models_fts
   ON equipment_models USING gin (search_document);
@@ -87,5 +94,3 @@ ALTER TABLE grind_conversions
   DROP CONSTRAINT IF EXISTS grind_conversions_data_points_positive;
 ALTER TABLE grind_conversions
   ADD CONSTRAINT grind_conversions_data_points_positive CHECK (data_points >= 1);
-
-COMMIT;
