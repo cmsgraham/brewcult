@@ -47,20 +47,52 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   try {
     const apiBase = process.env.API_INTERNAL_URL ?? 'http://localhost:4000';
-    const pull = async (path: string): Promise<{ items?: unknown[] } | null> => {
-      const res = await fetch(`${apiBase}${path}`, { cache: 'no-store' });
-      return res.ok ? ((await res.json()) as { items?: unknown[] }) : null;
+
+    /**
+     * Page through a collection until it is exhausted.
+     *
+     * `limit` is 100, not 200: the API rejects anything higher with a 400
+     * ("querystring/limit must be <= 100"). Every pull here asked for 200, so
+     * every pull 400'd, `pull()` returned null, and the sitemap silently
+     * contained no entity URLs at all — the catch below turned a permanent
+     * misconfiguration into the same quiet fallback it uses for a transient
+     * outage.
+     *
+     * PAGE_CAP stops a runaway loop from a misbehaving cursor. Hitting it means
+     * the sitemap is incomplete, so it says so in the logs rather than
+     * truncating in silence.
+     */
+    const PAGE_LIMIT = 100;
+    const PAGE_CAP = 25;
+    const pullAll = async (path: string): Promise<unknown[]> => {
+      const items: unknown[] = [];
+      let cursor: string | null = null;
+      for (let page = 0; page < PAGE_CAP; page += 1) {
+        const url =
+          `${apiBase}${path}?limit=${PAGE_LIMIT}` +
+          (cursor ? `&cursor=${encodeURIComponent(cursor)}` : '');
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) {
+          throw new Error(`sitemap: ${path} responded ${res.status}`);
+        }
+        const body = (await res.json()) as { items?: unknown[]; next_cursor?: string | null };
+        items.push(...(body.items ?? []));
+        cursor = body.next_cursor ?? null;
+        if (!cursor) return items;
+      }
+      throw new Error(`sitemap: ${path} still paginating after ${PAGE_CAP} pages`);
     };
+
     const [coffees, roasters, equipment] = await Promise.all([
-      pull('/v1/coffees?limit=200'),
-      pull('/v1/roasters?limit=200'),
-      pull('/v1/equipment?limit=200'),
+      pullAll('/v1/coffees'),
+      pullAll('/v1/roasters'),
+      pullAll('/v1/equipment'),
     ]);
 
     const detail = catalogSitemapEntries({
-      coffees: (coffees?.items ?? []) as never,
-      roasters: (roasters?.items ?? []) as never,
-      equipment: (equipment?.items ?? []) as never,
+      coffees: coffees as never,
+      roasters: roasters as never,
+      equipment: equipment as never,
     });
 
     for (const entry of detail) {
@@ -71,9 +103,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: entry.priority,
       });
     }
-  } catch {
-    // Static + hub routes only.
+  } catch (error) {
+    // Degrade to the static routes rather than 500 the sitemap — an incomplete
+    // index is recoverable, an unreachable one is not. But SAY SO: this catch
+    // previously hid a permanent 400 for as long as the site has existed.
+    // eslint-disable-next-line no-console
+    console.error('[sitemap] catalog fetch failed — emitting static routes only:', error);
   }
 
-  return entries;
+  // catalogSitemapEntries() also emits the hub routes, which the static list
+  // above already contains — so without this every hub appeared twice. A
+  // duplicate <loc> is not fatal to a crawler, but it is exactly the kind of
+  // sloppiness Search Console reports back at you.
+  const seen = new Set<string>();
+  return entries.filter((entry) => {
+    if (seen.has(entry.url)) return false;
+    seen.add(entry.url);
+    return true;
+  });
 }
