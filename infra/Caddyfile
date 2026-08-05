@@ -3,6 +3,12 @@
 # client for the whole box — including the mail server's cert (§5.4), which is
 # why the mail.brewcult.coffee block exists with no proxy target.
 # DNS A records for ALL FOUR hostnames must point at the VPS before first boot.
+#
+# ⚠ THIS FILE IS THE STANDALONE-HOST CONFIG. It is only read when the compose
+# `edge` profile is enabled (BrewCult alone on its own VPS). On a SHARED host
+# the live config is the neighbouring app's Caddyfile, which carries the same
+# site blocks — editing this file there changes nothing. See the EDGE note in
+# docker-compose.prod.yml, and `deploy.sh caddy`, which refuses to pretend.
 
 # Redirect www → apex so search engines see a single canonical host.
 www.brewcult.coffee {
@@ -29,7 +35,7 @@ brewcult.coffee {
 
 	# API under the same origin: /api/* is stripped and proxied to the api container.
 	handle_path /api/* {
-		reverse_proxy api:4000
+		reverse_proxy brewcult-api:4000
 	}
 
 	# Service worker must NEVER be cached by the browser HTTP cache — iOS Safari
@@ -37,12 +43,12 @@ brewcult.coffee {
 	@sw path /sw.js
 	header @sw Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
 
-	reverse_proxy web:3000
+	reverse_proxy brewcult-web:3000
 }
 
 # Cookie-less media origin (EF §3.5) — MinIO behind its own hostname.
 media.brewcult.coffee {
-	reverse_proxy minio:9000
+	reverse_proxy brewcult-minio:9000
 }
 
 # Cert-only block: no proxy target needed — its purpose is making Caddy

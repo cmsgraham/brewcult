@@ -71,6 +71,14 @@ services:
       - "3000"
     environment:
       API_INTERNAL_URL: http://brewcult-api:4000
+      # MUST be pinned. Every service shares one .env.prod, and that file sets
+      # PORT=4000 for the API. The Next.js standalone server honours PORT, so
+      # without this override `web` binds 4000 while Caddy and its own
+      # healthcheck both talk to 3000 — a container that says "✓ Ready" in its
+      # logs, reports unhealthy forever, and serves 502 to every visitor.
+      # `environment:` takes precedence over `env_file:`, which is the whole
+      # reason this works.
+      PORT: 3000
     env_file:
       - ../.env.prod
     networks:

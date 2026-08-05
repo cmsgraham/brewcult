@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type FastifyInstance } from 'fastify';
-import { type HealthStatus } from '@brewcult/shared-types';
+import type { HealthStatus } from '@brewcult/shared-types';
 import { buildApp } from '../src/app.js';
 
 describe('health endpoints', () => {

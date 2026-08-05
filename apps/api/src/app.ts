@@ -1,5 +1,5 @@
 import Fastify, { type FastifyInstance } from 'fastify';
-import { type HealthStatus } from '@brewcult/shared-types';
+import type { HealthStatus } from '@brewcult/shared-types';
 import { registerErrorHandler } from './lib/errors.js';
 import { renderMail, sendMail } from './lib/mailer.js';
 import { registerIdentityRoutes, setIdentityMailer } from './modules/identity/index.js';

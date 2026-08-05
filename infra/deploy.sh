@@ -99,11 +99,21 @@ ci_gate() {
 
 # ── Sync functions ───────────────────────────────────────────────────────────
 sync_common() {
-  echo "→ Syncing shared workspace files (root manifests, packages/, db/, infra/)..."
-  rsync_file package.json package.json
-  if [[ -f "$LOCAL/package-lock.json" ]]; then
-    rsync_file package-lock.json package-lock.json
-  fi
+  # rsync creates the LEAF directory but not intermediate parents, so a
+  # first-ever deploy dies on `mkdir "/srv/brewcult/apps/web": No such file`.
+  # Cheap and idempotent, so it runs every time rather than only on bootstrap.
+  ssh_run "mkdir -p $REMOTE/apps $REMOTE/packages"
+  echo "→ Syncing shared workspace files (root config, packages/, db/, infra/)..."
+  # Every top-level FILE, not an enumerated list. The Dockerfiles build from the
+  # repo root and `COPY . .`, so anything at the root is potentially part of the
+  # build — tsconfig.base.json, .dockerignore, .nvmrc, eslint config. Listing
+  # them by hand means the next root config file added to the repo produces a
+  # build that fails only on the server (this cost one deploy: `next build` died
+  # on "Cannot read file '/app/tsconfig.base.json'").
+  #   -f '- /*/'  excludes top-level DIRECTORIES; the explicit syncs below own
+  #               those, and no --delete here so they are left untouched.
+  rsync -az --checksum "${RSYNC_EXCLUDES[@]}" -f '- /*/' -e "ssh -i $SSH_KEY" \
+    "$LOCAL/" "$SSH_HOST:$REMOTE/"
   if [[ -d "$LOCAL/packages" ]]; then
     rsync_dir packages/ packages/
   fi
@@ -187,6 +197,54 @@ bound_build_cache() {
   ssh_run "df -h / | tail -1"
 }
 
+# ── Post-deploy verification ─────────────────────────────────────────────────
+# A build that COMPILES is not a deploy that WORKS: the artifact still has to
+# boot. `docker compose up -d` returns as soon as the container is created, not
+# when the process survives, so without this the script happily prints "🚀 Done!"
+# over a crash-looping container. That is exactly what happened on the first
+# BrewCult deploy — tsc and next build were both green, and the API died at
+# runtime on an ESM resolution error that no unit test could see.
+#
+# Fails the deploy loudly and prints the logs, because a silent bad deploy is
+# how you find out from a user instead of from your own tooling.
+VERIFY_TIMEOUT="${VERIFY_TIMEOUT:-90}"
+verify_running() {  # verify_running <container> [<container>...]
+  local deadline=$((SECONDS + VERIFY_TIMEOUT)) failed=()
+  echo "→ Verifying containers stay up (${VERIFY_TIMEOUT}s budget)..."
+  for name in "$@"; do
+    local ok=false state health
+    while (( SECONDS < deadline )); do
+      # A container with a healthcheck must report healthy; one without only
+      # has to still be running a few seconds after start (crash loops flip to
+      # "restarting", which never satisfies either condition).
+      state=$(ssh_run "docker inspect -f '{{.State.Status}}' $name 2>/dev/null" || echo missing)
+      health=$(ssh_run "docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' $name 2>/dev/null" || echo none)
+      if [[ "$state" == "running" && ( "$health" == "healthy" || "$health" == "none" ) ]]; then
+        ok=true; break
+      fi
+      sleep 3
+    done
+    if [[ "$ok" == "true" ]]; then
+      echo "  ✓ $name ($state/$health)"
+    else
+      echo "  ✗ $name ($state/$health)"
+      failed+=("$name")
+    fi
+  done
+
+  if (( ${#failed[@]} > 0 )); then
+    echo "" >&2
+    echo "✗ DEPLOY FAILED — these containers never came up: ${failed[*]}" >&2
+    for name in "${failed[@]}"; do
+      echo "" >&2
+      echo "──── last 30 log lines: $name ────" >&2
+      ssh_run "docker logs --tail 30 $name 2>&1" >&2 || true
+    done
+    exit 1
+  fi
+  echo "✓ All containers healthy"
+}
+
 # ── DEPLOYED hash bookkeeping (§6.4) ─────────────────────────────────────────
 record_deployed() {  # record_deployed <commit-hash>
   ssh_run "cd $REMOTE && if [ -f DEPLOYED ]; then cp DEPLOYED DEPLOYED.prev; fi && echo '$1' > DEPLOYED"
@@ -200,11 +258,18 @@ deploy_services_for_target() {
     # skew between api and consumers is a subtle-bug factory (§6.3).
     api) build_and_restart brewcult-api brewcult-worker brewcult-scheduler ;;
     all)
-      # Deliberately sequential: this host has 3.8 GB of RAM and also serves a
+      # ORDER MATTERS, and not for the obvious reason. brewcult-web declares
+      # `depends_on: brewcult-api: service_healthy`, so starting web first drags
+      # up whatever api image is currently on the box. If that image is broken,
+      # `compose up` aborts on "dependency failed to start" and `set -e` kills
+      # the deploy BEFORE the fixed api is ever built — a deploy that can never
+      # repair the thing it is deploying. api goes first for that reason.
+      #
+      # Sequential, not parallel: this host has 3.8 GB of RAM and also serves a
       # live app. Two concurrent `next build`/`tsc` runs is how you OOM-kill a
       # neighbour's container.
-      build_and_restart brewcult-web
       build_and_restart brewcult-api brewcult-worker brewcult-scheduler
+      build_and_restart brewcult-web
       ;;
   esac
 }
@@ -275,6 +340,15 @@ run_migrations
 echo ""
 deploy_services_for_target
 
+echo ""
+case "$TARGET" in
+  web) verify_running brewcult-web ;;
+  api) verify_running brewcult-api brewcult-worker brewcult-scheduler ;;
+  all) verify_running brewcult-api brewcult-worker brewcult-scheduler brewcult-web ;;
+esac
+
+# Recorded only AFTER verification, so DEPLOYED always names a commit that was
+# observed running — otherwise --rollback would happily roll back TO a broken one.
 DEPLOY_HASH=$(git -C "$LOCAL" rev-parse HEAD)
 record_deployed "$DEPLOY_HASH"
 
