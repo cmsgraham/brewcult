@@ -33,6 +33,7 @@ import type { AdminDb } from '../src/modules/admin/types.js';
 import {
   findExistingEquipment,
   insertEquipmentModel,
+  normalizeEquipmentName,
   upsertEquipmentBrand,
 } from '../src/modules/catalog/index.js';
 import {
@@ -426,6 +427,47 @@ describe('deciding whether a draft may be published', () => {
 });
 
 describe('duplicate detection, which is what a human used to do', () => {
+  it('matches the way the assistant actually names things', async () => {
+    // Every one of these came out of a real production run. Exact matching let
+    // "V60 02 Ceramic Dripper" through as a new row when the catalogue already
+    // held "V60 Dripper 02", and the duplicate went public.
+    expect(normalizeEquipmentName('V60 02 Ceramic Dripper')).toBe(
+      normalizeEquipmentName('V60 Dripper 02'),
+    );
+    expect(normalizeEquipmentName('Burr Coffee Grinder KCG8433 (Matte Black)')).toBe(
+      normalizeEquipmentName('KCG8433'),
+    );
+
+    // And the distinction that must survive: a model code is never noise.
+    expect(normalizeEquipmentName('Lagom P64')).not.toBe(normalizeEquipmentName('Lagom P100'));
+    expect(normalizeEquipmentName('V60 Dripper 01')).not.toBe(
+      normalizeEquipmentName('V60 Dripper 02'),
+    );
+
+    // A name made entirely of noise falls back rather than matching everything.
+    expect(normalizeEquipmentName('Coffee Grinder')).toBe('coffee grinder');
+    expect(normalizeEquipmentName('Coffee Grinder')).not.toBe(normalizeEquipmentName('Kettle'));
+  });
+
+  it('finds the reordered, padded version of a row that already exists', async () => {
+    const brandId = await upsertEquipmentBrand(db as never, 'Hario');
+    await insertEquipmentModel(db as never, {
+      brand_id: brandId,
+      category: 'brewer' as never,
+      name: 'V60 Dripper 02',
+      slug: 'hario-v60-02',
+    });
+
+    // The exact production failure: different word order, one extra material
+    // word, a slug that shares nothing.
+    const found = await findExistingEquipment(db as never, {
+      brand: 'Hario',
+      name: 'V60 02 Ceramic Dripper',
+      slug: 'hario-v60-02-ceramic-dripper',
+    });
+    expect(found).toMatchObject({ name: 'V60 Dripper 02' });
+  });
+
   it('finds the row a second submission would have duplicated', async () => {
     const id = await submit('Hario V60 02 ceramic dripper');
     await approveRequest(

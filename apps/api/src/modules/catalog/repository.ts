@@ -941,6 +941,56 @@ export async function upsertEquipmentBrand(db: CatalogDb, name: string): Promise
 }
 
 /**
+ * Words that do not distinguish one product from another.
+ *
+ * Assembled from what the assistant actually produced against production, not
+ * from imagination: it answered "V60 02 Ceramic Dripper" for a dripper the
+ * catalogue already held as "V60 Dripper 02", and "Burr Coffee Grinder KCG8433
+ * (Matte Black)" for a KitchenAid. Category nouns, materials and colours are
+ * how a model pads a name; none of them identify a different object.
+ *
+ * Deliberately NOT in here: anything that could be a model designation, a
+ * capacity or a size. Those are exactly what tells two products apart.
+ */
+const NAME_NOISE = new Set([
+  // category nouns
+  'coffee', 'brewer', 'brewing', 'dripper', 'drip', 'grinder', 'grinders', 'kettle',
+  'scale', 'scales', 'machine', 'maker', 'press', 'filter', 'cone', 'pot', 'set', 'kit',
+  // manner-of-operation words
+  'electric', 'manual', 'hand', 'handheld', 'burr', 'burrs', 'pour', 'over', 'pourover',
+  'automatic', 'auto', 'digital',
+  // materials — a V60 in ceramic and a V60 in glass are one catalogue entry
+  'ceramic', 'glass', 'plastic', 'metal', 'steel', 'stainless', 'copper', 'resin',
+  // colours and finishes
+  'matte', 'gloss', 'black', 'white', 'red', 'blue', 'green', 'grey', 'gray', 'silver',
+  'clear', 'olive', 'navy', 'pink', 'cream', 'charcoal',
+  // filler
+  'edition', 'model', 'series', 'the', 'with', 'and', 'for', 'in', 'by',
+]);
+
+/**
+ * A name reduced to the tokens that actually identify the product.
+ *
+ * Sorted and de-duplicated, so word order stops mattering: "V60 02 Ceramic
+ * Dripper" and "V60 Dripper 02" both become "02 v60". A model code survives
+ * because it is never noise — which is the safety property that keeps "Lagom
+ * P64" and "Lagom P100" apart.
+ */
+export function normalizeEquipmentName(name: string): string {
+  const tokens = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter((token) => token !== '' && !NAME_NOISE.has(token));
+  // A name made ENTIRELY of noise ("Coffee Grinder") normalises to nothing, and
+  // an empty key would match every other empty key. Fall back to the raw name:
+  // a bad match is worse than a missed one, because it merges two products.
+  if (tokens.length === 0) return name.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  return [...new Set(tokens)].sort().join(' ');
+}
+
+/**
  * Is this equipment already catalogued?
  *
  * Matters far more since the assistant publishes without a human (0013): the
@@ -948,30 +998,45 @@ export async function upsertEquipmentBrand(db: CatalogDb, name: string): Promise
  * V60" row. A human reviewer would have spotted that instantly; nothing else
  * will.
  *
- * Two probes, both cheap and both exact rather than fuzzy:
- *   * the slug the writer WOULD use — catches identical submissions
- *   * brand + name, case-insensitively — catches "V60 02" vs "v60 02" under a
- *     brand that already exists
+ * ── WHY NOT EXACT MATCHING ──────────────────────────────────────────────────
+ * It was, and it failed on the first real submission. The catalogue held "V60
+ * Dripper 02"; the assistant answered "V60 02 Ceramic Dripper"; neither the
+ * slug nor the name matched, and a duplicate went public. Naming variance is
+ * not an edge case here — it is what a language model does every time.
  *
- * Deliberately not similarity matching. "Lagom P64" and "Lagom P100" score high
- * on any trigram measure and are different grinders; collapsing them would be a
- * worse error than a duplicate row, because it attributes one product's specs to
- * another.
+ * ── WHY NOT SIMILARITY MATCHING ─────────────────────────────────────────────
+ * "Lagom P64" and "Lagom P100" score high on any trigram or edit-distance
+ * measure and are different grinders. Merging them attributes one product's
+ * specs to another, which is worse than a duplicate row, because it is wrong
+ * rather than merely untidy.
+ *
+ * So: token-set equality after dropping words that never identify a product.
+ * Model codes contain digits, are never noise, and must therefore be present on
+ * both sides for a match — which is exactly the distinction similarity blurs.
  */
 export async function findExistingEquipment(
   db: CatalogDb,
   input: { brand: string; name: string; slug: string },
 ): Promise<{ id: string; slug: string; name: string } | null> {
+  const bySlug = await db.query<{ id: string; slug: string; name: string }>(
+    `SELECT id::text AS id, slug, name FROM equipment_models WHERE slug = $1 LIMIT 1`,
+    [input.slug],
+  );
+  if (bySlug.rows[0]) return bySlug.rows[0];
+
+  // Everything this brand already has. Small by construction — the largest
+  // brand in a coffee-equipment catalogue has tens of models, not thousands —
+  // so comparing in code beats trying to express the rule in SQL.
   const { rows } = await db.query<{ id: string; slug: string; name: string }>(
     `SELECT m.id::text AS id, m.slug, m.name
        FROM equipment_models m
        JOIN equipment_brands b ON b.id = m.brand_id
-      WHERE m.slug = $3
-         OR (lower(b.name) = lower($1) AND lower(m.name) = lower($2))
-      LIMIT 1`,
-    [input.brand.trim(), input.name.trim(), input.slug],
+      WHERE lower(b.name) = lower($1)`,
+    [input.brand.trim()],
   );
-  return rows[0] ?? null;
+
+  const wanted = normalizeEquipmentName(input.name);
+  return rows.find((row) => normalizeEquipmentName(row.name) === wanted) ?? null;
 }
 
 export async function insertEquipmentModel(

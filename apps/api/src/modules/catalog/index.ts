@@ -113,6 +113,7 @@ export type {
 export {
   findExistingEquipment,
   insertEquipmentModel,
+  normalizeEquipmentName,
   upsertEquipmentBrand,
 } from './repository.js';
 
