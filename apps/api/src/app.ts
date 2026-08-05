@@ -1,7 +1,8 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import { type HealthStatus } from '@brewcult/shared-types';
 import { registerErrorHandler } from './lib/errors.js';
-import { registerIdentityRoutes } from './modules/identity/index.js';
+import { renderMail, sendMail } from './lib/mailer.js';
+import { registerIdentityRoutes, setIdentityMailer } from './modules/identity/index.js';
 import { registerCatalogRoutes } from './modules/catalog/index.js';
 import { registerBrewingRoutes } from './modules/brewing/index.js';
 import { registerAdminRoutes } from './modules/admin/index.js';
@@ -61,6 +62,18 @@ export async function buildApp(): Promise<FastifyInstance> {
       navAi: true,
     },
   }));
+
+  // Give identity a real transport. Without this the module logs verification
+  // codes and continues (its documented no-op), which is why nothing reached
+  // Mailpit before. Delivery failures stay non-fatal by design: a register
+  // endpoint whose status depends on SMTP health is an enumeration oracle.
+  setIdentityMailer(async (message) => {
+    const rendered = renderMail(message.template, message.data);
+    await sendMail(
+      { to: message.to, subject: message.subject, text: rendered.text, html: rendered.html },
+      app.log,
+    );
+  });
 
   // Identity first: it installs the actor plugin, CSRF and the identity
   // policies that the catalog's staff-only routes authorize against.
