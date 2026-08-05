@@ -369,8 +369,26 @@ export const authApi = {
     options?: ApiRequestOptions,
   ) => apiFetch<{ user?: SessionUser }>('/api/v1/auth/register', { ...options, method: 'POST', body: input }),
 
+  /**
+   * Answers either a session or an MFA challenge — the same two-leg shape
+   * Zentra uses. Callers check `mfa_required` and follow up with `mfaVerify`.
+   */
   login: (input: { email: string; password: string }, options?: ApiRequestOptions) =>
-    apiFetch<{ user?: SessionUser }>('/api/v1/auth/login', { ...options, method: 'POST', body: input }),
+    apiFetch<{ user?: SessionUser; mfa_required?: boolean; mfa_token?: string }>(
+      '/api/v1/auth/login',
+      { ...options, method: 'POST', body: input },
+    ),
+
+  /** Leg two of the MFA login: a TOTP code, or a recovery code as the escape hatch. */
+  mfaVerify: (
+    input: { mfa_token: string; code?: string; recovery_code?: string },
+    options?: ApiRequestOptions,
+  ) =>
+    apiFetch<{ user?: SessionUser }>('/api/v1/auth/mfa/verify', {
+      ...options,
+      method: 'POST',
+      body: input,
+    }),
 
   logout: (options?: ApiRequestOptions) =>
     apiFetch<void>('/api/v1/auth/logout', { ...options, method: 'POST' }),

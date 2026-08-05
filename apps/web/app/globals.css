@@ -290,6 +290,22 @@ svg {
 .bc-muted {
   color: var(--bc-ink-muted);
 }
+
+/* A button that reads as a link — for in-sentence actions (switching to a
+   recovery code, starting a flow over) that must be <button>, not <a>,
+   because they do not navigate. */
+.bc-link-button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.bc-link-button:hover {
+  text-decoration: none;
+}
 .bc-stack > * + * {
   margin-top: 1rem;
 }
