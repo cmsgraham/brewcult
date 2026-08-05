@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { AvatarEditor } from '../../components/media/avatar-editor';
 import { AccountActions } from '../../components/profile/account-actions';
+import { AddCoffee } from '../../components/coffee/add-coffee';
 import { EquipmentManager } from '../../components/profile/equipment-manager';
 import { SignOutButton } from '../../components/profile/sign-out-button';
 import { Alert } from '../../components/ui/alert';
@@ -104,6 +105,14 @@ export default async function ProfilePage() {
           talk in your grinder&rsquo;s numbers instead of somebody else&rsquo;s.
         </p>
         <EquipmentManager />
+      </section>
+
+      <section aria-labelledby="shelf-heading" className="bc-stack">
+        <h2 id="shelf-heading">Your coffee</h2>
+        <p className="bc-muted" style={{ marginBottom: 0 }}>
+          Bags you are drinking. Photograph one and the label fills the rest in.
+        </p>
+        <AddCoffee compact />
       </section>
 
       {/* EF §4.5 — plainly worded, at the place where the switch will live. */}

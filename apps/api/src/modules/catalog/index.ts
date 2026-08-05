@@ -117,5 +117,17 @@ export {
   upsertEquipmentBrand,
 } from './repository.js';
 
+/**
+ * The coffee half of the same story (0014). `upsertRoasterByName` is the one to
+ * read twice: it creates businesses, and it creates them UNVERIFIED.
+ */
+export {
+  findExistingCoffee,
+  freeCoffeeSlug,
+  insertCoffee,
+  recordRoastBatch,
+  upsertRoasterByName,
+} from './repository.js';
+
 /** Slug derivation, so the approval path produces the same shape as the catalogue. */
 export { slugify } from './text.js';

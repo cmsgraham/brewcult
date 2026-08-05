@@ -211,6 +211,20 @@ export {
 } from './equipment-draft.js';
 
 /**
+ * Reading a coffee bag (0014). Separate from the equipment drafter because the
+ * task is different in kind: transcription from a label rather than recall.
+ */
+export {
+  draftCoffee,
+  isCoffeePublishable,
+  parseRoastDate,
+  COFFEE_DRAFT_SCHEMA,
+  type CoffeeDraft,
+  type CoffeeDraftInput,
+  type CoffeeDraftDeps,
+} from './coffee-draft.js';
+
+/**
  * The OpenAI provider, for callers that build their own gateway.
  *
  * Production runs AI_PROVIDER=openai, so a consumer selecting a provider needs

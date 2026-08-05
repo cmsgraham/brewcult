@@ -131,6 +131,13 @@ export { emitDomainEvent, type BrewingEventType, type DomainEventInput } from '.
  */
 export { addOwnedEquipment, listOwnedEquipment } from './user-equipment.js';
 
+/**
+ * "What is in my cupboard" (0014). Published for the same reason: a coffee
+ * submission has to land on the submitter's shelf whether or not it reached the
+ * catalogue, and the shelf is the half they actually need today.
+ */
+export { addToShelf, listShelf, type ShelfCoffee } from './user-coffees.js';
+
 // --- diff / params helpers --------------------------------------------------
 /** `changed_fields` computation, shared with the intelligence module's insights. */
 export { diffRecipes, diffSessions, type DiffableRecipe, type DiffableSession } from './diff.js';

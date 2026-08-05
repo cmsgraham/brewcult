@@ -183,7 +183,8 @@ export type AiFeature =
   | 'chat'
   | 'classify'
   /** Drafts a catalogue entry from a description somebody pasted (0011). */
-  | 'equipment_draft';
+  | 'equipment_draft'
+  | 'coffee_draft';
 
 export const AI_FEATURES: readonly AiFeature[] = [
   'diagnose',

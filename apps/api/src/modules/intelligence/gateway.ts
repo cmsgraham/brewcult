@@ -129,10 +129,10 @@ export const FEATURE_ROUTES: Readonly<Record<AiFeature, FeatureRoute>> = {
   /**
    * Drafting a catalogue entry from a pasted description.
    *
-   * Default tier rather than cheap: this output is PROPOSED as shared reference
-   * data, and the failure mode is a confident wrong burr diameter entering a
-   * grind-conversion corpus. A human still approves it, but making the reviewer
-   * correct a sloppier draft every time is a false economy.
+   * Default tier rather than cheap: this output IS shared reference data since
+   * 0013 — nobody approves it — and the failure mode is a confident wrong burr
+   * diameter entering a grind-conversion corpus. Saving pennies on the model
+   * that writes the catalogue is a false economy.
    */
   equipment_draft: {
     feature: 'equipment_draft',
@@ -141,6 +141,19 @@ export const FEATURE_ROUTES: Readonly<Record<AiFeature, FeatureRoute>> = {
     effort: 'low',
     thinking: false,
     maxTokens: 800,
+  },
+  /**
+   * Reading a coffee bag (0014). Same tier, more room: a label carries a dozen
+   * fields plus tasting notes, and truncating the answer mid-JSON would lose the
+   * whole draft rather than the tail of it.
+   */
+  coffee_draft: {
+    feature: 'coffee_draft',
+    model: MODELS.default,
+    premiumModel: MODELS.default,
+    effort: 'low',
+    thinking: false,
+    maxTokens: 1200,
   },
 };
 

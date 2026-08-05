@@ -62,14 +62,16 @@ export type AdminAuditAction =
   // Confirming a row the ASSISTANT published (0013). The interesting audit
   // question inverted when the human moved after publication: it is no longer
   // "who let this in" but "who has checked what was let in, and when".
-  | 'admin.equipment_reviewed';
+  | 'admin.equipment_reviewed'
+  | 'admin.coffee_reviewed';
 
 export type AdminAuditTargetType =
   | 'user'
   | 'seller_application'
   | 'report'
   | 'equipment_request'
-  | 'equipment_model';
+  | 'equipment_model'
+  | 'coffee_product';
 
 export interface AdminAuditEvent {
   /** Acting staff member; null = system (bootstrap / CLI). */

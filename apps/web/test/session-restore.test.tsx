@@ -46,7 +46,7 @@ const forbidden = () =>
 /** Answers the CSRF mint, and whatever is queued for the refresh itself. */
 function apiStub(refreshResponses: Response[]) {
   const queue = [...refreshResponses];
-  return vi.fn((url: string) =>
+  return vi.fn((url: string, _init?: RequestInit) =>
     Promise.resolve(
       String(url).includes('/auth/csrf') ? csrfToken() : (queue.shift() ?? ok()),
     ),

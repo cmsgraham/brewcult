@@ -113,6 +113,8 @@ async function applyMigrations(): Promise<void> {
     '0010_user_equipment.sql',
     '0011_custom_equipment.sql',
     '0013_community_catalogue.sql',
+    // 0014 adds the provenance columns the roaster and coffee writers set.
+    '0014_community_coffee.sql',
   ]) {
     const sql = readFileSync(join(MIGRATIONS, file), 'utf8')
       // PGlite has no pgvector build; the embedding columns land in a later

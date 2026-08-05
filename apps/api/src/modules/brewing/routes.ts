@@ -33,6 +33,12 @@ import {
   RECIPE_RESOURCE,
 } from './policies.js';
 import * as repo from './repository.js';
+import {
+  addToShelf,
+  finishBag,
+  listShelf,
+  removeFromShelf,
+} from './user-coffees.js';
 import { defaultBrewingDb, withTransaction } from './repository.js';
 import {
   addCustomEquipment,
@@ -146,6 +152,86 @@ export async function registerBrewingRoutes(
   // different resources sharing a prefix is how you end up with a slug called
   // "mine".
   // -------------------------------------------------------------------------
+
+
+  // -------------------------------------------------------------------------
+  // What is in my cupboard (0014).
+  //
+  // Same namespace reasoning as /my-equipment: /v1/coffees/:slug is a public
+  // catalogue page, and a personal collection sharing that prefix is how you end
+  // up with a coffee called "mine".
+  // -------------------------------------------------------------------------
+
+  app.get(`${prefix}/my-coffees`, authed, async (request) => ({
+    items: await listShelf(db, requireUserId(request)),
+  }));
+
+  app.post<{
+    Body: {
+      coffee_product_id?: string;
+      roaster?: string;
+      name?: string;
+      roast_date?: string;
+      notes?: string;
+    };
+  }>(`${prefix}/my-coffees`, authed, async (request, reply) => {
+    const userId = requireUserId(request);
+    const body = request.body ?? {};
+    const productId = typeof body.coffee_product_id === 'string' ? body.coffee_product_id : null;
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+
+    if (!productId && name === '') throw badRequest('What is the coffee called?');
+    if (name.length > 160) throw badRequest('That name is a bit long — 160 characters or fewer.');
+    if (body.roaster !== undefined && body.roaster.length > 120) {
+      throw badRequest('That roaster name is a bit long — 120 characters or fewer.');
+    }
+    if (body.notes !== undefined && body.notes.length > 2000) {
+      throw badRequest('That note is a bit long — 2000 characters or fewer.');
+    }
+    // A roast date in the future is a typo and the database refuses it; saying
+    // so here is friendlier than a constraint name.
+    if (body.roast_date && !/^\d{4}-\d{2}-\d{2}$/.test(body.roast_date)) {
+      throw badRequest('Use a date like 2026-08-05 for the roast date.');
+    }
+
+    const result = await addToShelf(db, {
+      userId,
+      coffeeProductId: productId,
+      customRoaster: body.roaster ?? null,
+      customName: name || null,
+      roastDate: body.roast_date ?? null,
+      notes: body.notes ?? null,
+    });
+
+    if (result.status === 'not_found') throw badRequest('We do not know that coffee.');
+    // Adding the same open bag twice is a double-click.
+    const status = result.status === 'added' ? 201 : 200;
+    return reply.status(status).send({ items: await listShelf(db, userId) });
+  });
+
+  app.post<{ Params: { id: string } }>(
+    `${prefix}/my-coffees/:id/finished`,
+    authed,
+    async (request, reply) => {
+      const userId = requireUserId(request);
+      if (!(await finishBag(db, userId, request.params.id))) {
+        throw notFound('No open bag with that id.');
+      }
+      return reply.send({ items: await listShelf(db, userId) });
+    },
+  );
+
+  app.delete<{ Params: { id: string } }>(
+    `${prefix}/my-coffees/:id`,
+    authed,
+    async (request, reply) => {
+      const userId = requireUserId(request);
+      if (!(await removeFromShelf(db, userId, request.params.id))) {
+        throw notFound('That is not on your shelf.');
+      }
+      return reply.send({ items: await listShelf(db, userId) });
+    },
+  );
 
   app.get(`${prefix}/my-equipment`, authed, async (request) => ({
     items: await listOwnedEquipment(db, requireUserId(request)),

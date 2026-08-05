@@ -16,7 +16,7 @@ import { query as poolQuery } from '../../lib/db.js';
 import { badRequest, conflict, notFound } from '../../lib/errors.js';
 import { mediaUrl } from '../media/index.js';
 import { decodeCursor, paginate } from './cursor.js';
-import { escapeLike, isUuid } from './text.js';
+import { escapeLike, isUuid, slugify } from './text.js';
 import type {
   AutocompleteItem,
   CoffeeDetail,
@@ -772,6 +772,9 @@ export async function listGrindConversions(
 // ---------------------------------------------------------------------------
 
 export interface RoasterInput {
+  /** Provenance (0014). Defaults to 'editorial' — staff and seed writes. */
+  source?: 'editorial' | 'community' | null;
+  submitted_by?: string | null;
   name: string;
   slug: string;
   location?: string | null;
@@ -781,10 +784,18 @@ export interface RoasterInput {
 export async function insertRoaster(db: CatalogDb, input: RoasterInput): Promise<RoasterSummary> {
   try {
     const res = await db.query<{ id: string }>(
-      `INSERT INTO roasters (name, slug, location, verified)
-       VALUES ($1, $2, $3, coalesce($4::boolean, false))
+      `INSERT INTO roasters (name, slug, location, verified, source, submitted_by)
+       VALUES ($1, $2, $3, coalesce($4::boolean, false),
+               coalesce($5, 'editorial'), $6::uuid)
        RETURNING id`,
-      [input.name, input.slug, input.location ?? null, input.verified ?? null],
+      [
+        input.name,
+        input.slug,
+        input.location ?? null,
+        input.verified ?? null,
+        input.source ?? null,
+        input.submitted_by ?? null,
+      ],
     );
     const id = res.rows[0]?.id;
     if (!id) throw new Error('insert returned no row');
@@ -827,6 +838,9 @@ async function requireRoasterById(db: CatalogDb, id: string): Promise<RoasterSum
 }
 
 export interface CoffeeInput {
+  /** Provenance (0014). Defaults to 'editorial'. */
+  source?: 'editorial' | 'community' | null;
+  submitted_by?: string | null;
   roaster_id: string;
   coffee_lot_id?: string | null;
   name: string;
@@ -842,9 +856,10 @@ export async function insertCoffee(db: CatalogDb, input: CoffeeInput): Promise<C
     const res = await db.query<{ slug: string }>(
       `INSERT INTO coffee_products
          (roaster_id, coffee_lot_id, name, slug, roast_level, intended_use,
-          tasting_notes, status)
+          tasting_notes, status, source, submitted_by)
        VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6,
-               coalesce($7::text[], '{}'::text[]), coalesce($8::text, 'active'))
+               coalesce($7::text[], '{}'::text[]), coalesce($8::text, 'active'),
+               coalesce($9, 'editorial'), $10::uuid)
        RETURNING slug`,
       [
         input.roaster_id,
@@ -855,6 +870,8 @@ export async function insertCoffee(db: CatalogDb, input: CoffeeInput): Promise<C
         input.intended_use,
         input.tasting_notes ?? null,
         input.status ?? null,
+        input.source ?? null,
+        input.submitted_by ?? null,
       ],
     );
     const slug = res.rows[0]?.slug;
@@ -1100,4 +1117,103 @@ export async function updateEquipmentModel(
   } catch (err) {
     return translateWriteError(err, 'equipment model');
   }
+}
+
+/* ------------------------------------------------------------------ *
+ * Community submissions (0014)
+ * ------------------------------------------------------------------ */
+
+/**
+ * Find or create a roaster by name, UNVERIFIED.
+ *
+ * Every coffee needs one (`roaster_id NOT NULL`), so a member submitting a bag
+ * necessarily mints a roaster row. Two rules make that survivable:
+ *
+ *   * case-insensitive match first, so "Onyx" and "onyx" are one business
+ *     rather than two competing pages
+ *   * `verified` is never set here and must never be. It is the difference
+ *     between "somebody typed this name" and "we know this business", and a
+ *     model reading a label cannot establish the second.
+ */
+export async function upsertRoasterByName(
+  db: CatalogDb,
+  name: string,
+  submittedBy: string | null,
+): Promise<{ id: string; created: boolean }> {
+  const trimmed = name.trim();
+  const existing = await db.query<{ id: string }>(
+    `SELECT id::text AS id FROM roasters WHERE lower(name) = lower($1) LIMIT 1`,
+    [trimmed],
+  );
+  const found = existing.rows[0]?.id;
+  if (found) return { id: found, created: false };
+
+  // Slug collisions are real here: two differently-named roasters can slugify
+  // the same way. A numeric suffix keeps both, which is better than refusing a
+  // submission over a URL.
+  const base = slugify(trimmed);
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const slug = attempt === 0 ? base : `${base}-${attempt + 1}`;
+    try {
+      const created = await db.query<{ id: string }>(
+        `INSERT INTO roasters (name, slug, verified, source, submitted_by)
+         VALUES ($1, $2, false, 'community', $3::uuid)
+         RETURNING id::text AS id`,
+        [trimmed, slug, submittedBy],
+      );
+      return { id: created.rows[0]!.id, created: true };
+    } catch (err) {
+      const { code } = pgError(err);
+      if (code !== '23505') throw err;
+    }
+  }
+  throw conflict('Could not find a free slug for that roaster.');
+}
+
+/**
+ * Is this coffee already catalogued?
+ *
+ * Same reasoning as `findExistingEquipment`, and the same normaliser — a
+ * roaster's own name for a coffee varies between the bag, the website and
+ * whatever the person typed. Scoped to the roaster, because "Ethiopia
+ * Guji" from two roasters is two different coffees.
+ */
+export async function findExistingCoffee(
+  db: CatalogDb,
+  input: { roasterId: string; name: string },
+): Promise<{ id: string; slug: string; name: string } | null> {
+  const { rows } = await db.query<{ id: string; slug: string; name: string }>(
+    `SELECT id::text AS id, slug, name FROM coffee_products WHERE roaster_id = $1::uuid`,
+    [input.roasterId],
+  );
+  const wanted = normalizeEquipmentName(input.name);
+  return rows.find((row) => normalizeEquipmentName(row.name) === wanted) ?? null;
+}
+
+/** A slug nobody is using yet. Coffee names collide far more than gear does. */
+export async function freeCoffeeSlug(db: CatalogDb, base: string): Promise<string> {
+  const root = slugify(base);
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const slug = attempt === 0 ? root : `${root}-${attempt + 1}`;
+    const { rows } = await db.query<{ id: string }>(
+      `SELECT id::text AS id FROM coffee_products WHERE slug = $1`,
+      [slug],
+    );
+    if (rows.length === 0) return slug;
+  }
+  throw conflict('Could not find a free slug for that coffee.');
+}
+
+/** Records the roast date of a bag, if the label had one. */
+export async function recordRoastBatch(
+  db: CatalogDb,
+  coffeeProductId: string,
+  roastDate: string,
+): Promise<void> {
+  await db.query(
+    `INSERT INTO roast_batches (coffee_product_id, roast_date)
+          VALUES ($1::uuid, $2::date)
+     ON CONFLICT DO NOTHING`,
+    [coffeeProductId, roastDate],
+  );
 }

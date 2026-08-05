@@ -64,14 +64,37 @@ import {
   findRequest,
 } from './equipment-requests.js';
 import {
+  findExistingCoffee,
   findExistingEquipment,
+  freeCoffeeSlug,
+  insertCoffee,
   insertEquipmentModel,
+  recordRoastBatch,
   slugify,
   upsertEquipmentBrand,
+  upsertRoasterByName,
 } from '../catalog/index.js';
 import { addOwnedEquipment } from '../brewing/index.js';
 import { assertMediaUsable } from '../media/index.js';
-import { draftEquipment, isPublishable, type EquipmentDraft } from '../intelligence/index.js';
+import {
+  attachCoffeeDraft,
+  createCoffeeRequest,
+  findCoffeeRequest,
+  listMyCoffeeRequests,
+  listUnreviewedCommunityCoffee,
+  markCoffeeReviewed,
+  recordCoffeeDecision,
+} from './coffee-requests.js';
+import { addToShelf } from '../brewing/index.js';
+import {
+  draftCoffee,
+  draftEquipment,
+  isCoffeePublishable,
+  isPublishable,
+  parseRoastDate,
+  type CoffeeDraft,
+  type EquipmentDraft,
+} from '../intelligence/index.js';
 import {
   AiGateway,
   AnthropicProvider,
@@ -298,6 +321,203 @@ export async function registerAdminRoutes(
       request.log.warn({ err, requestId }, 'auto-publish failed; left for review');
     }
   };
+
+
+  // -------------------------------------------------------------------------
+  // Coffee submissions (0014) — photograph a bag, get a coffee.
+  // -------------------------------------------------------------------------
+
+  /**
+   * Put the bag on the person's shelf, whatever else happened.
+   *
+   * This is the part that must never fail to matter. Publication is a bonus;
+   * being able to log a brew with the coffee you are actually drinking is the
+   * point, so a draft that could not be published still leaves a usable private
+   * entry with whatever the label said.
+   */
+  const shelveCoffee = async (
+    userId: string,
+    draft: CoffeeDraft,
+    coffeeProductId: string | null,
+  ): Promise<void> => {
+    const roastDate = parseRoastDate(draft.roast_date);
+    await addToShelf(db as never, {
+      userId,
+      ...(coffeeProductId
+        ? { coffeeProductId }
+        : {
+            customRoaster: draft.roaster?.trim() ?? null,
+            customName: draft.name?.trim() || 'Unnamed coffee',
+          }),
+      roastDate,
+    }).catch(() => undefined);
+  };
+
+  /**
+   * Publish a coffee the assistant could read — or leave it pending.
+   *
+   * Creating a coffee means creating a ROASTER, because coffee_products.
+   * roaster_id is NOT NULL. That roaster is unverified and stays that way: the
+   * `verified` flag is the difference between "somebody typed this name" and
+   * "we know this business", and reading a label cannot establish the second.
+   */
+  const publishCoffeeIfReady = async (
+    request: FastifyRequest,
+    requestId: string,
+    userId: string,
+    draft: CoffeeDraft,
+  ): Promise<void> => {
+    if (!isCoffeePublishable(draft)) {
+      if (!draft.is_coffee) {
+        await recordCoffeeDecision(db, {
+          id: requestId,
+          status: 'rejected',
+          note:
+            draft.notes.trim() ||
+            'That does not look like a bag of coffee. If it is, try a clearer photo of the label.',
+        });
+        return;
+      }
+      // Readable enough for a shelf, not for the catalogue. Both are true at
+      // once, and the shelf is the half the person actually needs today.
+      await shelveCoffee(userId, draft, null);
+      return;
+    }
+
+    const roasterName = draft.roaster!.trim();
+    const coffeeName = draft.name!.trim();
+
+    try {
+      const roaster = await upsertRoasterByName(db as never, roasterName, userId);
+      const existing = await findExistingCoffee(db as never, {
+        roasterId: roaster.id,
+        name: coffeeName,
+      });
+
+      if (existing) {
+        await recordCoffeeDecision(db, {
+          id: requestId,
+          status: 'approved',
+          coffeeProductId: existing.id,
+          note: 'Already in the catalogue — added to your shelf.',
+        });
+        await shelveCoffee(userId, draft, existing.id);
+        return;
+      }
+
+      const slug = await freeCoffeeSlug(db as never, `${roasterName} ${coffeeName}`);
+      const created = await insertCoffee(db as never, {
+        roaster_id: roaster.id,
+        name: coffeeName,
+        slug,
+        // Required by 0003 and DEFAULTED rather than demanded. A bag that does
+        // not state a roast level is a medium omni as far as the catalogue is
+        // concerned; inventing an ORIGIN would be a different thing entirely,
+        // which is why those fields are simply absent when unprinted.
+        roast_level: (draft.roast_level ?? 'medium') as never,
+        intended_use: (draft.intended_use ?? 'omni') as never,
+        ...(draft.tasting_notes?.length ? { tasting_notes: draft.tasting_notes } : {}),
+        source: 'community',
+        submitted_by: userId,
+      });
+
+      const roastDate = parseRoastDate(draft.roast_date);
+      if (roastDate) await recordRoastBatch(db as never, created.id, roastDate);
+
+      await recordCoffeeDecision(db, {
+        id: requestId,
+        status: 'approved',
+        coffeeProductId: created.id,
+        note: roaster.created
+          ? `Added, along with ${roasterName} as a new roaster.`
+          : 'Added to the catalogue.',
+      });
+      await shelveCoffee(userId, draft, created.id);
+    } catch (err) {
+      request.log.warn({ err, requestId }, 'coffee auto-publish failed; left for review');
+      // The shelf still happens. Losing the bag because a slug collided would
+      // be the worst outcome of the three.
+      await shelveCoffee(userId, draft, null);
+    }
+  };
+
+  app.post<{ Body: { description?: string; image_media_id?: string } }>(
+    `${prefix}/coffee-requests`,
+    mutation,
+    async (request, reply) => {
+      const actor = actorOf(request);
+      await authorize(actor, 'create', EQUIPMENT_REQUEST_RESOURCE);
+      const userId = actor.userId;
+      if (userId === null) throw badRequest('Authentication required.');
+
+      const description = (request.body?.description ?? '').trim();
+      const imageMediaId = request.body?.image_media_id ?? null;
+      if (description === '' && !imageMediaId) {
+        throw badRequest('Add a photo of the bag, or type what the coffee is.');
+      }
+      if (description.length > 4000) {
+        throw badRequest('That is a bit long — 4000 characters or fewer.');
+      }
+      if (imageMediaId) {
+        await assertMediaUsable(db, imageMediaId, userId, 'equipment_submission');
+      }
+
+      const requestId = await createCoffeeRequest(db, {
+        requesterId: userId,
+        submittedText: description,
+        imageMediaId,
+      });
+
+      try {
+        const stored = await findCoffeeRequest(db, requestId);
+        const draft = await draftCoffee(
+          actor,
+          { description, imageUrl: stored?.image_url ?? null },
+          { gateway: getGateway() },
+        );
+        await attachCoffeeDraft(db, requestId, draft as unknown as Record<string, unknown>, null);
+        await publishCoffeeIfReady(request, requestId, userId, draft);
+      } catch (err) {
+        request.log.warn({ err, requestId }, 'coffee draft failed');
+        await attachCoffeeDraft(db, requestId, null, (err as Error).message.slice(0, 300));
+      }
+
+      return reply.status(201).send({ items: await listMyCoffeeRequests(db, userId) });
+    },
+  );
+
+  app.get(`${prefix}/coffee-requests`, read, async (request) => {
+    const actor = actorOf(request);
+    await authorize(actor, 'list', EQUIPMENT_REQUEST_RESOURCE);
+    return { items: await listMyCoffeeRequests(db, actor.userId!) };
+  });
+
+  app.get(`${prefix}/admin/community-coffee`, read, async (request) => {
+    await staffGate(request, EQUIPMENT_REQUEST_RESOURCE, 'moderate');
+    return { items: await listUnreviewedCommunityCoffee(db) };
+  });
+
+  app.post<{ Params: { id: string } }>(
+    `${prefix}/admin/community-coffee/:id/reviewed`,
+    mutation,
+    async (request) => {
+      await staffGate(request, EQUIPMENT_REQUEST_RESOURCE, 'moderate');
+      const reviewerId = actorOf(request).userId;
+      if (reviewerId === null) throw badRequest('Authentication required.');
+
+      if (!(await markCoffeeReviewed(db, request.params.id, reviewerId))) {
+        throw notFound('No unchecked community coffee with that id.');
+      }
+      await recordAdminAudit(db, {
+        actorId: reviewerId,
+        action: 'admin.coffee_reviewed',
+        targetType: 'coffee_product',
+        targetId: request.params.id,
+        payload: {},
+      });
+      return { items: await listUnreviewedCommunityCoffee(db) };
+    },
+  );
 
   app.post<{ Body: { description?: string; image_media_id?: string } }>(
     `${prefix}/equipment-requests`,

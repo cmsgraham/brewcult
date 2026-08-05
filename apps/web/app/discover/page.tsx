@@ -1,5 +1,6 @@
 import { type Metadata } from 'next';
 import { CoffeeCard } from '../../components/discover/coffee-card';
+import { AddCoffee } from '../../components/coffee/add-coffee';
 import { EntitySearch } from '../../components/discover/entity-search';
 import { Alert } from '../../components/ui/alert';
 import { apiFetch, type CoffeeSummary, type Paginated } from '../../lib/api';
@@ -56,6 +57,19 @@ export default async function DiscoverPage() {
 
       {config.features.entitySearch ? <EntitySearch /> : null}
 
+      {/*
+        Drinking something that is not here? Photograph the bag.
+        Deliberately ABOVE the grid rather than buried at the bottom: an empty
+        catalogue is exactly when somebody should be invited to fill it, and a
+        page that says "nothing here yet" with no way to act is a dead end.
+      */}
+      <section aria-labelledby="add-coffee-heading" className="bc-stack">
+        <h2 id="add-coffee-heading" className="bc-visually-hidden">
+          Add a coffee
+        </h2>
+        <AddCoffee />
+      </section>
+
       <section aria-labelledby="coffees-heading">
         <h2 id="coffees-heading">Coffees</h2>
 
@@ -66,8 +80,8 @@ export default async function DiscoverPage() {
           </Alert>
         ) : result.coffees.length === 0 ? (
           <Alert tone="info" title="Nothing here yet.">
-            We are still filling the shelves. Check back shortly, or search for a roaster
-            you already like.
+            We are still filling the shelves — and the fastest way to fill them is a photo of
+            whatever you are drinking. Use &ldquo;Add a coffee&rdquo; above.
           </Alert>
         ) : (
           <ul className="bc-card-grid">
