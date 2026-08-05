@@ -59,6 +59,12 @@ export interface SelfUserProfile extends PublicUserProfile {
   status: UserStatus;
   email_verified: boolean;
   mfa_enabled: boolean;
+  /**
+   * Whether THIS session cleared an MFA challenge. Distinct from `mfa_enabled`
+   * (enrolment): staff authorization keys on the session, so a client that only
+   * sees enrolment would show an operator console the API then refuses.
+   */
+  mfa?: boolean;
   last_seen_at: string | null;
 }
 

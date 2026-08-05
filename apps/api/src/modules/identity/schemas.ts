@@ -65,6 +65,10 @@ export const selfProfileSchema = {
     status: { type: 'string' },
     email_verified: { type: 'boolean' },
     mfa_enabled: { type: 'boolean' },
+    // Session standing, not enrolment. Fastify serialises responses against
+    // this schema and DROPS anything not declared here, so omitting it silently
+    // hid the field the operator console gates on.
+    mfa: { type: 'boolean' },
     last_seen_at: { type: ['string', 'null'] },
     identities: {
       type: 'array',

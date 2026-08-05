@@ -50,7 +50,13 @@ export function registerProfileRoutes(app: FastifyInstance): void {
       isMfaEnabled(poolExec, user.id),
       listAuthIdentities(poolExec, user.id),
     ]);
-    return reply.send({ ...toSelfProfile(user, mfaEnabled), identities });
+    // `mfa` is session standing (did this session clear the challenge);
+    // `mfa_enabled` is enrolment. Clients gate operator UI on the former.
+    return reply.send({
+      ...toSelfProfile(user, mfaEnabled),
+      mfa: request.actor.mfa === true,
+      identities,
+    });
   });
 
   app.get<{ Params: { handle: string } }>(

@@ -4,6 +4,7 @@ import { registerErrorHandler } from './lib/errors.js';
 import { registerIdentityRoutes } from './modules/identity/index.js';
 import { registerCatalogRoutes } from './modules/catalog/index.js';
 import { registerBrewingRoutes } from './modules/brewing/index.js';
+import { registerAdminRoutes } from './modules/admin/index.js';
 
 function health(status: HealthStatus['status']): HealthStatus {
   return {
@@ -63,6 +64,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await registerIdentityRoutes(app);
   await registerCatalogRoutes(app);
   await registerBrewingRoutes(app);
+  await registerAdminRoutes(app);
 
   return app;
 }

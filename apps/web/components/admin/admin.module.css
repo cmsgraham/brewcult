@@ -1,0 +1,341 @@
+/*
+ * Operator-console styles.
+ *
+ * A CSS Module, not additions to app/globals.css — globals belongs to another
+ * lane. Every value reuses the tokens declared there, so light (espresso on
+ * cream) and dark (the reversed lockup palette) both come for free.
+ *
+ * Two things here are load-bearing for safety rather than looks:
+ *  - `.destructive` is outlined in the danger tone AND labelled in words, so the
+ *    difference between "reactivate" and "suspend" is never colour alone
+ *    (WCAG 1.4.1).
+ *  - `.dialog` is a real overlay with its own focus management in TSX; the
+ *    styles here only make sure it sits above everything and never scrolls the
+ *    page behind it.
+ */
+
+/* --- shell --- */
+.shell {
+  display: block;
+}
+
+.eyebrow {
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bc-ink-muted);
+  margin: 0 0 0.35rem;
+}
+
+.subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  list-style: none;
+  margin: 0 0 1.5rem;
+  padding: 0 0 0.75rem;
+  border-bottom: 1px solid var(--bc-line);
+}
+.subnav a {
+  display: inline-block;
+  padding: 0.4rem 0.7rem;
+  border-radius: var(--bc-radius-sm);
+  text-decoration: none;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--bc-ink-muted);
+}
+.subnav a:hover {
+  color: var(--bc-ink);
+  background: var(--bc-surface);
+}
+.subnav a[aria-current='page'] {
+  color: var(--bc-ink);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 0 var(--bc-ink);
+}
+
+/* --- filters --- */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+}
+.filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 10rem;
+}
+.filter label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.select {
+  font: inherit;
+  color: var(--bc-ink);
+  background: var(--bc-bg);
+  border: 1px solid var(--bc-line);
+  border-radius: var(--bc-radius-sm);
+  padding: 0.55rem 0.6rem;
+}
+
+/* --- tables --- */
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--bc-line);
+  border-radius: var(--bc-radius);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.93rem;
+}
+.table caption {
+  text-align: left;
+  padding: 0.75rem 0.9rem;
+  color: var(--bc-ink-muted);
+  font-size: 0.85rem;
+}
+.table th,
+.table td {
+  text-align: left;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--bc-line);
+  vertical-align: top;
+}
+.table thead th {
+  background: var(--bc-surface);
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--bc-ink-muted);
+  white-space: nowrap;
+}
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.table tbody tr:hover td {
+  background: var(--bc-surface);
+}
+.numeric {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.identity {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.identity strong {
+  font-weight: 600;
+}
+.identity span {
+  font-size: 0.85rem;
+  color: var(--bc-ink-muted);
+  word-break: break-word;
+}
+
+/* --- badges --- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.12rem 0.5rem;
+  border: 1px solid var(--bc-line);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.badgeStrong {
+  background: var(--bc-ink);
+  color: var(--bc-bg);
+  border-color: var(--bc-ink);
+}
+.badgeWarn {
+  border-color: var(--bc-danger);
+  border-width: 2px;
+  color: var(--bc-danger);
+}
+.badgeQuiet {
+  color: var(--bc-ink-muted);
+}
+
+/* --- row actions --- */
+.rowActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.smallButton {
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--bc-radius-sm);
+  border: 1px solid var(--bc-line);
+  background: transparent;
+  color: var(--bc-ink);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.smallButton:hover:not(:disabled) {
+  background: var(--bc-surface);
+}
+.smallButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+/* Destructive: heavier border in the danger tone, never colour alone. */
+.destructive {
+  border-color: var(--bc-danger);
+  border-width: 2px;
+  color: var(--bc-danger);
+}
+.destructive:hover:not(:disabled) {
+  background: var(--bc-danger);
+  color: var(--bc-bg);
+}
+
+/* --- dialog --- */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 55%);
+}
+.dialog {
+  width: min(34rem, 100%);
+  max-height: 90dvh;
+  overflow-y: auto;
+  background: var(--bc-bg);
+  color: var(--bc-ink);
+  border: 1px solid var(--bc-line);
+  border-radius: var(--bc-radius);
+  padding: clamp(1rem, 3vw, 1.5rem);
+}
+.dialog h2 {
+  margin-top: 0;
+}
+.dialogActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.25rem;
+}
+.consequence {
+  border-left: 4px solid var(--bc-danger);
+  padding-left: 0.9rem;
+  margin: 0 0 1rem;
+}
+
+/* --- misc --- */
+.textarea {
+  font: inherit;
+  color: var(--bc-ink);
+  background: var(--bc-bg);
+  border: 1px solid var(--bc-line);
+  border-radius: var(--bc-radius-sm);
+  padding: 0.6rem 0.7rem;
+  width: 100%;
+  min-height: 5.5rem;
+  resize: vertical;
+}
+.textarea[aria-invalid='true'] {
+  border-color: var(--bc-danger);
+  border-width: 2px;
+}
+
+.pager {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+.pagerNote {
+  font-size: 0.85rem;
+  color: var(--bc-ink-muted);
+  margin: 0;
+}
+
+.empty {
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--bc-ink-muted);
+}
+
+.definitions {
+  display: grid;
+  grid-template-columns: minmax(9rem, max-content) 1fr;
+  gap: 0.4rem 1rem;
+  margin: 0;
+  font-size: 0.95rem;
+}
+.definitions dt {
+  color: var(--bc-ink-muted);
+}
+.definitions dd {
+  margin: 0;
+  word-break: break-word;
+}
+
+.payload {
+  margin: 0;
+}
+.payload summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--bc-ink-muted);
+}
+.payload pre {
+  margin: 0.4rem 0 0;
+  padding: 0.6rem 0.7rem;
+  background: var(--bc-surface);
+  border: 1px solid var(--bc-line);
+  border-radius: var(--bc-radius-sm);
+  font-size: 0.82rem;
+  max-width: 40rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.queueGrid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.queueCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: var(--bc-surface);
+  border: 1px solid var(--bc-line);
+  border-radius: var(--bc-radius);
+  padding: 1rem 1.1rem;
+}
+.queueCard h3 {
+  margin: 0;
+}
+.queueMeta {
+  font-size: 0.85rem;
+  color: var(--bc-ink-muted);
+  margin: 0;
+}
+.queueCard p {
+  max-width: none;
+}

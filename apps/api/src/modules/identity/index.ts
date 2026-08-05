@@ -64,6 +64,25 @@ export {
   toUserResource,
 } from './repo.js';
 
+/**
+ * Administrative writers. Published for the admin module so operator tooling
+ * never writes `users` directly (table ownership is a module boundary, EF §1.2).
+ *
+ * These are deliberately mechanical: they change one column and return the row.
+ * Every policy decision (who may promote whom, MFA requirements, self-demotion
+ * protection) and every audit record belongs to the CALLER, so the rules live in
+ * one reviewable place instead of being split across modules.
+ */
+export { setUserRole, setUserStatus } from './repo.js';
+
+/**
+ * Revoke every refresh-token family for a user — the operator-side counterpart
+ * to suspension, so a suspended account is signed out of every device rather
+ * than merely flagged. Published for the admin module (EF §1.2: refresh_tokens
+ * is identity's table, so identity owns the writer).
+ */
+export { revokeAllFamiliesForUser } from './tokens.js';
+
 // --- audit ------------------------------------------------------------------
 /**
  * Other modules log their own permission-relevant events through this. The
