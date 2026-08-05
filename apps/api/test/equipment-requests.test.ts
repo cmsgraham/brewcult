@@ -24,13 +24,22 @@ import {
   findRequest,
   listMyRequests,
   listRequests,
+  listUnreviewedCommunityEquipment,
+  markEquipmentReviewed,
+  recordAssistantDecision,
   rejectRequest,
 } from '../src/modules/admin/equipment-requests.js';
 import type { AdminDb } from '../src/modules/admin/types.js';
-import { insertEquipmentModel, upsertEquipmentBrand } from '../src/modules/catalog/index.js';
+import {
+  findExistingEquipment,
+  insertEquipmentModel,
+  upsertEquipmentBrand,
+} from '../src/modules/catalog/index.js';
 import {
   draftEquipment,
+  isPublishable,
   registerIntelligencePolicies,
+  type EquipmentDraft,
 } from '../src/modules/intelligence/index.js';
 import { AiGateway } from '../src/modules/intelligence/gateway.js';
 import { FakeAiProvider } from '../src/modules/intelligence/provider-fake.js';
@@ -49,6 +58,8 @@ const MIGRATIONS = [
   'db/migrations/0009_notifications.sql',
   'db/migrations/0010_user_equipment.sql',
   'db/migrations/0011_custom_equipment.sql',
+  'db/migrations/0012_equipment_submission_media.sql',
+  'db/migrations/0013_community_catalogue.sql',
 ];
 
 let pg: PGlite;
@@ -98,7 +109,11 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await pg.query('DELETE FROM equipment_requests');
-  await pg.query("DELETE FROM equipment_models WHERE slug LIKE 'option-o%' OR slug LIKE 'test-%'");
+  await pg.query(
+    `DELETE FROM equipment_models
+      WHERE slug LIKE 'option-o%' OR slug LIKE 'test-%' OR slug LIKE 'hario%'
+         OR slug LIKE 'timemore%' OR slug LIKE 'editorial%'`,
+  );
 });
 
 const submit = async (text: string) => {
@@ -358,5 +373,175 @@ describe('the drafter', () => {
     expect(prompt.messages[0]!.content.some((b) => b.type === 'image')).toBe(false);
     const text = prompt.messages[0]!.content[0];
     expect(text?.type === 'text' ? text.text : '').not.toContain('images are attached');
+  });
+});
+
+/**
+ * The gate that replaced the human (0013).
+ *
+ * A person used to catch a draft that was confident and wrong. Nothing catches
+ * that before publication now, so what CAN be checked mechanically must be, and
+ * these are those checks. Every case is a draft a model might plausibly return
+ * and that must not reach the catalogue.
+ */
+describe('deciding whether a draft may be published', () => {
+  const good: EquipmentDraft = {
+    brand: 'Option-O',
+    name: 'Lagom P100',
+    category: 'grinder',
+    grind_scale_type: 'stepless',
+    confidence: 'high',
+    is_coffee_equipment: true,
+    publish_ready: true,
+    notes: '',
+  };
+
+  it('publishes a draft that clears every bar', () => {
+    expect(isPublishable(good)).toBe(true);
+  });
+
+  it('refuses when the model itself is not sure, whatever else it claimed', () => {
+    // "medium, but go ahead" is two statements, and the cautious one is true.
+    expect(isPublishable({ ...good, confidence: 'medium' })).toBe(false);
+    expect(isPublishable({ ...good, publish_ready: false })).toBe(false);
+  });
+
+  it('refuses a grinder with no grind scale', () => {
+    const { grind_scale_type: _dropped, ...noScale } = good;
+    expect(isPublishable(noScale as EquipmentDraft)).toBe(false);
+  });
+
+  it('refuses anything that is not coffee equipment', () => {
+    expect(isPublishable({ ...good, is_coffee_equipment: false })).toBe(false);
+  });
+
+  it('refuses a nameless or brandless entry', () => {
+    expect(isPublishable({ ...good, brand: '   ' })).toBe(false);
+    expect(isPublishable({ ...good, name: '' })).toBe(false);
+  });
+
+  it('refuses a category the catalogue does not have', () => {
+    expect(isPublishable({ ...good, category: 'spaceship' })).toBe(false);
+  });
+});
+
+describe('duplicate detection, which is what a human used to do', () => {
+  it('finds the row a second submission would have duplicated', async () => {
+    const id = await submit('Hario V60 02 ceramic dripper');
+    await approveRequest(
+      db,
+      { id, reviewerId, brand: 'Hario', name: 'V60 02', category: 'brewer' },
+      writers,
+    );
+
+    // The same thing, typed differently by the next person.
+    const found = await findExistingEquipment(db as never, {
+      brand: 'HARIO',
+      name: 'v60 02',
+      slug: 'hario-v60-02-typed-differently',
+    });
+    expect(found).toMatchObject({ name: 'V60 02' });
+  });
+
+  it('does NOT collapse two different models that look alike', async () => {
+    const id = await submit('Option-O Lagom P64');
+    await approveRequest(
+      db,
+      {
+        id,
+        reviewerId,
+        brand: 'Option-O',
+        name: 'Lagom P64',
+        category: 'grinder',
+        grindScaleType: 'stepless',
+      },
+      writers,
+    );
+
+    // A P64 and a P100 score high on any similarity measure and are different
+    // grinders. Merging them attributes one product's specs to another, which
+    // is worse than a duplicate row.
+    const found = await findExistingEquipment(db as never, {
+      brand: 'Option-O',
+      name: 'Lagom P100',
+      slug: 'option-o-lagom-p100',
+    });
+    expect(found).toBeNull();
+  });
+});
+
+describe('recording a decision nobody human made', () => {
+  it('says the assistant decided, rather than leaving an empty decider', async () => {
+    const id = await submit('Fellow Stagg EKG kettle');
+    await recordAssistantDecision(db, {
+      id,
+      status: 'approved',
+      note: 'Added to the catalogue.',
+    });
+
+    const { rows } = await pg.query<{
+      status: string;
+      decided_by: string | null;
+      decided_by_assistant: boolean;
+      decided_at: string | null;
+    }>(
+      `SELECT status, decided_by::text AS decided_by, decided_by_assistant, decided_at
+         FROM equipment_requests WHERE id = $1::uuid`,
+      [id],
+    );
+    expect(rows[0]).toMatchObject({
+      status: 'approved',
+      decided_by: null,
+      decided_by_assistant: true,
+    });
+    expect(rows[0]?.decided_at).toBeTruthy();
+  });
+
+  it('the schema refuses a decision with no decider at all', async () => {
+    const id = await submit('Something decided by magic');
+    await expect(
+      pg.query(
+        `UPDATE equipment_requests SET status = 'approved', decided_at = now() WHERE id = $1::uuid`,
+        [id],
+      ),
+    ).rejects.toThrow();
+  });
+});
+
+describe('the review-after-the-fact list', () => {
+  it('lists community rows nobody has confirmed, and drops them once confirmed', async () => {
+    const brandId = await upsertEquipmentBrand(db as never, 'Timemore');
+    await insertEquipmentModel(db as never, {
+      brand_id: brandId,
+      category: 'grinder' as never,
+      name: 'Chestnut C3',
+      slug: 'timemore-chestnut-c3',
+      grind_scale_type: 'stepped' as never,
+      source: 'community',
+      submitted_by: requesterId,
+    });
+
+    const before = await listUnreviewedCommunityEquipment(db);
+    expect(before.map((r) => r.name)).toContain('Chestnut C3');
+    expect(before[0]?.submitted_by_handle).toBe('asks');
+
+    expect(await markEquipmentReviewed(db, before[0]!.id, reviewerId)).toBe(true);
+
+    const after = await listUnreviewedCommunityEquipment(db);
+    expect(after.map((r) => r.name)).not.toContain('Chestnut C3');
+    // Confirming twice is not an error, but it is also not a second event.
+    expect(await markEquipmentReviewed(db, before[0]!.id, reviewerId)).toBe(false);
+  });
+
+  it('never lists editorial rows — a person wrote those already', async () => {
+    const brandId = await upsertEquipmentBrand(db as never, 'Editorial Co');
+    await insertEquipmentModel(db as never, {
+      brand_id: brandId,
+      category: 'scale' as never,
+      name: 'Seeded Scale',
+      slug: 'editorial-co-seeded-scale',
+    });
+    const list = await listUnreviewedCommunityEquipment(db);
+    expect(list.map((r) => r.name)).not.toContain('Seeded Scale');
   });
 });

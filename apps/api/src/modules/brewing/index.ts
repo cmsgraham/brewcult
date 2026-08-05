@@ -123,6 +123,14 @@ export {
  */
 export { emitDomainEvent, type BrewingEventType, type DomainEventInput } from './events.js';
 
+/**
+ * "What I own." Published narrowly so the catalogue-submission path can put a
+ * newly published model straight on the submitter's shelf — they photographed
+ * it because they have it, and making them search for it afterwards is a step
+ * with no purpose.
+ */
+export { addOwnedEquipment, listOwnedEquipment } from './user-equipment.js';
+
 // --- diff / params helpers --------------------------------------------------
 /** `changed_fields` computation, shared with the intelligence module's insights. */
 export { diffRecipes, diffSessions, type DiffableRecipe, type DiffableSession } from './diff.js';

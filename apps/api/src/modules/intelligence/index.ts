@@ -203,6 +203,7 @@ export type {
  */
 export {
   draftEquipment,
+  isPublishable,
   EQUIPMENT_DRAFT_SCHEMA,
   type EquipmentDraft,
   type EquipmentDraftInput,

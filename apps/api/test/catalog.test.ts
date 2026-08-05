@@ -107,6 +107,12 @@ async function applyMigrations(): Promise<void> {
     '0003_catalog.sql',
     '0006_brewing.sql',
     '0008_media.sql',
+    // 0013 adds the provenance columns the equipment writer now sets. Without
+    // it every insert failed on an undefined column and surfaced as a 500,
+    // which masked the 400 this suite is actually asserting.
+    '0010_user_equipment.sql',
+    '0011_custom_equipment.sql',
+    '0013_community_catalogue.sql',
   ]) {
     const sql = readFileSync(join(MIGRATIONS, file), 'utf8')
       // PGlite has no pgvector build; the embedding columns land in a later

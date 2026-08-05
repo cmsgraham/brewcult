@@ -110,7 +110,11 @@ export type {
  * nothing else. admin may import catalog (catalog imports neither admin nor
  * intelligence), so the approval path composes without a cycle.
  */
-export { insertEquipmentModel, upsertEquipmentBrand } from './repository.js';
+export {
+  findExistingEquipment,
+  insertEquipmentModel,
+  upsertEquipmentBrand,
+} from './repository.js';
 
 /** Slug derivation, so the approval path produces the same shape as the catalogue. */
 export { slugify } from './text.js';

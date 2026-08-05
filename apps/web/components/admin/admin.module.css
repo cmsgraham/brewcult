@@ -370,3 +370,27 @@
   padding-top: 0.25rem;
   border-top: 1px dashed var(--bc-line);
 }
+
+/* The published-but-unchecked list (0013). Denser than the queue: these are
+   already live, so the job is scanning many rather than deciding one. */
+.reviewList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.reviewRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--bc-line);
+  font-size: 0.92rem;
+}
+.reviewRow:last-child {
+  border-bottom: none;
+}

@@ -907,6 +907,10 @@ export interface EquipmentInput {
   slug: string;
   specs?: Record<string, unknown>;
   grind_scale_type?: GrindScaleType | null;
+  /** Provenance (0013). Defaults to 'editorial' — staff and seed writes. */
+  source?: 'editorial' | 'community' | null;
+  /** Who submitted it, when it came from a member rather than an editor. */
+  submitted_by?: string | null;
 }
 
 /**
@@ -936,14 +940,50 @@ export async function upsertEquipmentBrand(db: CatalogDb, name: string): Promise
   return created.rows[0]!.id;
 }
 
+/**
+ * Is this equipment already catalogued?
+ *
+ * Matters far more since the assistant publishes without a human (0013): the
+ * fiftieth person to photograph a Hario V60 must not create the fiftieth "Hario
+ * V60" row. A human reviewer would have spotted that instantly; nothing else
+ * will.
+ *
+ * Two probes, both cheap and both exact rather than fuzzy:
+ *   * the slug the writer WOULD use — catches identical submissions
+ *   * brand + name, case-insensitively — catches "V60 02" vs "v60 02" under a
+ *     brand that already exists
+ *
+ * Deliberately not similarity matching. "Lagom P64" and "Lagom P100" score high
+ * on any trigram measure and are different grinders; collapsing them would be a
+ * worse error than a duplicate row, because it attributes one product's specs to
+ * another.
+ */
+export async function findExistingEquipment(
+  db: CatalogDb,
+  input: { brand: string; name: string; slug: string },
+): Promise<{ id: string; slug: string; name: string } | null> {
+  const { rows } = await db.query<{ id: string; slug: string; name: string }>(
+    `SELECT m.id::text AS id, m.slug, m.name
+       FROM equipment_models m
+       JOIN equipment_brands b ON b.id = m.brand_id
+      WHERE m.slug = $3
+         OR (lower(b.name) = lower($1) AND lower(m.name) = lower($2))
+      LIMIT 1`,
+    [input.brand.trim(), input.name.trim(), input.slug],
+  );
+  return rows[0] ?? null;
+}
+
 export async function insertEquipmentModel(
   db: CatalogDb,
   input: EquipmentInput,
 ): Promise<EquipmentDetail> {
   try {
     const res = await db.query<{ slug: string }>(
-      `INSERT INTO equipment_models (brand_id, category, name, slug, specs, grind_scale_type)
-       VALUES ($1::uuid, $2, $3, $4, coalesce($5::jsonb, '{}'::jsonb), $6)
+      `INSERT INTO equipment_models
+              (brand_id, category, name, slug, specs, grind_scale_type, source, submitted_by)
+       VALUES ($1::uuid, $2, $3, $4, coalesce($5::jsonb, '{}'::jsonb), $6,
+               coalesce($7, 'editorial'), $8::uuid)
        RETURNING slug`,
       [
         input.brand_id,
@@ -952,6 +992,10 @@ export async function insertEquipmentModel(
         input.slug,
         input.specs ? JSON.stringify(input.specs) : null,
         input.grind_scale_type ?? null,
+        // Provenance travels with the row (0013). A community row that nobody
+        // has confirmed is a queryable fact rather than an archaeology project.
+        input.source ?? null,
+        input.submitted_by ?? null,
       ],
     );
     const slug = res.rows[0]?.slug;

@@ -31,10 +31,11 @@ function fileFromClipboard(blob: Blob): File {
 /**
  * Propose something for the SHARED catalogue.
  *
- * Deliberately separate from "add it to my equipment", which is instant and
- * private. This one waits for a person, and the form says so plainly — a
- * request that silently queues, with no sense that a human is involved, reads
- * as a broken form rather than a considered process.
+ * Since 0013 the assistant decides, so this is usually instant too: describe it,
+ * and if the assistant recognises the product it is published and lands on your
+ * shelf in one step. What the copy must NOT do is promise that, because the
+ * honest answer depends on whether the model knew what it was looking at —
+ * anything it is unsure about still waits for a person.
  *
  * ── WHY NO URL FIELD ────────────────────────────────────────────────────────
  * The obvious version is "paste a link and we read it". Fetching a URL the
@@ -50,7 +51,13 @@ export function EquipmentRequestForm() {
   const [requests, setRequests] = useState<EquipmentRequest[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sent, setSent] = useState(false);
+  /**
+   * What actually happened, rather than "sent". The two outcomes are different
+   * enough that one message for both would be wrong in one of the cases.
+   */
+  const [outcome, setOutcome] = useState<{ kind: 'published' | 'queued'; label: string } | null>(
+    null,
+  );
   /**
    * `navigator.clipboard.read()` is Chromium-and-Safari only; Firefox has no
    * scripted clipboard read at all. Detecting once on mount means the button
@@ -141,6 +148,7 @@ export function EquipmentRequestForm() {
     if (text === '') return;
     setBusy(true);
     setError(null);
+    setOutcome(null);
     try {
       // The photo goes through the media pipeline FIRST — sniffed, re-encoded
       // and EXIF-stripped — so nothing downstream ever sees a raw upload.
@@ -149,16 +157,24 @@ export function EquipmentRequestForm() {
         const asset = await uploadMedia(photo, 'equipment_submission');
         mediaId = asset.id;
       }
-      setRequests(
-        await submitEquipmentRequest({
-          description: text,
-          ...(mediaId ? { image_media_id: mediaId } : {}),
-        }),
-      );
+      const items = await submitEquipmentRequest({
+        description: text,
+        ...(mediaId ? { image_media_id: mediaId } : {}),
+      });
+      setRequests(items);
+
+      // The newest row is this submission; its status says which way it went.
+      const mine = items[0];
+      const draft = mine?.ai_draft;
+      setOutcome({
+        kind: mine?.status === 'approved' ? 'published' : 'queued',
+        label:
+          [draft?.brand, draft?.name].filter(Boolean).join(' ').trim() ||
+          text.slice(0, 40),
+      });
       setDescription('');
       setPhoto(null);
       setOpen(false);
-      setSent(true);
     } catch (failure) {
       setError(
         isApiError(failure)
@@ -175,10 +191,18 @@ export function EquipmentRequestForm() {
   return (
     <div className="bc-stack">
       {error ? <Alert tone="error">{error}</Alert> : null}
-      {sent ? (
-        <Alert tone="success" title="Thanks — that is with us.">
-          Somebody will look at it. If it is added you will find it in search, and anything
-          you already recorded yourself keeps working in the meantime.
+      {outcome ? (
+        <Alert
+          tone={outcome.kind === 'published' ? 'success' : 'info'}
+          title={
+            outcome.kind === 'published'
+              ? `${outcome.label} is in the catalogue.`
+              : 'Thanks — that is with us.'
+          }
+        >
+          {outcome.kind === 'published'
+            ? 'It has been added to your equipment too, so you can use it straight away.'
+            : 'The assistant was not sure enough to add it, so a person will look. Anything you already recorded yourself keeps working in the meantime.'}
         </Alert>
       ) : null}
 
@@ -193,9 +217,9 @@ export function EquipmentRequestForm() {
       ) : (
         <div className="bc-panel bc-stack" onPaste={onPaste}>
           <p style={{ marginBottom: 0 }}>
-            Describe it, or paste the manufacturer&rsquo;s description. An assistant drafts an
-            entry from it and <strong>a person checks that draft</strong> before anything is
-            added — so specs are right rather than fast.
+            Describe it, or paste the manufacturer&rsquo;s description. If the assistant
+            recognises the product it is added to the catalogue and to your equipment right
+            away. Anything it is unsure about waits for a person instead of guessing.
           </p>
 
           <span className="bc-field">

@@ -150,6 +150,35 @@ export async function findRequest(
   return row ? withImageUrl(row) : null;
 }
 
+/**
+ * The assistant's own decision, recorded as one.
+ *
+ * `decided_by` stays NULL and `decided_by_assistant` is set: a decision with no
+ * human decider is exactly what happened, and the schema now says so rather
+ * than merely permitting it (0013). Anyone asking "who put this in the
+ * catalogue" gets an honest answer instead of an empty column.
+ */
+export async function recordAssistantDecision(
+  db: AdminDb,
+  input: {
+    id: string;
+    status: 'approved' | 'rejected';
+    equipmentModelId?: string | null;
+    note?: string | null;
+  },
+): Promise<void> {
+  await db.query(
+    `UPDATE equipment_requests
+        SET status = $2,
+            decided_by_assistant = true,
+            decided_at = now(),
+            decision_note = $3,
+            equipment_model_id = $4::uuid
+      WHERE id = $1::uuid AND status = 'pending'`,
+    [input.id, input.status, input.note?.slice(0, 1000) ?? null, input.equipmentModelId ?? null],
+  );
+}
+
 export interface ApproveInput {
   id: string;
   reviewerId: string;
@@ -247,6 +276,60 @@ export async function approveRequest(
   );
 
   return modelId ? { status: 'ok', equipmentModelId: modelId } : { status: 'ok' };
+}
+
+/** Community rows nobody has confirmed yet — the review-after-the-fact list. */
+export async function listUnreviewedCommunityEquipment(
+  db: AdminDb,
+  limit = 100,
+): Promise<
+  {
+    id: string;
+    slug: string;
+    name: string;
+    brand: string | null;
+    category: string;
+    submitted_by_handle: string | null;
+    created_at: string;
+  }[]
+> {
+  const { rows } = await db.query<{
+    id: string;
+    slug: string;
+    name: string;
+    brand: string | null;
+    category: string;
+    submitted_by_handle: string | null;
+    created_at: string;
+  }>(
+    `SELECT m.id::text AS id, m.slug, m.name, b.name AS brand, m.category,
+            u.handle    AS submitted_by_handle,
+            m.created_at
+       FROM equipment_models m
+       JOIN equipment_brands b ON b.id = m.brand_id
+       LEFT JOIN users u ON u.id = m.submitted_by
+      WHERE m.source = 'community' AND m.reviewed_at IS NULL
+      ORDER BY m.created_at DESC
+      LIMIT $1`,
+    [limit],
+  );
+  return rows;
+}
+
+/** "I have looked at this and it is right." The other half of publishing first. */
+export async function markEquipmentReviewed(
+  db: AdminDb,
+  equipmentModelId: string,
+  reviewerId: string,
+): Promise<boolean> {
+  const { rows } = await db.query<{ id: string }>(
+    `UPDATE equipment_models
+        SET reviewed_at = now(), reviewed_by = $2::uuid
+      WHERE id = $1::uuid AND reviewed_at IS NULL
+      RETURNING id::text AS id`,
+    [equipmentModelId, reviewerId],
+  );
+  return rows.length > 0;
 }
 
 export async function rejectRequest(

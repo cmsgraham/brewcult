@@ -58,13 +58,18 @@ export type AdminAuditAction =
   // 48mm burrs, and on what evidence?" is a question the catalogue should be
   // able to answer years later.
   | 'admin.equipment_request_approved'
-  | 'admin.equipment_request_rejected';
+  | 'admin.equipment_request_rejected'
+  // Confirming a row the ASSISTANT published (0013). The interesting audit
+  // question inverted when the human moved after publication: it is no longer
+  // "who let this in" but "who has checked what was let in, and when".
+  | 'admin.equipment_reviewed';
 
 export type AdminAuditTargetType =
   | 'user'
   | 'seller_application'
   | 'report'
-  | 'equipment_request';
+  | 'equipment_request'
+  | 'equipment_model';
 
 export interface AdminAuditEvent {
   /** Acting staff member; null = system (bootstrap / CLI). */

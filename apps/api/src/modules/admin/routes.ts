@@ -56,13 +56,22 @@ import {
   createEquipmentRequest,
   listMyRequests,
   listRequests,
+  listUnreviewedCommunityEquipment,
+  markEquipmentReviewed,
+  recordAssistantDecision,
   rejectRequest,
   type RequestStatus,
   findRequest,
 } from './equipment-requests.js';
-import { insertEquipmentModel, upsertEquipmentBrand } from '../catalog/index.js';
+import {
+  findExistingEquipment,
+  insertEquipmentModel,
+  slugify,
+  upsertEquipmentBrand,
+} from '../catalog/index.js';
+import { addOwnedEquipment } from '../brewing/index.js';
 import { assertMediaUsable } from '../media/index.js';
-import { draftEquipment } from '../intelligence/index.js';
+import { draftEquipment, isPublishable, type EquipmentDraft } from '../intelligence/index.js';
 import {
   AiGateway,
   AnthropicProvider,
@@ -195,6 +204,101 @@ export async function registerAdminRoutes(
     return gateway;
   };
 
+
+  /**
+   * Publish a draft the assistant vouched for — or leave it for a person.
+   *
+   * ── WHY THIS IS NOT JUST "TRUST THE MODEL" ──────────────────────────────────
+   * `isPublishable()` is a list of FACTS about the draft, checked here rather
+   * than asked of the model: a category the catalogue actually has, a grind
+   * scale on a grinder, a brand and a name. The model's own `publish_ready` is
+   * necessary and never sufficient, because the failure mode of a language
+   * model is confident agreement, and the failure mode of a boolean check is
+   * nothing.
+   *
+   * ── THE DUPLICATE CASE IS THE COMMON ONE ────────────────────────────────────
+   * With no human in the loop, the fiftieth person to photograph a Hario V60
+   * would otherwise create the fiftieth "Hario V60". They get linked to the
+   * existing row instead, which is also what they wanted: the thing appears in
+   * their equipment either way.
+   *
+   * Nothing here throws. Every branch ends with the submission recorded and the
+   * person told something true.
+   */
+  const publishIfReady = async (
+    request: FastifyRequest,
+    database: AdminDb,
+    requestId: string,
+    userId: string,
+    draft: EquipmentDraft,
+  ): Promise<void> => {
+    if (!isPublishable(draft)) {
+      // Not a refusal — a referral. It sits in the queue for a person, and the
+      // submitter's own note says so rather than implying it was rejected.
+      if (!draft.is_coffee_equipment) {
+        await recordAssistantDecision(database, {
+          id: requestId,
+          status: 'rejected',
+          note:
+            draft.notes.trim() ||
+            'That does not look like coffee equipment. If it is, add a few more details and try again.',
+        });
+      }
+      return;
+    }
+
+    const brand = draft.brand!.trim();
+    const name = draft.name!.trim();
+    const slug = slugify(`${brand} ${name}`);
+
+    const existing = await findExistingEquipment(database, { brand, name, slug });
+    if (existing) {
+      await recordAssistantDecision(database, {
+        id: requestId,
+        status: 'approved',
+        equipmentModelId: existing.id,
+        note: 'Already in the catalogue — added to your equipment.',
+      });
+      await addOwnedEquipment(database as never, {
+        userId,
+        equipmentModelId: existing.id,
+      }).catch(() => undefined);
+      return;
+    }
+
+    try {
+      const brandId = await upsertEquipmentBrand(database as never, brand);
+      const model = await insertEquipmentModel(database as never, {
+        brand_id: brandId,
+        category: draft.category as never,
+        name,
+        slug,
+        ...(draft.specs ? { specs: draft.specs } : {}),
+        grind_scale_type: (draft.category === 'grinder'
+          ? (draft.grind_scale_type ?? null)
+          : null) as never,
+        source: 'community',
+        submitted_by: userId,
+      });
+      await recordAssistantDecision(database, {
+        id: requestId,
+        status: 'approved',
+        equipmentModelId: model.id,
+        note: 'Added to the catalogue.',
+      });
+      // They photographed it because they own it. Making them search for it
+      // afterwards is a step with no purpose.
+      await addOwnedEquipment(database as never, {
+        userId,
+        equipmentModelId: model.id,
+      }).catch(() => undefined);
+    } catch (err) {
+      // A race with another submitter, or a constraint the draft did not
+      // satisfy. Either way the row stays pending and a person sorts it out.
+      request.log.warn({ err, requestId }, 'auto-publish failed; left for review');
+    }
+  };
+
   app.post<{ Body: { description?: string; image_media_id?: string } }>(
     `${prefix}/equipment-requests`,
     mutation,
@@ -230,8 +334,10 @@ export async function registerAdminRoutes(
         return reply.status(200).send({ items: await listMyRequests(db, userId) });
       }
 
-      // The draft is a convenience for the reviewer, so its failure must never
-      // cost the submission that is already safely stored.
+      // The draft both fills the entry AND decides whether it is published
+      // (0013). Its failure must never cost the submission that is already
+      // safely stored — a provider outage leaves the row pending for a human,
+      // which is the old behaviour, not a lost submission.
       try {
         const stored = await findRequest(db, created.id);
         const draft = await draftEquipment(
@@ -244,6 +350,7 @@ export async function registerAdminRoutes(
           { gateway: getGateway() },
         );
         await attachDraft(db, created.id, draft as unknown as Record<string, unknown>, null);
+        await publishIfReady(request, db, created.id, userId, draft);
       } catch (err) {
         request.log.warn({ err, requestId: created.id }, 'equipment draft failed');
         await attachDraft(db, created.id, null, (err as Error).message.slice(0, 300));
@@ -329,6 +436,40 @@ export async function registerAdminRoutes(
     });
     return { items: await listRequests(db, 'pending') };
   });
+
+  /**
+   * Community rows nobody has confirmed — the other half of publishing first.
+   *
+   * Publication is no longer gated on a person, so this is where a person
+   * catches what the assistant got wrong. An empty list means the catalogue is
+   * fully checked, not that nothing was added.
+   */
+  app.get(`${prefix}/admin/community-equipment`, read, async (request) => {
+    await staffGate(request, EQUIPMENT_REQUEST_RESOURCE, 'moderate');
+    return { items: await listUnreviewedCommunityEquipment(db) };
+  });
+
+  app.post<{ Params: { id: string } }>(
+    `${prefix}/admin/community-equipment/:id/reviewed`,
+    mutation,
+    async (request) => {
+      await staffGate(request, EQUIPMENT_REQUEST_RESOURCE, 'moderate');
+      const reviewerId = actorOf(request).userId;
+      if (reviewerId === null) throw badRequest('Authentication required.');
+
+      const marked = await markEquipmentReviewed(db, request.params.id, reviewerId);
+      if (!marked) throw notFound('No unchecked community entry with that id.');
+
+      await recordAdminAudit(db, {
+        actorId: reviewerId,
+        action: 'admin.equipment_reviewed',
+        targetType: 'equipment_model',
+        targetId: request.params.id,
+        payload: {},
+      });
+      return { items: await listUnreviewedCommunityEquipment(db) };
+    },
+  );
 
   app.post<{ Params: { id: string }; Body: { note?: string } }>(
     `${prefix}/admin/equipment-requests/:id/reject`,

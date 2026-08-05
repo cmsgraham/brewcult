@@ -54,6 +54,67 @@ beforeEach(() => {
 });
 
 describe('the reviewer’s queue', () => {
+  it('puts the already-published rows above the queue, because that is where a mistake is', async () => {
+    // Publication no longer waits for anybody (0013), so the queue holds what
+    // did NOT go through and this list holds what did. The second one is where
+    // a wrong burr size is actually sitting.
+    apiFetch.mockImplementation((path: string) =>
+      Promise.resolve(
+        String(path).includes('community-equipment')
+          ? {
+              items: [
+                {
+                  id: 'm-1',
+                  slug: 'timemore-chestnut-c3',
+                  name: 'Chestnut C3',
+                  brand: 'Timemore',
+                  category: 'grinder',
+                  submitted_by_handle: 'maya',
+                  created_at: '2026-08-05T10:00:00.000Z',
+                },
+              ],
+            }
+          : { items: [] },
+      ),
+    );
+    render(<EquipmentRequestsConsole />);
+
+    expect(await screen.findByText('Added by the assistant · 1')).toBeInTheDocument();
+    expect(screen.getByText(/These are already public/)).toBeInTheDocument();
+  });
+
+  it('confirms a row and drops it off the list', async () => {
+    const user = userEvent.setup();
+    apiFetch.mockImplementation((path: string) =>
+      Promise.resolve(
+        String(path).includes('community-equipment')
+          ? {
+              items: [
+                {
+                  id: 'm-1',
+                  slug: 'timemore-chestnut-c3',
+                  name: 'Chestnut C3',
+                  brand: 'Timemore',
+                  category: 'grinder',
+                  submitted_by_handle: 'maya',
+                  created_at: '2026-08-05T10:00:00.000Z',
+                },
+              ],
+            }
+          : { items: [] },
+      ),
+    );
+    render(<EquipmentRequestsConsole />);
+
+    await user.click(await screen.findByRole('button', { name: 'Looks right' }));
+
+    const call = apiFetch.mock.calls.find(([path]) => String(path).includes('/reviewed'));
+    expect(call?.[0]).toBe('/api/v1/admin/community-equipment/m-1/reviewed');
+    await waitFor(() =>
+      expect(screen.queryByText('Added by the assistant · 1')).not.toBeInTheDocument(),
+    );
+  });
+
   it('approves what the reviewer typed, not what the assistant drafted', async () => {
     const user = userEvent.setup();
     apiFetch.mockResolvedValue({ items: [QUEUED] });
@@ -139,13 +200,50 @@ describe('suggesting something for the catalogue', () => {
     expect(init.body).toEqual({ description: 'Option-O Lagom P100' });
   });
 
-  it('says a person decides, rather than implying it is instant', async () => {
+  it('promises what actually happens: usually instant, sometimes a person', async () => {
     const user = userEvent.setup();
     apiFetch.mockResolvedValue({ items: [] });
     render(<EquipmentRequestForm />);
 
     await user.click(screen.getByRole('button', { name: 'Suggest it' }));
-    expect(screen.getByText(/a person checks that draft/)).toBeInTheDocument();
+    // Both halves matter. Promising only the fast path would make the queued
+    // case look broken; promising only review would understate it.
+    expect(screen.getByText(/added to the catalogue and to your equipment right away/)).toBeInTheDocument();
+    expect(screen.getByText(/unsure about waits for a person/)).toBeInTheDocument();
+  });
+
+  it('says it is published when the assistant published it', async () => {
+    const user = userEvent.setup();
+    apiFetch.mockResolvedValue({ items: [] });
+    render(<EquipmentRequestForm />);
+
+    await user.click(screen.getByRole('button', { name: 'Suggest it' }));
+    await user.type(screen.getByLabelText('What is it?'), 'Timemore Chestnut C3');
+    apiFetch.mockResolvedValue({
+      items: [
+        {
+          ...QUEUED,
+          status: 'approved',
+          ai_draft: { brand: 'Timemore', name: 'Chestnut C3' },
+        },
+      ],
+    });
+    await user.click(screen.getByRole('button', { name: 'Send suggestion' }));
+
+    expect(await screen.findByText('Timemore Chestnut C3 is in the catalogue.')).toBeInTheDocument();
+  });
+
+  it('says a person will look when the assistant was not sure', async () => {
+    const user = userEvent.setup();
+    apiFetch.mockResolvedValue({ items: [] });
+    render(<EquipmentRequestForm />);
+
+    await user.click(screen.getByRole('button', { name: 'Suggest it' }));
+    await user.type(screen.getByLabelText('What is it?'), 'some grinder I think');
+    apiFetch.mockResolvedValue({ items: [{ ...QUEUED, status: 'pending' }] });
+    await user.click(screen.getByRole('button', { name: 'Send suggestion' }));
+
+    expect(await screen.findByText(/not sure enough to add it, so a person will look/)).toBeInTheDocument();
   });
 
   it('will not send an empty suggestion', async () => {

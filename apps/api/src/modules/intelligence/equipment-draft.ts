@@ -1,12 +1,20 @@
 /**
  * Draft a catalogue entry from a description somebody pasted.
  *
- * ── WHAT THIS IS NOT ────────────────────────────────────────────────────────
- * It is not a writer to the catalogue. It returns a PROPOSAL that a human reads
- * next to the original submission and approves, edits or rejects. The catalogue
- * drives grind-setting conversions and public product pages, so a confident
- * wrong burr diameter here would silently corrupt advice about somebody's
- * actual coffee — the same rule that kept invented roasters out of production.
+ * ── THIS DRAFT GETS PUBLISHED ───────────────────────────────────────────────
+ * It used to be a proposal a person read before anything happened. That gate is
+ * gone by product decision (0013): waiting on a human was judged the worse cost.
+ * When `isPublishable()` below says yes, the row is created immediately and the
+ * public equipment page exists.
+ *
+ * Which is why the task prompt says so IN THOSE WORDS. A model asked to draft
+ * for review and a model asked to decide are being asked different questions,
+ * and the second one should be more reluctant. The bar is stated as "I recognise
+ * this exact product and would defend every field", not "this looks right".
+ *
+ * The catalogue drives grind-setting conversions, so a confident wrong burr
+ * diameter still corrupts advice about somebody's actual coffee. What catches it
+ * now is provenance plus review AFTER publication (see 0013), not a queue.
  *
  * ── WHY NO URL FETCHING ─────────────────────────────────────────────────────
  * The obvious design is "paste a link and we read it". Fetching a user-supplied
@@ -34,13 +42,17 @@ import { assemble } from './prompts/assemble.js';
 import type { AiPlan } from './types.js';
 
 /**
- * Structured-output contract. `required` is deliberately minimal: a draft that
- * admits it does not know is more useful than one padded to fill a schema.
+ * Structured-output contract. `required` is deliberately minimal on the FACTS —
+ * a draft that admits it does not know is more useful than one padded to fill a
+ * schema — and deliberately strict on the JUDGEMENTS. `publish_ready` and
+ * `is_coffee_equipment` are required because a missing verdict must not read as
+ * a positive one: the caller treats absent as false, and the schema makes that
+ * an error the model is asked to correct rather than a silence it can hide in.
  */
 export const EQUIPMENT_DRAFT_SCHEMA: Record<string, unknown> = {
   type: 'object',
   additionalProperties: false,
-  required: ['confidence', 'notes'],
+  required: ['confidence', 'notes', 'publish_ready', 'is_coffee_equipment'],
   properties: {
     brand: { type: 'string', description: 'Manufacturer. Omit if not identifiable.' },
     name: { type: 'string', description: 'Model name WITHOUT the brand.' },
@@ -59,6 +71,16 @@ export const EQUIPMENT_DRAFT_SCHEMA: Record<string, unknown> = {
       description: 'Only facts you are confident of for THIS model. Omit guesses.',
     },
     confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+    is_coffee_equipment: {
+      type: 'boolean',
+      description:
+        'False for anything that is not gear for making coffee — beans, a mug, a pet, an advert.',
+    },
+    publish_ready: {
+      type: 'boolean',
+      description:
+        'True ONLY if you recognise this exact product and would defend every field you filled in. This publishes without human review.',
+    },
     notes: {
       type: 'string',
       description:
@@ -74,7 +96,33 @@ export interface EquipmentDraft {
   grind_scale_type?: string;
   specs?: Record<string, unknown>;
   confidence: 'high' | 'medium' | 'low';
+  is_coffee_equipment: boolean;
+  publish_ready: boolean;
   notes: string;
+}
+
+/** Categories the catalogue accepts. Anything else is not publishable. */
+const CATEGORIES = ['brewer', 'grinder', 'kettle', 'scale', 'machine', 'accessory'];
+
+/**
+ * May this draft go straight into the shared catalogue?
+ *
+ * The model's own `publish_ready` is necessary and NOT sufficient. Everything
+ * here is a fact about the draft rather than an opinion about it, which is the
+ * point: a model that has talked itself into confidence still cannot publish a
+ * grinder with no grind scale, or a category the catalogue does not have.
+ *
+ * `confidence: 'high'` is required on top. A model that says "medium, but go
+ * ahead" is telling you two things, and the cautious one is the true one.
+ */
+export function isPublishable(draft: EquipmentDraft): boolean {
+  if (!draft.publish_ready || !draft.is_coffee_equipment) return false;
+  if (draft.confidence !== 'high') return false;
+  if (!draft.brand?.trim() || !draft.name?.trim()) return false;
+  if (!draft.category || !CATEGORIES.includes(draft.category)) return false;
+  // 0003 requires a scale on grinders, and the grind converter is why.
+  if (draft.category === 'grinder' && !draft.grind_scale_type) return false;
+  return true;
 }
 
 export interface EquipmentDraftInput {
@@ -115,7 +163,12 @@ function parseDraft(content: AiContentBlock[]): EquipmentDraft {
     // A model that returns prose instead of JSON has failed the contract, but
     // that is not a reason to lose the submission — the reviewer still has the
     // original text, which is the thing that actually matters.
-    return { confidence: 'low', notes: 'The assistant did not return a usable draft.' };
+    return {
+      confidence: 'low',
+      is_coffee_equipment: false,
+      publish_ready: false,
+      notes: 'The assistant did not return a usable draft.',
+    };
   }
   const record = (parsed && typeof parsed === 'object' ? parsed : {}) as Record<string, unknown>;
   const confidence = record['confidence'];
@@ -133,6 +186,11 @@ function parseDraft(content: AiContentBlock[]): EquipmentDraft {
       confidence === 'high' || confidence === 'medium' || confidence === 'low'
         ? confidence
         : 'low',
+    // Absent reads as NO for both. A verdict the model did not give is not a
+    // verdict in its favour — that asymmetry is the whole safety property of
+    // parsing a decision out of free-form output.
+    is_coffee_equipment: record['is_coffee_equipment'] === true,
+    publish_ready: record['publish_ready'] === true,
     notes: typeof record['notes'] === 'string' ? record['notes'] : '',
   };
 }

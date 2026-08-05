@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { adminClient } from '../../lib/admin-client';
+import { adminClient, type CommunityEquipment } from '../../lib/admin-client';
 import type { EquipmentRequest } from '../../lib/equipment-client';
 import { ConfirmDialog } from './confirm-dialog';
 import { ActionStatus, noteFromError, type ActionNote } from './feedback';
@@ -50,6 +50,7 @@ function draftFrom(request: EquipmentRequest): Draft {
 
 export function EquipmentRequestsConsole() {
   const [status, setStatus] = useState<'pending' | 'approved' | 'rejected'>('pending');
+  const [community, setCommunity] = useState<CommunityEquipment[]>([]);
   const [items, setItems] = useState<EquipmentRequest[] | null>(null);
   const [listError, setListError] = useState<string | null>(null);
   const [note, setNote] = useState<ActionNote | null>(null);
@@ -72,6 +73,14 @@ export function EquipmentRequestsConsole() {
     } catch (error) {
       setListError(noteFromError(error, NOT_BUILT).message);
       setItems([]);
+    }
+    // Independent of the queue filter, and never fatal: the published-but-
+    // unchecked list is the more important one now that publication does not
+    // wait for anybody, but a failure to load it must not blank the page.
+    try {
+      setCommunity(await adminClient.listCommunityEquipment());
+    } catch {
+      setCommunity([]);
     }
   }, [status]);
 
@@ -131,9 +140,59 @@ export function EquipmentRequestsConsole() {
   const rejecting = pending?.kind === 'reject';
   const reasonGiven = reason.trim().length > 0;
 
+  async function confirmRow(row: CommunityEquipment): Promise<void> {
+    setNote(null);
+    try {
+      await adminClient.markEquipmentReviewed(row.id);
+      setCommunity((current) => current.filter((entry) => entry.id !== row.id));
+      setNote({ tone: 'success', message: `${row.brand ?? ''} ${row.name} is confirmed.`.trim() });
+    } catch (error) {
+      setNote(noteFromError(error));
+    }
+  }
+
   return (
     <div className="bc-stack">
       <ActionStatus note={note} />
+
+      {/*
+        Published by the assistant, unchecked by a person. This sits ABOVE the
+        queue on purpose: the queue is what did not go through, and this is what
+        did — which is now the list where a mistake is actually waiting.
+      */}
+      {community.length > 0 ? (
+        <section className="bc-panel bc-stack">
+          <h2 style={{ marginBottom: 0 }}>Added by the assistant · {community.length}</h2>
+          <p className="bc-muted" style={{ marginBottom: 0 }}>
+            These are already public. Nobody has checked them. Open one, compare it with the real
+            product, and confirm it — or fix it in the catalogue first.
+          </p>
+          <ul className={styles.reviewList}>
+            {community.map((row) => (
+              <li key={row.id} className={styles.reviewRow}>
+                <span>
+                  <a href={`/equipment/${row.slug}`} target="_blank" rel="noreferrer">
+                    {[row.brand, row.name].filter(Boolean).join(' ')}
+                  </a>
+                  <span className="bc-muted">
+                    {' '}
+                    · {row.category}
+                    {row.submitted_by_handle ? ` · from @${row.submitted_by_handle}` : ''} ·{' '}
+                    {formatWhen(row.created_at, 'date unknown')}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  className={styles.smallButton}
+                  onClick={() => void confirmRow(row)}
+                >
+                  Looks right
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <div className={styles.filters}>
         <div className={styles.filter}>

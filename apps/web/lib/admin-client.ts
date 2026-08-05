@@ -265,6 +265,17 @@ export interface ModerationReport {
 }
 
 /** One append-only `audit_log` row (EF §3.7). */
+/** A catalogue row the assistant wrote and nobody has confirmed yet (0013). */
+export interface CommunityEquipment {
+  id: string;
+  slug: string;
+  name: string;
+  brand: string | null;
+  category: string;
+  submitted_by_handle: string | null;
+  created_at: string;
+}
+
 export interface AuditEntry {
   id: string;
   created_at: string;
@@ -568,6 +579,28 @@ export function createAdminClient(fetcher: AdminFetch = apiFetch) {
         fetcher,
         `${ADMIN_BASE}/equipment-requests/${encodeURIComponent(id)}/reject`,
         { ...options, method: 'POST', body: { note } },
+      ),
+
+    /**
+     * Community rows nobody has confirmed (0013).
+     *
+     * The assistant publishes without a human now, so this is where a human
+     * catches what it got wrong. An empty list means the catalogue is checked,
+     * not that nothing was added.
+     */
+    async listCommunityEquipment(options?: ApiRequestOptions): Promise<CommunityEquipment[]> {
+      const body = await get<{ items?: CommunityEquipment[] }>(
+        `${ADMIN_BASE}/community-equipment`,
+        options,
+      );
+      return body?.items ?? [];
+    },
+
+    markEquipmentReviewed: (id: string, options?: ApiRequestOptions) =>
+      staffMutation<{ items?: CommunityEquipment[] }>(
+        fetcher,
+        `${ADMIN_BASE}/community-equipment/${encodeURIComponent(id)}/reviewed`,
+        { ...options, method: 'POST' },
       ),
 
     async listAudit(params: AuditListParams = {}, options?: ApiRequestOptions) {
