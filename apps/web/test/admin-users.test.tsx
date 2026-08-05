@@ -41,7 +41,11 @@ vi.mock('next/navigation', () => ({
 
 const { default: AdminUserDetailPage } = await import('../app/admin/users/[id]/page');
 
-const ME = '/api/me';
+// The API serves the current user at /v1/users/me, reached as /api/v1/users/me.
+// This constant said '/api/me' — the path the client wrongly used — so the
+// stub matched the broken call and the suite stayed green while the real
+// console could never identify its operator.
+const ME = '/api/v1/users/me';
 const USERS = '/api/v1/admin/users';
 
 const STAFF = {

@@ -52,7 +52,11 @@ const { default: AdminOverviewPage } = await import('../app/admin/page');
 const { default: AdminUsersPage } = await import('../app/admin/users/page');
 const { default: AdminReportsPage } = await import('../app/admin/reports/page');
 
-const ME = '/api/me';
+// The API serves the current user at /v1/users/me, reached as /api/v1/users/me.
+// This constant said '/api/me' — the path the client wrongly used — so the
+// stub matched the broken call and the suite stayed green while the real
+// console could never identify its operator.
+const ME = '/api/v1/users/me';
 
 function me(overrides: Record<string, unknown>) {
   return {

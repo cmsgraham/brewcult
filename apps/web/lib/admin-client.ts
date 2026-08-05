@@ -420,7 +420,13 @@ export function createAdminClient(fetcher: AdminFetch = apiFetch) {
     /** The signed-in operator, or null. Never throws — signed-out is normal. */
     async actor(options?: ApiRequestOptions): Promise<AdminActor | null> {
       try {
-        return normalizeActor(await get<unknown>('/api/me', options));
+        // `/api/v1/users/me`. This read `/api/me`, which strips to `/me` and
+        // 404s — the route lives under `/v1/users`. Combined with the catch
+        // below turning every failure into "not signed in", the console could
+        // never identify its operator: an account that had just been correctly
+        // promoted to admin would still be refused at the gate, which looks
+        // exactly like the permission not having been granted.
+        return normalizeActor(await get<unknown>('/api/v1/users/me', options));
       } catch {
         return null;
       }

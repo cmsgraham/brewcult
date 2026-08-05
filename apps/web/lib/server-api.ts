@@ -38,12 +38,24 @@ export async function serverApiFetch<T = unknown>(
  */
 export async function getSessionUser(): Promise<SessionUser | null> {
   try {
-    return await serverApiFetch<SessionUser>('/api/me');
+    // `/api/v1/users/me` — the same path lib/api.ts uses in the browser. This
+    // read `/api/me`, which strips to `/me` and 404s: the route lives under
+    // `/v1/users`. Because the catch below turns ANY failure into "signed out",
+    // the effect was that every server-rendered page decided you were logged
+    // out no matter how good your cookies were — you would sign in, land on the
+    // app, then be bounced straight back to /login by the first server render.
+    return await serverApiFetch<SessionUser>('/api/v1/users/me');
   } catch (error) {
+    // 401/403 is the ordinary "not signed in" answer — silent by design.
     if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
       return null;
     }
-    // API down / not built yet: treat as signed-out rather than 500 the page.
+    // Anything else still degrades to signed-out rather than 500-ing the page,
+    // but it is NOT normal and must not be silent. A wrong path, a DNS failure
+    // or a dead API is indistinguishable from a logged-out visitor on screen,
+    // which is exactly how the bug above survived: the symptom was "login does
+    // not work", and nothing anywhere said why.
+    console.error('[server-api] session lookup failed — treating as signed out:', error);
     return null;
   }
 }
