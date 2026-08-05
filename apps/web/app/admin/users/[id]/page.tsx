@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { OnOffBadge, RoleBadge, StatusBadge } from '../../../../components/admin/badges';
 import { coarseIp, formatWhen, shortAgent } from '../../../../components/admin/format';
 import { MfaInterstitial } from '../../../../components/admin/gate';
+import { SessionRestoreScreen } from '../../../../components/session-restore-screen';
 import { AdminShell } from '../../../../components/admin/shell';
 import { UserActionPanel } from '../../../../components/admin/user-action-panel';
 import { nameFor } from '../../../../components/admin/use-user-actions';
@@ -42,6 +43,11 @@ export default async function AdminUserDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const gate = await adminGate();
+  // Not "no such page" — "we could not read your session". See _lib/guard.ts.
+  if (gate.state === 'restore') {
+    const { id: target } = await params;
+    return <SessionRestoreScreen next={`/admin/users/${target}`} />;
+  }
   if (gate.state === 'unavailable') notFound();
   if (gate.state === 'mfa-required') return <MfaInterstitial actor={gate.actor} />;
 

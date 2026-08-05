@@ -7,6 +7,7 @@ import {
   type AuditFilterValues,
 } from '../../../components/admin/audit-view';
 import { MfaInterstitial } from '../../../components/admin/gate';
+import { SessionRestoreScreen } from '../../../components/session-restore-screen';
 import { AdminShell } from '../../../components/admin/shell';
 import { describeAdminError, type AuditEntry } from '../../../lib/admin-client';
 import { adminGate, serverAdminClient } from '../_lib/guard';
@@ -42,6 +43,9 @@ export default async function AdminAuditPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const gate = await adminGate();
+  // Not "no such page" — "we could not read your session". A 404 here sends an
+  // operator looking for a deleted feature; the truth is an expired cookie.
+  if (gate.state === 'restore') return <SessionRestoreScreen next="/admin/audit" />;
   if (gate.state === 'unavailable') notFound();
   if (gate.state === 'mfa-required') return <MfaInterstitial actor={gate.actor} />;
 

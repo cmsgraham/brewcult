@@ -37,8 +37,23 @@ vi.mock('next/link', () => ({
   ),
 }));
 
+/**
+ * The jar is per-test because the console's answer to an unreadable session now
+ * depends on it: with a session hint and no access cookie, a 404 would be a lie.
+ */
+let jarCookies: Record<string, string> = { bc_access: 'stub' };
+
 vi.mock('next/headers', () => ({
-  cookies: () => Promise.resolve({ toString: () => 'bc_access=stub' }),
+  cookies: () =>
+    Promise.resolve({
+      toString: () =>
+        Object.entries(jarCookies)
+          .map(([name, value]) => `${name}=${value}`)
+          .join('; '),
+      has: (name: string) => name in jarCookies,
+      get: (name: string) =>
+        name in jarCookies ? { name, value: jarCookies[name] } : undefined,
+    }),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -75,6 +90,7 @@ function me(overrides: Record<string, unknown>) {
 }
 
 afterEach(() => {
+  jarCookies = { bc_access: 'stub' };
   vi.unstubAllGlobals();
 });
 
@@ -96,6 +112,41 @@ describe('gate: not staff', () => {
 
   it('404s rather than erroring when the identity API is unreachable', async () => {
     mockApi({});
+    await expect(AdminOverviewPage()).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+
+describe('gate: the session could not be read, but this device has one', () => {
+  it('offers to restore instead of claiming the page does not exist', async () => {
+    // The refresh cookie is scoped to the auth path, so a page navigation
+    // carries nothing once the access cookie has expired. The console answers
+    // an unknown caller with a 404 — so an operator who stepped away for twenty
+    // minutes came back to "That page is not here", which reads as a deleted
+    // feature rather than an expired token. It happened in production.
+    jarCookies = { bc_session: '1' };
+    mockApi({ [ME]: { status: 401, body: { error: 'unauthorized', message: '' } } });
+
+    render(await AdminOverviewPage());
+    expect(screen.getByText('Signing you back in…')).toBeInTheDocument();
+  });
+
+  it('still 404s a signed-out visitor with no session at all', async () => {
+    jarCookies = {};
+    mockApi({ [ME]: { status: 401, body: { error: 'unauthorized', message: '' } } });
+    await expect(AdminUsersPage()).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('leaks nothing: a member with a stale cookie sees the same line, then the 404', async () => {
+    // The restore screen says only "signing you back in". Once the session is
+    // restored, a non-staff actor lands on the ordinary 404 — the collapse of
+    // "signed out" and "not staff" into one answer is preserved.
+    jarCookies = { bc_session: '1' };
+    mockApi({ [ME]: { status: 401, body: { error: 'unauthorized', message: '' } } });
+    render(await AdminOverviewPage());
+    expect(screen.queryByText(/console|admin|operator/i)).not.toBeInTheDocument();
+
+    jarCookies = { bc_access: 'stub' };
+    mockApi({ [ME]: me({ role: 'user', mfa_enabled: true }) });
     await expect(AdminOverviewPage()).rejects.toBeInstanceOf(NotFoundError);
   });
 });

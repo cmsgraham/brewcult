@@ -1,6 +1,7 @@
 import { type Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { MfaInterstitial } from '../../../components/admin/gate';
+import { SessionRestoreScreen } from '../../../components/session-restore-screen';
 import { AdminShell } from '../../../components/admin/shell';
 import { UsersConsole } from '../../../components/admin/users-console';
 import { adminGate } from '../_lib/guard';
@@ -21,6 +22,9 @@ export const dynamic = 'force-dynamic';
  */
 export default async function AdminUsersPage() {
   const gate = await adminGate();
+  // Not "no such page" — "we could not read your session". A 404 here sends an
+  // operator looking for a deleted feature; the truth is an expired cookie.
+  if (gate.state === 'restore') return <SessionRestoreScreen next="/admin/users" />;
   if (gate.state === 'unavailable') notFound();
   if (gate.state === 'mfa-required') return <MfaInterstitial actor={gate.actor} />;
 
