@@ -1,14 +1,32 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ClipboardEvent } from 'react';
 import { isApiError } from '../../lib/api';
 import {
   fetchMyEquipmentRequests,
   submitEquipmentRequest,
   type EquipmentRequest,
 } from '../../lib/equipment-client';
-import { uploadMedia } from '../../lib/media-client';
+import {
+  IMAGE_ACCEPT,
+  PHOTO_PRIVACY_NOTE,
+  formatBytes,
+  uploadMedia,
+  validateImageFile,
+} from '../../lib/media-client';
 import { Alert } from '../ui/alert';
+
+/**
+ * A clipboard image arrives as a nameless Blob. The upload sends a filename, and
+ * "upload" for every screenshot anybody ever pastes is not a filename — so one
+ * is made here, with the extension the blob's own type implies.
+ */
+function fileFromClipboard(blob: Blob): File {
+  const extension = (blob.type.split('/')[1] ?? 'png').replace('jpeg', 'jpg');
+  return new File([blob], `pasted-photo.${extension}`, {
+    type: blob.type || 'image/png',
+  });
+}
 
 /**
  * Propose something for the SHARED catalogue.
@@ -28,10 +46,22 @@ export function EquipmentRequestForm() {
   const [open, setOpen] = useState(false);
   const [description, setDescription] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
   const [requests, setRequests] = useState<EquipmentRequest[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  /**
+   * `navigator.clipboard.read()` is Chromium-and-Safari only; Firefox has no
+   * scripted clipboard read at all. Detecting once on mount means the button
+   * simply is not offered where it could only fail — and the Ctrl+V route, which
+   * works everywhere, is described either way.
+   */
+  const [canReadClipboard, setCanReadClipboard] = useState(false);
+
+  useEffect(() => {
+    setCanReadClipboard(typeof navigator !== 'undefined' && typeof navigator.clipboard?.read === 'function');
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,6 +74,67 @@ export function EquipmentRequestForm() {
       cancelled = true;
     };
   }, []);
+
+  // One object URL at a time, revoked when it is replaced or the form goes away.
+  // Without this every paste leaks the previous image for the life of the tab.
+  useEffect(() => {
+    if (!photo) {
+      setPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(photo);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photo]);
+
+  /** Accept a photo from any of the three routes, or say why not. */
+  function attach(file: File | null): void {
+    if (!file) return;
+    const complaint = validateImageFile(file);
+    if (complaint) {
+      setError(complaint);
+      return;
+    }
+    setError(null);
+    setPhoto(file);
+  }
+
+  /**
+   * Ctrl+V anywhere in the form.
+   *
+   * Pasted TEXT is left entirely alone — the textarea already does the right
+   * thing with it, and intercepting would break the ordinary case to serve the
+   * unusual one. Only an image is claimed, and only then is the default
+   * prevented, so a screenshot does not also dump a filename into the box.
+   */
+  function onPaste(event: ClipboardEvent<HTMLDivElement>): void {
+    const item = Array.from(event.clipboardData?.items ?? []).find((entry) =>
+      entry.type.startsWith('image/'),
+    );
+    if (!item) return;
+    const file = item.getAsFile();
+    if (!file) return;
+    event.preventDefault();
+    attach(file);
+  }
+
+  /** The button, for people who do not think in keyboard shortcuts. */
+  async function pasteFromClipboard(): Promise<void> {
+    try {
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const type = item.types.find((candidate) => candidate.startsWith('image/'));
+        if (!type) continue;
+        attach(fileFromClipboard(await item.getType(type)));
+        return;
+      }
+      setError('There is no image on the clipboard — copy one first, or choose a file.');
+    } catch {
+      // Denied permission, an empty clipboard, or a browser that changed its
+      // mind about supporting this. Ctrl+V still works, so say so.
+      setError('The browser would not let us read the clipboard. Press Ctrl+V (or ⌘V) instead.');
+    }
+  }
 
   async function submit(): Promise<void> {
     const text = description.trim();
@@ -100,7 +191,7 @@ export function EquipmentRequestForm() {
           {pending.length > 0 ? ` — you have ${pending.length} awaiting review.` : ''}
         </p>
       ) : (
-        <div className="bc-panel bc-stack">
+        <div className="bc-panel bc-stack" onPaste={onPaste}>
           <p style={{ marginBottom: 0 }}>
             Describe it, or paste the manufacturer&rsquo;s description. An assistant drafts an
             entry from it and <strong>a person checks that draft</strong> before anything is
@@ -127,16 +218,58 @@ export function EquipmentRequestForm() {
             <label className="bc-kit__label" htmlFor="request-photo">
               Photo <span className="bc-muted">(optional)</span>
             </label>
-            <input
-              id="request-photo"
-              className="bc-input"
-              type="file"
-              accept="image/*"
-              disabled={busy}
-              onChange={(event) => setPhoto(event.target.files?.[0] ?? null)}
-            />
+
+            {photo && preview ? (
+              <span className="bc-photo-chosen">
+                {/* A pasted screenshot has no filename worth reading, so the
+                    picture itself is the confirmation that the right thing
+                    landed. */}
+                <img className="bc-photo-chosen__thumb" src={preview} alt="The photo you attached" />
+                <span className="bc-photo-chosen__text">
+                  <span>{photo.name}</span>
+                  <span className="bc-muted">{formatBytes(photo.size)}</span>
+                </span>
+                <button
+                  type="button"
+                  className="bc-button bc-button--quiet"
+                  disabled={busy}
+                  onClick={() => setPhoto(null)}
+                >
+                  Remove
+                </button>
+              </span>
+            ) : (
+              <>
+                <input
+                  id="request-photo"
+                  className="bc-input"
+                  type="file"
+                  accept={IMAGE_ACCEPT}
+                  disabled={busy}
+                  onChange={(event) => attach(event.target.files?.[0] ?? null)}
+                />
+                <span className="bc-photo-paste">
+                  {canReadClipboard ? (
+                    <button
+                      type="button"
+                      className="bc-button bc-button--quiet"
+                      disabled={busy}
+                      onClick={() => void pasteFromClipboard()}
+                    >
+                      Paste from clipboard
+                    </button>
+                  ) : null}
+                  <span className="bc-muted" style={{ fontSize: '0.85rem' }}>
+                    {canReadClipboard
+                      ? 'Or press Ctrl+V (⌘V) anywhere in this box.'
+                      : 'Copy a screenshot, then press Ctrl+V (⌘V) anywhere in this box.'}
+                  </span>
+                </span>
+              </>
+            )}
+
             <span className="bc-muted" style={{ fontSize: '0.85rem' }}>
-              Location data is stripped from photos when they upload.
+              {PHOTO_PRIVACY_NOTE}
             </span>
           </span>
 

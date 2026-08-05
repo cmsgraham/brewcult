@@ -8,7 +8,7 @@
  * that failure is invisible in the happy path, because a correct draft and a
  * confirmed draft look identical.
  */
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as ApiModule from '../lib/api';
@@ -45,6 +45,12 @@ const QUEUED = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // jsdom has no object URLs. Every browser does, and the preview is the only
+  // thing that uses them, so a stub here is the whole of the difference.
+  if (typeof URL.createObjectURL !== 'function') {
+    URL.createObjectURL = vi.fn(() => 'blob:preview');
+    URL.revokeObjectURL = vi.fn();
+  }
 });
 
 describe('the reviewer’s queue', () => {
@@ -149,5 +155,139 @@ describe('suggesting something for the catalogue', () => {
 
     await user.click(screen.getByRole('button', { name: 'Suggest it' }));
     expect(screen.getByRole('button', { name: 'Send suggestion' })).toBeDisabled();
+  });
+});
+
+/**
+ * Pasting a photo.
+ *
+ * A screenshot of a product page is the fastest thing most people have to hand,
+ * and saving it to disk first only to pick it out of a file dialog is work the
+ * browser can do itself.
+ */
+describe('pasting a photo', () => {
+  const png = () =>
+    new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], 'shot.png', { type: 'image/png' });
+
+  async function openForm() {
+    const user = userEvent.setup();
+    apiFetch.mockResolvedValue({ items: [] });
+    render(<EquipmentRequestForm />);
+    await user.click(screen.getByRole('button', { name: 'Suggest it' }));
+    return user;
+  }
+
+  it('attaches an image pasted anywhere in the form', async () => {
+    await openForm();
+    const file = png();
+
+    fireEvent.paste(screen.getByLabelText('What is it?'), {
+      clipboardData: { items: [{ type: 'image/png', getAsFile: () => file }] },
+    });
+
+    expect(await screen.findByAltText('The photo you attached')).toBeInTheDocument();
+    expect(screen.getByText('shot.png')).toBeInTheDocument();
+  });
+
+  it('leaves pasted TEXT to the textarea, which already handles it', async () => {
+    const user = await openForm();
+    const box = screen.getByLabelText('What is it?');
+
+    await user.click(box);
+    await user.paste('Option-O Lagom P100, 64mm flat burrs');
+
+    expect(box).toHaveValue('Option-O Lagom P100, 64mm flat burrs');
+    expect(screen.queryByAltText('The photo you attached')).not.toBeInTheDocument();
+  });
+
+  it('refuses an oversize paste before spending the upload', async () => {
+    await openForm();
+    // 6 MB against a 5 MB cap — the server would reject it after the wait.
+    const huge = new File([new Uint8Array(6 * 1024 * 1024)], 'huge.png', { type: 'image/png' });
+
+    fireEvent.paste(screen.getByLabelText('What is it?'), {
+      clipboardData: { items: [{ type: 'image/png', getAsFile: () => huge }] },
+    });
+
+    expect(await screen.findByText(/anything under 5 MB works/)).toBeInTheDocument();
+    expect(screen.queryByAltText('The photo you attached')).not.toBeInTheDocument();
+  });
+
+  it('lets you take it back off again', async () => {
+    const user = await openForm();
+    fireEvent.paste(screen.getByLabelText('What is it?'), {
+      clipboardData: { items: [{ type: 'image/png', getAsFile: () => png() }] },
+    });
+
+    await user.click(await screen.findByRole('button', { name: 'Remove' }));
+    expect(screen.queryByAltText('The photo you attached')).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Photo/)).toBeInTheDocument(); // the file input is back
+  });
+
+  it('uploads the pasted photo and sends its id, not the file', async () => {
+    const user = await openForm();
+    fireEvent.paste(screen.getByLabelText('What is it?'), {
+      clipboardData: { items: [{ type: 'image/png', getAsFile: () => png() }] },
+    });
+    await user.type(screen.getByLabelText('What is it?'), 'A grinder I cannot name');
+
+    apiFetch.mockClear();
+    // The upload answers with an asset; the request then carries only its id.
+    apiFetch.mockResolvedValueOnce({ id: 'media-9', url: 'https://media.test/9.webp' });
+    apiFetch.mockResolvedValueOnce({ items: [] });
+    await user.click(screen.getByRole('button', { name: 'Send suggestion' }));
+
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(2));
+    const [uploadPath] = apiFetch.mock.calls[0]!;
+    expect(String(uploadPath)).toContain('equipment_image');
+    expect(apiFetch.mock.calls[1]![1].body).toEqual({
+      description: 'A grinder I cannot name',
+      image_media_id: 'media-9',
+    });
+  });
+
+  it('offers the button where the browser can read the clipboard', async () => {
+    await openForm(); // userEvent installs a clipboard, as a real browser has
+    expect(screen.getByRole('button', { name: 'Paste from clipboard' })).toBeInTheDocument();
+  });
+
+  it('attaches what the button finds on the clipboard', async () => {
+    const user = await openForm();
+    const blob = new Blob([new Uint8Array([0x89, 0x50])], { type: 'image/png' });
+    vi.spyOn(navigator.clipboard, 'read').mockResolvedValue([
+      { types: ['image/png'], getType: async () => blob },
+    ] as never);
+
+    await user.click(screen.getByRole('button', { name: 'Paste from clipboard' }));
+
+    expect(await screen.findByAltText('The photo you attached')).toBeInTheDocument();
+    // A clipboard blob has no name, so one is invented rather than sending
+    // "upload" for every screenshot anybody ever pastes.
+    expect(screen.getByText('pasted-photo.png')).toBeInTheDocument();
+  });
+
+  it('says what to do instead when the clipboard is refused', async () => {
+    const user = await openForm();
+    vi.spyOn(navigator.clipboard, 'read').mockRejectedValue(new Error('NotAllowedError'));
+
+    await user.click(screen.getByRole('button', { name: 'Paste from clipboard' }));
+
+    expect(await screen.findByText(/Press Ctrl\+V/)).toBeInTheDocument();
+  });
+
+  it('hides the button where there is no scripted clipboard read at all', async () => {
+    // Firefox's position, and the reason Ctrl+V is described either way.
+    const clipboard = navigator.clipboard;
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
+    try {
+      apiFetch.mockResolvedValue({ items: [] });
+      render(<EquipmentRequestForm />);
+      fireEvent.click(screen.getByRole('button', { name: 'Suggest it' }));
+
+      expect(screen.queryByRole('button', { name: 'Paste from clipboard' })).not.toBeInTheDocument();
+      expect(screen.getByText(/Copy a screenshot, then press Ctrl\+V/)).toBeInTheDocument();
+    } finally {
+      Object.defineProperty(navigator, 'clipboard', { value: clipboard, configurable: true });
+    }
   });
 });
