@@ -21,6 +21,7 @@ import {
   processCopy,
 } from '../../../components/catalog/copy';
 import { FreshnessSection } from '../../../components/catalog/freshness';
+import { StartingRecipeCard } from '../../../components/ai/starting-recipe';
 import { JsonLd, readCspNonce } from '../../../components/catalog/json-ld';
 import { RecipesSection } from '../../../components/catalog/recipes-section';
 import { Explainer, SpecList, TagList } from '../../../components/catalog/spec-list';
@@ -253,6 +254,7 @@ export default async function CoffeeDetailPage({ params }: PageProps) {
       </section>
 
       <FreshnessSection coffee={coffee} />
+      <StartingRecipeCard coffeeProductId={coffee.id} coffeeName={coffee.name} />
 
       <RecipesSection
         result={recipes}

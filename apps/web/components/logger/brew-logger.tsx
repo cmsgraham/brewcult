@@ -409,6 +409,9 @@ export function BrewLogger({
         <PostLogNote
           payback={logged.payback}
           verdict={logged.record.session.taste?.verdict ?? null}
+          // The brew is already persisted by this point, so the advice request
+          // runs entirely off the logging path — it can never delay a log.
+          dialIn={{ brewSessionId: logged.record.session.id }}
           onRate={(verdict) => {
             void rate(verdict);
           }}

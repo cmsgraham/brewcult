@@ -49,6 +49,7 @@ describe('nav feature-flag gating', () => {
     expect(visibleNavItems(flags()).map((item) => item.key)).toEqual([
       'home',
       'brew',
+      'ai',
       'discover',
       'profile',
     ]);
@@ -59,6 +60,7 @@ describe('nav feature-flag gating', () => {
     expect(items.map((item) => item.key)).toEqual([
       'home',
       'brew',
+      'ai',
       'discover',
       'news',
       'profile',

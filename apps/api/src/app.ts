@@ -6,6 +6,7 @@ import { registerCatalogRoutes } from './modules/catalog/index.js';
 import { registerBrewingRoutes } from './modules/brewing/index.js';
 import { registerAdminRoutes } from './modules/admin/index.js';
 import { registerMediaRoutes } from './modules/media/index.js';
+import { registerIntelligenceRoutes } from './modules/intelligence/index.js';
 
 function health(status: HealthStatus['status']): HealthStatus {
   return {
@@ -57,6 +58,7 @@ export async function buildApp(): Promise<FastifyInstance> {
       community: false,
       brewLogger: true,
       navBrew: true,
+      navAi: true,
     },
   }));
 
@@ -67,6 +69,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await registerBrewingRoutes(app);
   await registerAdminRoutes(app);
   await registerMediaRoutes(app);
+  await registerIntelligenceRoutes(app);
 
   return app;
 }

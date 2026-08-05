@@ -51,6 +51,7 @@ export {
 
 export {
   autocomplete,
+  getCoffeeById,
   getCoffeeBySlug,
   getEquipmentById,
   getEquipmentBySlug,

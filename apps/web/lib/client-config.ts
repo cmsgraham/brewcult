@@ -45,7 +45,7 @@ export const WEB_CLIENT_VERSION = '0.1.0';
  */
 export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
   navBrew: true,
-  navAi: false,
+  navAi: true,
   navNews: false,
   navCommunity: false,
   navMarketplace: false,

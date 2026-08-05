@@ -92,9 +92,12 @@ describe('normalizeClientConfig', () => {
   });
 
   it('ignores non-boolean flag values instead of coercing them', () => {
+    // Asserted against the DEFAULTS rather than literal false: a flag flipping
+    // on as its phase ships (navBrew, navAi) must not break this test, because
+    // what it is really checking is "a junk value is ignored", not the default.
     const config = normalizeClientConfig({ features: { navAi: 'yes', navNews: 1 } });
-    expect(config.features.navAi).toBe(false);
-    expect(config.features.navNews).toBe(false);
+    expect(config.features.navAi).toBe(DEFAULT_FEATURE_FLAGS.navAi);
+    expect(config.features.navNews).toBe(DEFAULT_FEATURE_FLAGS.navNews);
   });
 
   it('ignores unknown keys', () => {

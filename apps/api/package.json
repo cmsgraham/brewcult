@@ -16,6 +16,7 @@
     "admin:list": "tsx src/cli/admin.ts list"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.115.0",
     "@aws-sdk/client-s3": "^3.1103.0",
     "@brewcult/shared-types": "*",
     "@fastify/cookie": "^11.1.2",

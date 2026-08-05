@@ -49,9 +49,23 @@ jobs:
       # web + api production builds must compile
       - run: npm run build
 
-  # M3+: AI eval harness (golden set + prompt-injection suite, AI-07).
-  # Gated separately; requires ANTHROPIC_API_KEY secret. See deployment_guide §4.
-  # ai-evals:
-  #   if: <paths filter on apps/api/src/modules/intelligence>
-  #   runs-on: ubuntu-latest
-  #   steps: [ ... ]
+  # AI evals (AI-07). These are TESTS, not a report: a prompt or model change
+  # that weakens the injection defences fails the build (EF §1.4).
+  #
+  # They run against the injectable fake provider, so they need no API key and
+  # are deterministic in CI. The fake is deliberately credulous — it obeys any
+  # directive that reaches the instruction channel — so removing the
+  # untrusted-content fencing turns the suite red rather than letting it pass
+  # vacuously.
+  #
+  # To run the same suite against the live API (a real model, real cost), set
+  # the ANTHROPIC_API_KEY secret and AI_EVAL_LIVE=1; see the module README.
+  ai-evals:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Dial-in golden set + prompt-injection suite
+        run: npx vitest run test/ai-evals --root apps/api

@@ -315,9 +315,28 @@ export async function listCoffees(
 }
 
 export async function getCoffeeBySlug(db: CatalogDb, slug: string): Promise<CoffeeDetail> {
+  return getCoffeeBy(db, 'cp.slug', slug);
+}
+
+/**
+ * Id-keyed lookup. Rows elsewhere in the graph (a brew session, a recipe) store
+ * `coffee_product_id`, not a slug, so callers holding an id had to guess a slug
+ * or be handed one by the client — the AI module hit exactly this.
+ */
+export async function getCoffeeById(db: CatalogDb, id: string): Promise<CoffeeDetail> {
+  if (!isUuid(id)) throw notFound('Coffee not found.');
+  return getCoffeeBy(db, 'cp.id', id);
+}
+
+async function getCoffeeBy(
+  db: CatalogDb,
+  column: 'cp.slug' | 'cp.id',
+  value: string,
+): Promise<CoffeeDetail> {
   const res = await db.query<CoffeeRow>(
-    `SELECT ${COFFEE_COLUMNS} ${COFFEE_FROM} WHERE cp.slug = $1`,
-    [slug],
+    // `column` is a closed union of literals, never caller-supplied text.
+    `SELECT ${COFFEE_COLUMNS} ${COFFEE_FROM} WHERE ${column} = $1`,
+    [value],
   );
   const row = res.rows[0];
   if (!row) throw notFound('Coffee not found.');

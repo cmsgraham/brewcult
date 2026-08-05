@@ -1,0 +1,251 @@
+/*
+ * Brew Intelligence surfaces (dial-in advice, /ai, starting recipe).
+ *
+ * Every colour is a token from app/globals.css, so the reversed brand palette
+ * (cream on espresso) comes for free in dark mode and nothing here introduces a
+ * third brand hue (lib/brand.ts).
+ *
+ * The AI is a guest on these pages, not the host: its blocks are quieter than
+ * the content around them — a hairline and a little space, never a coloured
+ * "AI" badge or a glow. Confidence is communicated in words (§7.2.3), not chrome.
+ */
+
+/* --- rendered model output ---------------------------------------- */
+
+.prose > :last-child {
+  margin-bottom: 0;
+}
+
+.prose p {
+  margin: 0 0 0.75rem;
+}
+
+.list {
+  margin: 0 0 0.75rem;
+  padding-left: 1.25rem;
+}
+
+.list li + li {
+  margin-top: 0.25rem;
+}
+
+.quote {
+  margin: 0 0 0.75rem;
+  padding-left: 0.85rem;
+  border-left: 3px solid var(--bc-line);
+  color: var(--bc-ink-muted);
+}
+
+.code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  padding: 0.1em 0.3em;
+  border-radius: var(--bc-radius-sm);
+  background: var(--bc-bg);
+}
+
+.codeBlock {
+  margin: 0 0 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--bc-line);
+  border-radius: var(--bc-radius-sm);
+  background: var(--bc-bg);
+  overflow-x: auto;
+  font-size: 0.9rem;
+}
+
+/* --- shared quiet copy -------------------------------------------- */
+
+.quiet {
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+/* --- entity references -------------------------------------------- */
+
+.entities {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.6rem;
+  margin-top: 0.6rem;
+  font-size: 0.85rem;
+  color: var(--bc-ink-muted);
+}
+
+.entitiesLabel {
+  font-weight: 600;
+}
+
+.entitiesList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.entity {
+  white-space: nowrap;
+}
+
+.entityLink {
+  color: var(--bc-ink);
+  text-decoration: underline;
+}
+
+.entityType {
+  opacity: 0.8;
+}
+
+/* --- dial-in advice (inside the logger's post-log card) ------------ */
+
+.advice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--bc-line);
+  border-left-width: 4px;
+  border-radius: var(--bc-radius-sm);
+  background: var(--bc-bg);
+}
+
+.adviceLead {
+  margin: 0;
+  font-weight: 600;
+}
+
+.adviceTag {
+  margin: 0;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--bc-ink-muted);
+}
+
+.adviceBody {
+  margin: 0;
+}
+
+/* --- starting recipe ---------------------------------------------- */
+
+.recipeCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.recipeHeading {
+  margin: 0;
+}
+
+.recipeBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.recipeSpec {
+  display: grid;
+  grid-template-columns: minmax(8rem, max-content) 1fr;
+  gap: 0.35rem 1rem;
+  margin: 0;
+}
+
+.recipeRow {
+  display: contents;
+}
+
+.recipeRow dt {
+  font-weight: 600;
+  color: var(--bc-ink-muted);
+}
+
+.recipeRow dd {
+  margin: 0;
+}
+
+.recipeActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0;
+}
+
+/* --- chat ---------------------------------------------------------- */
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.log {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-height: 12rem;
+  padding: 1rem;
+  border: 1px solid var(--bc-line);
+  border-radius: var(--bc-radius);
+  background: var(--bc-surface);
+  overflow-wrap: anywhere;
+}
+
+.turnUser {
+  align-self: flex-end;
+  max-width: min(46ch, 100%);
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--bc-radius);
+  background: var(--bc-ink);
+  color: var(--bc-bg);
+}
+
+.turnUserText {
+  margin: 0;
+  white-space: pre-wrap;
+  max-width: none;
+}
+
+.turnAssistant {
+  max-width: var(--bc-measure);
+}
+
+.activity {
+  min-height: 1.4rem;
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.notice {
+  margin: 0;
+}
+
+.composer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.6rem;
+}
+
+.composerInput {
+  flex: 1 1 18rem;
+  resize: vertical;
+  min-height: 3rem;
+}
+
+.composerActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.openers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
