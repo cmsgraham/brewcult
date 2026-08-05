@@ -17,12 +17,19 @@
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-# ── Server configuration — FILL THESE IN before first use ────────────────────
-SSH_KEY="${SSH_KEY:-$HOME/.ssh/brewcult}"      # SSH private key for the VPS
-SSH_HOST="${SSH_HOST:-brewcult@203.0.113.10}"  # user@host — replace with the real VPS IP/hostname
-REMOTE="${REMOTE:-/srv/brewcult}"              # deploy root on the server (§5.1; .env.prod lives here)
-BRANCH="${BRANCH:-main}"                       # branch whose CI status gates deploys
+# ── Server configuration (override any of these from the environment) ────────
+SSH_KEY="${SSH_KEY:-$HOME/.ssh/key}"                # SSH private key for the VPS
+SSH_HOST="${SSH_HOST:-cmsgraham@172.235.130.124}"   # user@host
+REMOTE="${REMOTE:-/srv/brewcult}"                   # deploy root on the server (§5.1; .env.prod lives here)
+BRANCH="${BRANCH:-main}"                            # branch whose CI status gates deploys
 SITE_URL="https://brewcult.coffee"
+
+# The container that terminates TLS. On the SHARED host this is Zentra's Caddy
+# (it owns :80/:443 and the ACME account); BrewCult's own caddy service stays
+# behind the `edge` compose profile. On a standalone BrewCult VPS, set
+# EDGE_CONTAINER=brewcult-caddy. See docker-compose.prod.yml's EDGE note.
+EDGE_CONTAINER="${EDGE_CONTAINER:-zentra-caddy}"
+EDGE_CADDYFILE="${EDGE_CADDYFILE:-/home/cmsgraham/inkflow/infra/Caddyfile}"
 
 LOCAL="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"   # repo root
 COMPOSE="docker compose -f docker-compose.prod.yml --env-file $REMOTE/.env.prod"
@@ -120,20 +127,33 @@ sync_api() {
 sync_caddy() {
   echo "→ Syncing Caddyfile..."
   rsync_file infra/Caddyfile infra/Caddyfile
-  echo "→ Restarting Caddy..."
-  # 'caddy reload' can silently no-op (Zentra lesson); restart takes ~3s and
-  # certificates persist in the brewcult_caddy_data volume.
-  ssh_run "docker restart brewcult-caddy"
-  echo "✓ Caddy restarted"
+  # On the shared host the live config is Zentra's Caddyfile, which holds the
+  # site blocks for BOTH apps; infra/Caddyfile here is the standalone-host copy
+  # and is NOT what $EDGE_CONTAINER reads. Reloading it would be a no-op at
+  # best, so refuse rather than pretend the deploy did something.
+  if [[ "$EDGE_CONTAINER" != "brewcult-caddy" ]]; then
+    echo "" >&2
+    echo "✗ Edge TLS is served by '$EDGE_CONTAINER', not brewcult-caddy." >&2
+    echo "  BrewCult's site blocks live in the shared config:" >&2
+    echo "      $EDGE_CADDYFILE" >&2
+    echo "  Edit that file, then: ssh $SSH_HOST 'docker exec $EDGE_CONTAINER caddy reload --config /etc/caddy/Caddyfile'" >&2
+    exit 1
+  fi
+  echo "→ Reloading Caddy..."
+  # Prefer reload (zero-downtime, and this box also serves a live app). Fall
+  # back to restart if reload is rejected — restart takes ~3s and certificates
+  # persist in the caddy data volume either way.
+  ssh_run "docker exec $EDGE_CONTAINER caddy reload --config /etc/caddy/Caddyfile || docker restart $EDGE_CONTAINER"
+  echo "✓ Caddy reloaded"
 }
 
 # ── Migrations as an aborting step (§6.2, §5.2) ──────────────────────────────
 run_migrations() {
   echo "→ Running database migrations (fail-loud one-shot)..."
-  if ! ssh_run "cd $REMOTE/infra && $COMPOSE run --rm migrate"; then
+  if ! ssh_run "cd $REMOTE/infra && $COMPOSE run --rm brewcult-migrate"; then
     echo "" >&2
     echo "✗ MIGRATION FAILED — deploy aborted. No services were rebuilt or restarted." >&2
-    echo "  Inspect: ssh $SSH_HOST 'cd $REMOTE/infra && $COMPOSE run --rm migrate'" >&2
+    echo "  Inspect: ssh $SSH_HOST 'cd $REMOTE/infra && $COMPOSE run --rm brewcult-migrate'" >&2
     exit 1
   fi
   echo "✓ Migrations applied"
@@ -175,13 +195,16 @@ record_deployed() {  # record_deployed <commit-hash>
 
 deploy_services_for_target() {
   case "$TARGET" in
-    web) build_and_restart web ;;
+    web) build_and_restart brewcult-web ;;
     # worker + scheduler always restart with api — same image; schema/event
     # skew between api and consumers is a subtle-bug factory (§6.3).
-    api) build_and_restart api worker scheduler ;;
+    api) build_and_restart brewcult-api brewcult-worker brewcult-scheduler ;;
     all)
-      build_and_restart web
-      build_and_restart api worker scheduler
+      # Deliberately sequential: this host has 3.8 GB of RAM and also serves a
+      # live app. Two concurrent `next build`/`tsc` runs is how you OOM-kill a
+      # neighbour's container.
+      build_and_restart brewcult-web
+      build_and_restart brewcult-api brewcult-worker brewcult-scheduler
       ;;
   esac
 }

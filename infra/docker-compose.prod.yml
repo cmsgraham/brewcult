@@ -1,25 +1,45 @@
 # BrewCult — PROD compose (deployment_guide.md §5.2, EF §7.2)
 #
-# Topology: caddy / web / api / worker / scheduler / postgres / redis / minio /
-# minio-init / migrate. Deployed by infra/deploy.sh (rsync + server-side build,
-# ADR-003). Secrets live in /srv/brewcult/.env.prod — never in the repo.
+# Topology: web / api / worker / scheduler / postgres / redis / minio /
+# minio-init / migrate, plus an OPTIONAL caddy behind the `edge` profile.
+# Deployed by infra/deploy.sh (rsync + server-side build, ADR-003). Secrets live
+# in /srv/brewcult/.env.prod — never in the repo.
 #
-# worker and scheduler are the SAME IMAGE as api (apps/api/Dockerfile.prod),
-# differing only in `command:` — EF §7.2 role-based deployables. No separate
-# worker.Dockerfile exists; the entrypoint override lives here.
+# ── WHY EVERY SERVICE IS NAMED `brewcult-…` ──────────────────────────────────
+# BrewCult shares a host with Zentra (ADR-002: microservice-READY, one box until
+# it hurts). Zentra's compose already defines services literally called `web`,
+# `api`, `postgres` and `redis`. Docker's embedded DNS resolves a name across
+# EVERY network a container is attached to, so the moment one Caddy is attached
+# to both stacks, a bare `web` has two answers and gets round-robined between
+# two different applications. That failure is intermittent, silent, and serves
+# Zentra's HTML to BrewCult visitors — so the service names are fully qualified
+# here rather than relying on network isolation to disambiguate them.
+# Service name == container_name throughout, so `docker compose ps` and
+# `docker ps` agree.
+#
+# ── EDGE / TLS ───────────────────────────────────────────────────────────────
+# On the shared host the EXISTING Caddy (zentra-caddy) is the single TLS
+# terminator: it already owns :80/:443 and holds the ACME account. It reaches
+# this stack over the external `edge` network, which is why web/api/minio join
+# it. The caddy service below is therefore behind the `edge` PROFILE — it stays
+# stopped unless you explicitly ask for it:
+#     docker compose -f docker-compose.prod.yml --profile edge up -d
+# That is the standalone-host path (BrewCult alone on its own VPS). Starting it
+# on the shared box would fight zentra-caddy for :443 and fail to bind.
 #
 # Migration rule (§5.2): migrate must FAIL LOUDLY — api/worker/scheduler only
-# start after `migrate` exits 0 (condition: service_completed_successfully).
+# start after `brewcult-migrate` exits 0 (condition: service_completed_successfully).
 #
-# NEVER run `docker compose down -v` on prod: brewcult_caddy_data holds the
-# Let's Encrypt certs + ACME account (rate-limited to re-issue) and is shared
-# read-only with the mail server (§5.4). It is in the nightly backup set.
+# NEVER run `docker compose down -v` on prod: the postgres and minio volumes are
+# the actual user data, and brewcult_caddy_data holds Let's Encrypt certs + the
+# ACME account (rate-limited to re-issue). All are in the nightly backup set.
 
 services:
-  caddy:
+  brewcult-caddy:
     image: caddy:2-alpine
     container_name: brewcult-caddy
     restart: unless-stopped
+    profiles: ["edge"] # standalone-host only — see the EDGE note above
     ports:
       - "80:80" # must stay open — ACME HTTP-01 (§5.3)
       - "443:443"
@@ -31,25 +51,31 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - brewcult_caddy_data:/data # certificates + ACME account (PERSIST — backup set)
       - brewcult_caddy_config:/config
+    networks:
+      - default
+      - edge
     depends_on:
-      web:
+      brewcult-web:
         condition: service_started
 
-  web:
+  brewcult-web:
     build:
       context: ..
       dockerfile: apps/web/Dockerfile.prod
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-} # empty → same-origin /api via Caddy
-        API_INTERNAL_URL: http://api:4000
+        API_INTERNAL_URL: http://brewcult-api:4000
     container_name: brewcult-web
     restart: unless-stopped
     expose:
       - "3000"
     environment:
-      API_INTERNAL_URL: http://api:4000
+      API_INTERNAL_URL: http://brewcult-api:4000
     env_file:
       - ../.env.prod
+    networks:
+      - default
+      - edge # reachable by the host's shared Caddy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/"]
       interval: 30s
@@ -57,10 +83,10 @@ services:
       retries: 3
       start_period: 20s
     depends_on:
-      api:
+      brewcult-api:
         condition: service_healthy
 
-  api:
+  brewcult-api:
     build:
       context: ..
       dockerfile: apps/api/Dockerfile.prod
@@ -70,6 +96,9 @@ services:
       - "4000"
     env_file:
       - ../.env.prod
+    networks:
+      - default
+      - edge # Caddy proxies /api/* straight here
     healthcheck: # /healthz contract — F-20
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4000/healthz"]
       interval: 10s
@@ -77,16 +106,16 @@ services:
       retries: 5
       start_period: 15s
     depends_on:
-      migrate:
+      brewcult-migrate:
         condition: service_completed_successfully # fail-loud gate (§5.2)
-      postgres:
+      brewcult-postgres:
         condition: service_healthy
-      redis:
+      brewcult-redis:
         condition: service_started
-      minio:
+      brewcult-minio:
         condition: service_started
 
-  worker: # outbox relay + event consumers — same image as api, different entrypoint
+  brewcult-worker: # outbox relay + event consumers — same image as api, different entrypoint
     build:
       context: ..
       dockerfile: apps/api/Dockerfile.prod
@@ -102,16 +131,16 @@ services:
       retries: 3
       start_period: 10s
     depends_on:
-      migrate:
+      brewcult-migrate:
         condition: service_completed_successfully
-      postgres:
+      brewcult-postgres:
         condition: service_healthy
-      redis:
+      brewcult-redis:
         condition: service_started
-      minio:
+      brewcult-minio:
         condition: service_started
 
-  scheduler: # cron: retention jobs, digests, backups — same image as api
+  brewcult-scheduler: # cron: retention jobs, digests, backups — same image as api
     build:
       context: ..
       dockerfile: apps/api/Dockerfile.prod
@@ -127,14 +156,14 @@ services:
       retries: 3
       start_period: 10s
     depends_on:
-      migrate:
+      brewcult-migrate:
         condition: service_completed_successfully
-      postgres:
+      brewcult-postgres:
         condition: service_healthy
-      redis:
+      brewcult-redis:
         condition: service_started
 
-  postgres:
+  brewcult-postgres:
     image: pgvector/pgvector:pg16
     container_name: brewcult-postgres
     restart: unless-stopped
@@ -150,14 +179,14 @@ services:
       timeout: 5s
       retries: 5
 
-  redis:
+  brewcult-redis:
     image: redis:7-alpine
     container_name: brewcult-redis
     restart: unless-stopped
     volumes:
       - brewcult_redis:/data
 
-  minio:
+  brewcult-minio:
     image: minio/minio:latest
     container_name: brewcult-minio
     restart: unless-stopped
@@ -167,14 +196,17 @@ services:
     environment:
       MINIO_ROOT_USER: ${S3_ACCESS_KEY}
       MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+    networks:
+      - default
+      - edge # media.brewcult.coffee is served through the shared Caddy
     volumes:
       - brewcult_minio:/data
 
-  minio-init: # one-shot bucket bootstrap
+  brewcult-minio-init: # one-shot bucket bootstrap
     image: minio/mc:latest
     container_name: brewcult-minio-init
     depends_on:
-      - minio
+      - brewcult-minio
     env_file:
       - ../.env.prod
     volumes:
@@ -182,24 +214,32 @@ services:
     entrypoint: ["/bin/sh", "/infra/minio-create-bucket.sh"]
     restart: "no"
 
-  migrate: # one-shot: applies db/migrations/*.sql BEFORE api starts (§5.2)
+  brewcult-migrate: # one-shot: applies db/migrations/*.sql BEFORE api starts (§5.2)
     image: pgvector/pgvector:pg16
     container_name: brewcult-migrate
     env_file:
-      - ../.env.prod # provides DATABASE_URL (postgres:5432 on the compose network)
+      - ../.env.prod # provides DATABASE_URL (brewcult-postgres:5432 on this network)
     environment:
       MIGRATIONS_DIR: /db/migrations
     volumes:
       - ../db:/db:ro
     entrypoint: ["/bin/sh", "/db/migrate.sh"]
     depends_on:
-      postgres:
+      brewcult-postgres:
         condition: service_healthy
     restart: "no"
+
+networks:
+  default: # private: postgres, redis, worker, scheduler never leave this one
+  edge:
+    external: true # shared with the host's TLS terminator; created out-of-band
+    # Created once per host with `docker network create edge`. It is declared
+    # external rather than compose-managed so that `docker compose down` on
+    # EITHER stack cannot delete the network the other stack is still using.
 
 volumes:
   brewcult_pgdata:
   brewcult_redis:
   brewcult_minio:
-  brewcult_caddy_data: # precious: certs + ACME account — nightly backup set, shared :ro with mail (§5.4)
+  brewcult_caddy_data: # precious: certs + ACME account — nightly backup set (standalone mode)
   brewcult_caddy_config:
