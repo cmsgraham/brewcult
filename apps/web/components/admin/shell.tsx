@@ -3,12 +3,23 @@ import { type ReactNode } from 'react';
 import { MFA_SETUP_PATH, type AdminActor } from '../../lib/admin-client';
 import styles from './admin.module.css';
 
-export type ConsoleSection = 'overview' | 'users' | 'seller-applications' | 'reports' | 'audit';
+export type ConsoleSection =
+  | 'overview'
+  | 'users'
+  | 'seller-applications'
+  | 'equipment-requests'
+  | 'reports'
+  | 'audit';
 
 const SECTIONS: { key: ConsoleSection; label: string; href: string }[] = [
   { key: 'overview', label: 'Overview', href: '/admin' },
   { key: 'users', label: 'People', href: '/admin/users' },
   { key: 'seller-applications', label: 'Seller applications', href: '/admin/seller-applications' },
+  {
+    key: 'equipment-requests',
+    label: 'Equipment requests',
+    href: '/admin/equipment-requests',
+  },
   { key: 'reports', label: 'Reports', href: '/admin/reports' },
   { key: 'audit', label: 'Audit log', href: '/admin/audit' },
 ];

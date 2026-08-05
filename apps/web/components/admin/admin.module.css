@@ -339,3 +339,34 @@
 .queueCard p {
   max-width: none;
 }
+
+/* ---------------------------------------------------------------------------
+ * Equipment requests (0011, tier 2).
+ *
+ * The submission is styled as a QUOTE, not as body copy: a reviewer needs to
+ * see at a glance where somebody else's words end and our draft begins.
+ * ------------------------------------------------------------------------- */
+.submission {
+  border-left: 3px solid var(--bc-line);
+  padding-left: 0.85rem;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--bc-ink);
+}
+.submissionImage {
+  max-width: 100%;
+  /* Capped so one tall photo cannot push the decision buttons off-screen. */
+  max-height: 15rem;
+  width: auto;
+  border-radius: var(--bc-radius);
+  border: 1px solid var(--bc-line);
+  align-self: flex-start;
+}
+.draftGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.75rem;
+  padding-top: 0.25rem;
+  border-top: 1px dashed var(--bc-line);
+}

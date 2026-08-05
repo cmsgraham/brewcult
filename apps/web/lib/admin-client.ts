@@ -35,6 +35,7 @@ import {
   type ApiRequestOptions,
   type Paginated,
 } from './api';
+import type { EquipmentRequest } from './equipment-client';
 
 /* ------------------------------------------------------------------ *
  * Roles, statuses and the words we use for them
@@ -520,6 +521,54 @@ export function createAdminClient(fetcher: AdminFetch = apiFetch) {
         method: 'POST',
         body: input,
       }),
+
+    /**
+     * Catalogue proposals awaiting a person (0011, tier 2).
+     *
+     * Unpaginated by design: the queue is meant to be emptied, and a hundred
+     * outstanding proposals is a staffing problem rather than a paging one.
+     */
+    async listEquipmentRequests(
+      status: 'pending' | 'approved' | 'rejected' = 'pending',
+      options?: ApiRequestOptions,
+    ): Promise<EquipmentRequest[]> {
+      const body = await get<{ items?: EquipmentRequest[] }>(
+        `${ADMIN_BASE}/equipment-requests${queryString({ status })}`,
+        options,
+      );
+      return body?.items ?? [];
+    },
+
+    /**
+     * Approve with the REVIEWER's values.
+     *
+     * The draft is never sent back as-is by the client either — the form is
+     * pre-filled from it, but what posts is whatever the reviewer left in the
+     * fields. That is the whole point of the queue.
+     */
+    approveEquipmentRequest: (
+      id: string,
+      entry: {
+        brand: string;
+        name: string;
+        category: string;
+        grind_scale_type?: string | null;
+        specs?: Record<string, unknown> | null;
+      },
+      options?: ApiRequestOptions,
+    ) =>
+      staffMutation<{ items?: EquipmentRequest[] }>(
+        fetcher,
+        `${ADMIN_BASE}/equipment-requests/${encodeURIComponent(id)}/approve`,
+        { ...options, method: 'POST', body: entry },
+      ),
+
+    rejectEquipmentRequest: (id: string, note: string, options?: ApiRequestOptions) =>
+      staffMutation<{ items?: EquipmentRequest[] }>(
+        fetcher,
+        `${ADMIN_BASE}/equipment-requests/${encodeURIComponent(id)}/reject`,
+        { ...options, method: 'POST', body: { note } },
+      ),
 
     async listAudit(params: AuditListParams = {}, options?: ApiRequestOptions) {
       const query = queryString({

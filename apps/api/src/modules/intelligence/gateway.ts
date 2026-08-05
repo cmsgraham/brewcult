@@ -471,6 +471,11 @@ function toSdkBlock(block: AiContentBlock): Anthropic.ContentBlockParam {
         content: [{ type: 'text', text: block.content }],
         ...(block.is_error ? { is_error: true } : {}),
       };
+    case 'image':
+      // A URL source, not base64: every image we send is already on our own
+      // media origin, so re-encoding it into the request would only make the
+      // payload larger. Never a URL the submitter chose (see equipment-draft).
+      return { type: 'image', source: { type: 'url', url: block.url } };
   }
 }
 

@@ -155,17 +155,11 @@ export async function draftEquipment(
 
   const prompt = assemble({
     feature: 'equipment_draft',
-    untrusted: [
-      { source: 'equipment_description', content: description },
-      ...(input.imageUrl
-        ? [
-            {
-              source: 'equipment_description' as const,
-              content: `A photo was also submitted: ${input.imageUrl}`,
-            },
-          ]
-        : []),
-    ],
+    untrusted: [{ source: 'equipment_description', content: description }],
+    // The photo is LOOKED AT, not described. It is on our own media origin,
+    // already sniffed, re-encoded and EXIF-stripped — never a URL the submitter
+    // chose, which would be the same forged-fetch problem in a new coat.
+    ...(input.imageUrl ? { images: [input.imageUrl] } : {}),
     question:
       'Identify this piece of coffee equipment and draft a catalogue entry. ' +
       'Omit anything you are not confident of for this exact model.',

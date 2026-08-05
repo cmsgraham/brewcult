@@ -16,6 +16,7 @@
  * alongside the original submission, and only a person turns it into a row.
  */
 import { slugify } from '../catalog/index.js';
+import { mediaUrl } from '../media/index.js';
 import type { AdminDb } from './types.js';
 
 export type RequestStatus = 'pending' | 'approved' | 'rejected';
@@ -25,8 +26,14 @@ export interface EquipmentRequestRow {
   requester_id: string;
   requester_handle: string | null;
   submitted_text: string;
-  /** Object key; callers join it onto MEDIA_BASE_URL. The table stores no URL. */
+  /** Object key; the table stores no URL. `image_url` below is the derived one. */
   image_storage_key: string | null;
+  /**
+   * Where the photo actually is. Derived rather than stored, so moving the media
+   * origin does not require rewriting rows — and so a stale absolute URL can
+   * never outlive the bucket it points at.
+   */
+  image_url: string | null;
   ai_draft: Record<string, unknown> | null;
   ai_error: string | null;
   status: RequestStatus;
@@ -52,6 +59,11 @@ const SELECT = `
     FROM equipment_requests r
     LEFT JOIN users u ON u.id = r.requester_id
     LEFT JOIN media m ON m.id = r.image_media_id`;
+
+/** Adds the derived media URL. Kept in one place so every reader agrees. */
+function withImageUrl(row: EquipmentRequestRow): EquipmentRequestRow {
+  return { ...row, image_url: row.image_storage_key ? mediaUrl(row.image_storage_key) : null };
+}
 
 export interface CreateRequestInput {
   requesterId: string;
@@ -111,7 +123,7 @@ export async function listMyRequests(
     `${SELECT} WHERE r.requester_id = $1::uuid ORDER BY r.created_at DESC LIMIT 50`,
     [requesterId],
   );
-  return res.rows;
+  return res.rows.map(withImageUrl);
 }
 
 /** The reviewer's queue. Oldest pending first, so nothing rots at the bottom. */
@@ -126,7 +138,7 @@ export async function listRequests(
       LIMIT 100`,
     [status],
   );
-  return res.rows;
+  return res.rows.map(withImageUrl);
 }
 
 export async function findRequest(
@@ -134,7 +146,8 @@ export async function findRequest(
   id: string,
 ): Promise<EquipmentRequestRow | null> {
   const res = await db.query<EquipmentRequestRow>(`${SELECT} WHERE r.id = $1::uuid`, [id]);
-  return res.rows[0] ?? null;
+  const row = res.rows[0];
+  return row ? withImageUrl(row) : null;
 }
 
 export interface ApproveInput {
@@ -194,15 +207,32 @@ export async function approveRequest(
     });
     modelId = created.id;
   } catch (err) {
-    // A slug collision means somebody already catalogued it while this sat in
-    // the queue. That is a real outcome, not a crash — the reviewer should
-    // reject it as a duplicate rather than see a 500.
+    // Two different things land here and they need DIFFERENT words. A slug
+    // collision means somebody catalogued it while this sat in the queue; a
+    // rejected value means the reviewer's own entry is not admissible. Calling
+    // the second one a duplicate sends them hunting for a clash that does not
+    // exist — which is exactly what happened the first time this ran against a
+    // grinder with no grind scale.
+    //
+    // catalog has already translated the driver error into something a person
+    // can read, so the message is passed through rather than re-guessed from
+    // the constraint name. The one exception is the grind-scale rule, whose
+    // generic "domain rules" phrasing tells a reviewer nothing actionable.
+    const failure = err as { statusCode?: number; message?: string; details?: unknown };
+    const constraint = (failure.details as { constraint?: string } | undefined)?.constraint ?? '';
+
+    if (constraint.includes('grind_scale')) {
+      return {
+        status: 'conflict',
+        message: 'Grinders must declare a grind scale, and only grinders may have one.',
+      };
+    }
+    if (failure.statusCode === 409) {
+      return { status: 'conflict', message: 'Something with that name is already in the catalogue.' };
+    }
     return {
       status: 'conflict',
-      message:
-        (err as Error).message.includes('unique') || (err as Error).message.includes('duplicate')
-          ? 'Something with that name is already in the catalogue.'
-          : 'Could not create the catalogue entry.',
+      message: failure.message ?? 'Could not create the catalogue entry.',
     };
   }
 

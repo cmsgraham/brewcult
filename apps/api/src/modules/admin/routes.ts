@@ -58,8 +58,10 @@ import {
   listRequests,
   rejectRequest,
   type RequestStatus,
+  findRequest,
 } from './equipment-requests.js';
 import { insertEquipmentModel, upsertEquipmentBrand } from '../catalog/index.js';
+import { assertMediaUsable } from '../media/index.js';
 import { draftEquipment } from '../intelligence/index.js';
 import {
   AiGateway,
@@ -206,10 +208,20 @@ export async function registerAdminRoutes(
       if (description === '') throw badRequest('Tell us what the equipment is.');
       if (description.length > 4000) throw badRequest('That is a bit long — 4000 characters or fewer.');
 
+      // Ownership of the photo is checked BEFORE the row is written: throwing
+      // 403 here is honest, whereas storing the request and quietly dropping
+      // somebody else's image would look like it worked. This is the IDOR that
+      // `assertMediaUsable` exists to stop — a media id is guessable in a way a
+      // photo's contents are not.
+      const imageMediaId = request.body?.image_media_id ?? null;
+      if (imageMediaId) {
+        await assertMediaUsable(db, imageMediaId, userId, 'equipment_image');
+      }
+
       const created = await createEquipmentRequest(db, {
         requesterId: userId,
         submittedText: description,
-        imageMediaId: request.body?.image_media_id ?? null,
+        imageMediaId,
       });
       if (created.status === 'duplicate') {
         // Already queued. Impatience, not an error.
@@ -219,9 +231,14 @@ export async function registerAdminRoutes(
       // The draft is a convenience for the reviewer, so its failure must never
       // cost the submission that is already safely stored.
       try {
+        const stored = await findRequest(db, created.id);
         const draft = await draftEquipment(
           actor,
-          { description },
+          {
+            description,
+            // Our own media origin, never a URL the submitter chose.
+            imageUrl: stored?.image_url ?? null,
+          },
           { gateway: getGateway() },
         );
         await attachDraft(db, created.id, draft as unknown as Record<string, unknown>, null);
@@ -272,6 +289,13 @@ export async function registerAdminRoutes(
     if (!body.brand?.trim()) throw badRequest('A brand is required.');
     if (!body.name?.trim()) throw badRequest('A model name is required.');
     if (!body.category) throw badRequest('A category is required.');
+    // The catalogue requires grinders to declare a scale (0003), because the
+    // grind converter cannot answer without one. Catching it here gives the
+    // reviewer the real reason; letting it reach the INSERT surfaces a
+    // constraint name instead.
+    if (body.category === 'grinder' && !body.grind_scale_type) {
+      throw badRequest('Grinders need a grind scale: stepped, stepless or rotational.');
+    }
 
     const result = await approveRequest(
       db,

@@ -66,7 +66,20 @@ export interface AiToolResultBlock {
   is_error?: boolean;
 }
 
-export type AiContentBlock = AiTextBlock | AiToolUseBlock | AiToolResultBlock;
+/**
+ * An image the model should look at.
+ *
+ * Carries a URL rather than base64 because every image we send has already been
+ * through the media pipeline (sniffed, re-encoded, EXIF stripped by 0008) and is
+ * served from MEDIA_BASE_URL. A URL the SUBMITTER chose must never reach here —
+ * that would hand the provider a fetch we did not vet.
+ */
+export interface AiImageBlock {
+  type: 'image';
+  url: string;
+}
+
+export type AiContentBlock = AiTextBlock | AiToolUseBlock | AiToolResultBlock | AiImageBlock;
 
 export interface AiMessage {
   role: 'user' | 'assistant';

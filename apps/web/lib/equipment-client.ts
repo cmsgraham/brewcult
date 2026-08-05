@@ -156,8 +156,11 @@ export const EQUIPMENT_REQUESTS_PATH = '/api/v1/equipment-requests';
 
 export interface EquipmentRequest {
   id: string;
+  /** Present on the reviewer's queue; absent on your own list of submissions. */
+  requester_handle?: string | null;
   submitted_text: string;
-  image_storage_key: string | null;
+  /** Derived server-side from the storage key — the browser never builds it. */
+  image_url: string | null;
   ai_draft: {
     brand?: string;
     name?: string;

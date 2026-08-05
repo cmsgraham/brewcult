@@ -39,6 +39,7 @@ import { ApiError } from '../../lib/errors.js';
 import {
   EMPTY_USAGE,
   type AiContentBlock,
+  type AiImageBlock,
   type AiMessage,
   type AiProvider,
   type AiRequest,
@@ -59,9 +60,14 @@ interface OpenAiToolCall {
   function: { name: string; arguments: string };
 }
 
+/** A multi-part user message: text plus images. */
+type OpenAiContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } };
+
 interface OpenAiMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
-  content?: string | null;
+  content?: string | OpenAiContentPart[] | null;
   tool_calls?: OpenAiToolCall[];
   tool_call_id?: string;
 }
@@ -124,8 +130,25 @@ function toOpenAiMessages(system: AiTextBlock[], messages: AiMessage[]): OpenAiM
             : {}),
         });
       }
-    } else if (text) {
-      out.push({ role: 'user', content: text });
+    } else {
+      // Images force the multi-part shape. Text stays FIRST: the fenced
+      // data-not-instructions preamble has to be read before anything an image
+      // might have written on it.
+      const images = message.content.filter((b): b is AiImageBlock => b.type === 'image');
+      if (images.length > 0) {
+        out.push({
+          role: 'user',
+          content: [
+            ...(text ? [{ type: 'text' as const, text }] : []),
+            ...images.map((image) => ({
+              type: 'image_url' as const,
+              image_url: { url: image.url },
+            })),
+          ],
+        });
+      } else if (text) {
+        out.push({ role: 'user', content: text });
+      }
     }
   }
 
