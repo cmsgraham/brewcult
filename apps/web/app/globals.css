@@ -142,6 +142,17 @@ svg {
   max-width: var(--bc-shell);
   margin-inline: auto;
   padding-inline: clamp(1rem, 4vw, 2rem);
+  /* A flex/grid child defaults to min-width:auto, so ONE long unbroken string —
+     an email address, a URL, a base32 MFA secret — can push the whole page
+     wider than the screen and produce sideways scrolling on every view. These
+     two lines are the cheap structural guard against that. */
+  min-width: 0;
+}
+
+/* Long unbreakable tokens are common in this product: addresses, handles,
+   slugs, recovery codes. Break them rather than let them set the page width. */
+.bc-shell :where(p, li, dd, td, th, h1, h2, h3, code) {
+  overflow-wrap: anywhere;
 }
 
 .bc-main {
@@ -384,11 +395,12 @@ svg {
 }
 
 .bc-input {
-  font: inherit;
+  font: inherit; /* 16px inherited — anything smaller makes iOS zoom on focus */
   color: var(--bc-ink);
   background: var(--bc-bg);
   border: 1px solid var(--bc-line);
   border-radius: var(--bc-radius-sm);
+  min-height: 44px;
   padding: 0.6rem 0.7rem;
   width: 100%;
 }
@@ -408,6 +420,11 @@ svg {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+  /* 44px is Apple's HIG minimum and WCAG 2.5.5's target size. The brew logger
+     already enforced it on its own controls because it is thumb-driven; every
+     other button in the product was ~40px, which is the difference between
+     hitting a control and hitting the one next to it. */
+  min-height: 44px;
   padding: 0.65rem 1.1rem;
   border-radius: var(--bc-radius-sm);
   border: 2px solid var(--bc-ink);

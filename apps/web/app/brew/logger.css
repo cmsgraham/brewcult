@@ -270,8 +270,17 @@
 }
 .bc-taste__options {
   display: grid;
+  /* Four across normally; two-by-two once four columns would squeeze the
+     labels. With the emoji gone the label IS the control, so a cramped
+     "Bitter" is a control nobody can read at a glance — and this row is meant
+     to be tapped in seconds, one-handed, often over a sink. */
   grid-template-columns: repeat(4, 1fr);
   gap: 0.4rem;
+}
+@media (max-width: 22rem) {
+  .bc-taste__options {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 /* A segmented control. With the emoji gone the label is the only content, so
    the button gets a real type treatment and a clear pressed state rather than
