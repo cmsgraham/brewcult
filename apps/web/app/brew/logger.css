@@ -1,0 +1,346 @@
+/*
+ * Brew logger styles (brew_logger_ux §5 — one-handed, thumb zone, big targets).
+ *
+ * Scoped to the logger and imported by app/brew/page.tsx rather than added to
+ * globals.css, so nothing here can leak into another surface. Every colour is a
+ * token from globals.css, which means light/dark come for free: the reversed
+ * brand palette (cream on espresso) is already wired to prefers-color-scheme.
+ *
+ * Rules of thumb encoded below:
+ *  - every interactive target is at least 44px tall (WCAG 2.5.5 / AAA target
+ *    size), and the stepper arrows are 48px because they get imprecise taps;
+ *  - the primary action is last in the DOM and sticky at the bottom of the card
+ *    on phones — the thumb zone, not the top of the screen;
+ *  - no drag targets anywhere. Nothing in the logger needs two hands.
+ */
+
+.bc-logger {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 32rem;
+  margin-inline: auto;
+}
+
+.bc-logger__bag-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.bc-logger__coffee {
+  margin: 0;
+  font-size: 1.2rem;
+  flex: 1 1 12rem;
+}
+
+.bc-logger__switch {
+  min-height: 44px;
+  flex: 0 0 auto;
+}
+
+.bc-logger__subhead {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--bc-ink-muted);
+  margin: 0 0 0.4rem;
+}
+
+.bc-logger__options {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.bc-logger__option {
+  font: inherit;
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+  padding: 0.6rem 0.8rem;
+  color: var(--bc-ink);
+  background: var(--bc-bg);
+  border: 1px solid var(--bc-line);
+  border-radius: var(--bc-radius-sm);
+}
+.bc-logger__option:hover {
+  border-color: var(--bc-ink-muted);
+}
+
+/* --- Path A: the repeat card --- */
+
+.bc-logger__basis {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--bc-ink-muted);
+}
+
+.bc-logger__recap {
+  margin: 0.75rem 0 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 1rem;
+}
+.bc-logger__recap > div {
+  display: contents;
+}
+.bc-logger__recap dt {
+  color: var(--bc-ink-muted);
+  font-size: 0.9rem;
+}
+.bc-logger__recap dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.bc-logger__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+  position: sticky;
+  bottom: 0.5rem;
+}
+
+.bc-logger__primary {
+  min-height: 56px;
+  font-size: 1.05rem;
+}
+
+.bc-logger__actions .bc-button--quiet {
+  min-height: 44px;
+  background: var(--bc-bg);
+}
+
+/* --- Path B: steppers --- */
+
+.bc-logger__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.bc-logger__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.bc-stepper {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.15rem 0.75rem;
+}
+
+.bc-stepper__label {
+  font-weight: 600;
+}
+
+.bc-stepper__control {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  grid-row: span 2;
+}
+
+.bc-stepper__btn {
+  font: inherit;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  min-width: 48px;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--bc-ink);
+  background: var(--bc-bg);
+  border: 1px solid var(--bc-line);
+  border-radius: var(--bc-radius-sm);
+}
+.bc-stepper__btn:hover:not(:disabled) {
+  border-color: var(--bc-ink);
+}
+.bc-stepper__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.bc-stepper__value,
+.bc-stepper__input,
+.bc-timer__running {
+  font: inherit;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  min-width: 5.5rem;
+  min-height: 48px;
+  text-align: center;
+  color: var(--bc-ink);
+  background: var(--bc-bg);
+  border: 1px solid var(--bc-line);
+  border-radius: var(--bc-radius-sm);
+  padding: 0 0.5rem;
+}
+.bc-stepper__value {
+  cursor: text;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.bc-timer__running {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-style: dashed;
+}
+
+.bc-stepper__hint {
+  grid-column: 1;
+  font-size: 0.82rem;
+  color: var(--bc-ink-muted);
+}
+
+.bc-logger__ratio {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--bc-ink-muted);
+}
+
+.bc-logger__lock {
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  min-height: 44px;
+  padding: 0 0.6rem;
+  color: var(--bc-ink-muted);
+  background: transparent;
+  border: 1px solid var(--bc-line);
+  border-radius: var(--bc-radius-sm);
+}
+.bc-logger__lock[aria-pressed='true'] {
+  color: var(--bc-ink);
+  border-color: var(--bc-ink);
+}
+
+.bc-timer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.bc-timer__toggle {
+  align-self: flex-end;
+  min-height: 44px;
+}
+
+/* --- taste --- */
+
+.bc-taste {
+  margin-top: 0.75rem;
+}
+.bc-taste__legend {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+}
+.bc-taste__options {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+}
+.bc-taste__option {
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  color: var(--bc-ink);
+  background: var(--bc-bg);
+  border: 1px solid var(--bc-line);
+  border-radius: var(--bc-radius-sm);
+}
+.bc-taste__option[aria-pressed='true'] {
+  background: var(--bc-ink);
+  color: var(--bc-bg);
+  border-color: var(--bc-ink);
+}
+.bc-taste--compact .bc-taste__option {
+  min-height: 48px;
+}
+
+/* --- after the log --- */
+
+.bc-logger__logged-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.bc-logger__payback {
+  margin: 0;
+  font-size: 1.02rem;
+}
+.bc-logger__sync,
+.bc-logger__queue,
+.bc-logger__resumed,
+.bc-logger__footnote {
+  font-size: 0.88rem;
+  margin: 0;
+}
+.bc-logger__resumed {
+  color: var(--bc-ink-muted);
+}
+
+.bc-logger__suggestion {
+  border: 1px solid var(--bc-line);
+  border-left-width: 4px;
+  border-radius: var(--bc-radius-sm);
+  padding: 0.6rem 0.8rem;
+}
+.bc-logger__suggestion p {
+  margin: 0 0 0.5rem;
+}
+
+.bc-logger__more summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  color: var(--bc-ink-muted);
+  font-size: 0.9rem;
+}
+
+.bc-logger__footnote {
+  max-width: 32rem;
+  margin-inline: auto;
+  color: var(--bc-ink-muted);
+}
+
+/* Roomier layout once there is a mouse and a wider screen. */
+@media (min-width: 640px) {
+  .bc-logger__actions {
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    position: static;
+  }
+  .bc-logger__primary {
+    flex: 1 1 auto;
+  }
+}

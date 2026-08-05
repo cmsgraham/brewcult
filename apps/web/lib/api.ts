@@ -273,16 +273,20 @@ export interface CoffeeSummary {
   id: string;
   slug: string;
   name: string;
-  roasterName?: string | null;
-  origin?: string | null;
+  /** The API returns snake_case with nested refs (see the catalog module's
+   *  types.ts). These used to be camelCase here, which silently rendered blank
+   *  metadata on /discover — every field read as undefined. */
+  roaster?: { id: string; slug: string; name: string } | null;
+  origin?: { id?: string; country?: string; region?: string | null } | null;
   process?: string | null;
-  roastLevel?: string | null;
-  tastingNotes?: string[];
+  roast_level?: string | null;
+  intended_use?: string | null;
+  tasting_notes?: string[];
 }
 
 export interface Paginated<T> {
   items: T[];
-  nextCursor?: string | null;
+  next_cursor?: string | null;
 }
 
 export interface AutocompleteSuggestion {

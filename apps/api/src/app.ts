@@ -3,6 +3,7 @@ import { type HealthStatus } from '@brewcult/shared-types';
 import { registerErrorHandler } from './lib/errors.js';
 import { registerIdentityRoutes } from './modules/identity/index.js';
 import { registerCatalogRoutes } from './modules/catalog/index.js';
+import { registerBrewingRoutes } from './modules/brewing/index.js';
 
 function health(status: HealthStatus['status']): HealthStatus {
   return {
@@ -52,7 +53,8 @@ export async function buildApp(): Promise<FastifyInstance> {
       marketplace: false,
       news: false,
       community: false,
-      brewLogger: false,
+      brewLogger: true,
+      navBrew: true,
     },
   }));
 
@@ -60,6 +62,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   // policies that the catalog's staff-only routes authorize against.
   await registerIdentityRoutes(app);
   await registerCatalogRoutes(app);
+  await registerBrewingRoutes(app);
 
   return app;
 }

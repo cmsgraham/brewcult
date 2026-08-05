@@ -44,7 +44,7 @@ export const WEB_CLIENT_VERSION = '0.1.0';
  * not "a blank app".
  */
 export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
-  navBrew: false,
+  navBrew: true,
   navAi: false,
   navNews: false,
   navCommunity: false,

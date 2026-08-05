@@ -44,8 +44,11 @@ describe('nav feature-flag gating', () => {
   });
 
   it('shows only the Phase-1 surfaces by default', () => {
+    // Brew joined the default set when the logger shipped (Wave 3); the rest of
+    // the §27 nav stays behind flags until its phase lands.
     expect(visibleNavItems(flags()).map((item) => item.key)).toEqual([
       'home',
+      'brew',
       'discover',
       'profile',
     ]);

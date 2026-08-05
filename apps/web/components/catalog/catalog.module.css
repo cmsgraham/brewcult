@@ -1,0 +1,282 @@
+/*
+ * Catalog page styles.
+ *
+ * A CSS Module rather than additions to app/globals.css: globals.css belongs to
+ * another lane, and Next extracts modules into a real stylesheet, so nothing
+ * here relies on inline <style> (which the §5.3 CSP allows but we do not lean
+ * on). Every value reuses the tokens already declared in globals.css, so light
+ * and dark mode come for free.
+ *
+ * Layout stability (CLS): grids use fixed `minmax` tracks, nothing here loads
+ * late, and there are no images in the flow — the first paint is the final
+ * layout.
+ */
+
+.breadcrumbs {
+  font-size: 0.85rem;
+  color: var(--bc-ink-muted);
+  margin: 0 0 0.75rem;
+}
+.breadcrumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.breadcrumbs li::after {
+  content: '/';
+  margin-left: 0.35rem;
+  color: var(--bc-line);
+}
+.breadcrumbs li:last-child::after {
+  content: '';
+}
+.breadcrumbs a {
+  color: inherit;
+}
+
+/* --- detail header --- */
+.header {
+  margin-bottom: 1.5rem;
+}
+.eyebrow {
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bc-ink-muted);
+  margin: 0 0 0.35rem;
+}
+.byline {
+  font-size: 1.05rem;
+  margin: 0 0 0.75rem;
+}
+
+/* --- sections --- */
+.section {
+  margin-top: 2.25rem;
+}
+.section > h2 {
+  margin-bottom: 0.75rem;
+}
+
+/* --- key/value specs --- */
+.specs {
+  display: grid;
+  grid-template-columns: minmax(9rem, max-content) 1fr;
+  gap: 0.5rem 1.25rem;
+  margin: 0;
+}
+.specs dt {
+  font-weight: 600;
+  color: var(--bc-ink-muted);
+  font-size: 0.9rem;
+}
+.specs dd {
+  margin: 0;
+}
+@media (max-width: 32rem) {
+  .specs {
+    grid-template-columns: 1fr;
+    gap: 0.15rem;
+  }
+  .specs dd {
+    margin-bottom: 0.6rem;
+  }
+}
+
+/* --- tag list (tasting notes, varietals) --- */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.tag {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid var(--bc-line);
+  border-radius: 999px;
+  background: var(--bc-surface);
+  font-size: 0.88rem;
+}
+
+/* --- explainer prose blocks --- */
+.explainer {
+  border-left: 3px solid var(--bc-line);
+  padding-left: 0.9rem;
+  margin: 0.75rem 0;
+  color: var(--bc-ink-muted);
+}
+.explainer p:last-child {
+  margin-bottom: 0;
+}
+
+/* --- filter bar (plain GET form, zero client JS) --- */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+  padding: 1rem;
+  border: 1px solid var(--bc-line);
+  border-radius: var(--bc-radius);
+  background: var(--bc-surface);
+}
+.filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 10rem;
+}
+.filter label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--bc-ink-muted);
+}
+.filter select {
+  font: inherit;
+  font-size: 0.92rem;
+  padding: 0.45rem 0.5rem;
+  color: var(--bc-ink);
+  background: var(--bc-bg);
+  border: 1px solid var(--bc-line);
+  border-radius: var(--bc-radius-sm);
+  /* Reserves the control's height before the font loads — keeps CLS at 0. */
+  min-height: 2.4rem;
+}
+.filterActions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* --- pagination --- */
+.pagination {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--bc-line);
+  font-size: 0.92rem;
+}
+
+/* --- grind conversion table --- */
+.tableWrap {
+  overflow-x: auto;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+.table caption {
+  text-align: left;
+  color: var(--bc-ink-muted);
+  font-size: 0.88rem;
+  padding-bottom: 0.5rem;
+}
+.table th,
+.table td {
+  text-align: left;
+  padding: 0.55rem 0.75rem 0.55rem 0;
+  border-bottom: 1px solid var(--bc-line);
+  vertical-align: top;
+}
+.table th {
+  font-weight: 600;
+  color: var(--bc-ink-muted);
+  white-space: nowrap;
+}
+.approx {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.band {
+  display: inline-block;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--bc-line);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+/* --- recipe parameter grid --- */
+.paramGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.75rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.param {
+  border: 1px solid var(--bc-line);
+  border-radius: var(--bc-radius);
+  background: var(--bc-surface);
+  padding: 0.7rem 0.85rem;
+}
+.paramLabel {
+  display: block;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bc-ink-muted);
+}
+.paramValue {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+.paramNote {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--bc-ink-muted);
+}
+
+/* --- pour schedule --- */
+.pours {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.pour {
+  display: grid;
+  grid-template-columns: 4.5rem 5.5rem 1fr;
+  gap: 0.5rem 1rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--bc-line);
+}
+.pourTime {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+@media (max-width: 32rem) {
+  .pour {
+    grid-template-columns: 4.5rem 1fr;
+  }
+  .pour > :last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+/* --- "next in the graph" links --- */
+.related {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.count {
+  color: var(--bc-ink-muted);
+  font-size: 0.92rem;
+}
