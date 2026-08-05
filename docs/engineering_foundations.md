@@ -668,3 +668,42 @@ was simply not called. It now runs BEFORE the row is written, so the answer is
 an ownership check on the way in, and the check belongs before the write so the
 refusal is honest. If a helper for it already exists, the absence of a call to
 it is the bug.
+
+## 9.13 Borrowing a vocabulary term for a different thing
+
+Attaching a photo to a catalogue suggestion answered "You don't have access to
+that" for every account. The form uploaded it as `kind='equipment_image'`, and
+that kind is editorial: it is the picture on a public catalogue page, it is
+platform-owned, and uploading one is staff-only and MFA-gated. The media module
+was right to refuse.
+
+The two things look identical — a JPEG of a grinder — and are not the same
+thing. One is published; the other is evidence for a reviewer, owned by the
+person who sent it. The fix was a new kind (`equipment_submission`, self-serve
+and owned), not a hole in the old one. Widening `equipment_image` to
+self-serve would have traded a broken feature for every account being able to
+write catalogue imagery.
+
+**The rule for next time:** before reusing a term from a controlled vocabulary,
+read what the existing rules ATTACH to it — ownership, who may write it, whether
+it becomes public. If any of those differ for the new case, it is a new term.
+A 403 from your own authorization layer is usually it telling you the truth.
+
+## 9.14 A skipped branch is not a verified one
+
+The production check for this feature printed:
+
+```
+== somebody else's photo is refused ==
+    (no media rows to borrow — skipped)
+```
+
+and I read the run as a pass. The photo path had never been exercised at all —
+which is why the 403 above reached a person instead of a test. The same run
+would have caught it had the fixture existed.
+
+**The rule for next time:** a verification script that can skip must fail, or at
+minimum shout, when it does. "Skipped" in the output of a run reported as green
+is worse than no check, because it produces confidence without evidence. Set up
+the fixture the branch needs (here: two throwaway accounts, one uploading and
+one borrowing) rather than making the check conditional on the environment.
