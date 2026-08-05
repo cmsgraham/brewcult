@@ -238,7 +238,7 @@ describe('GoogleButton', () => {
   it('is a plain link to the redirect endpoint, not a fetch', () => {
     render(<GoogleButton enabled next="/profile" />);
     const link = screen.getByRole('link', { name: 'Continue with Google' });
-    expect(link).toHaveAttribute('href', '/api/auth/google?next=%2Fprofile');
+    expect(link).toHaveAttribute('href', '/api/v1/auth/google?next=%2Fprofile');
   });
 
   it('disappears when the client-config flag says Google is unavailable', () => {

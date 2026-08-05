@@ -33,8 +33,8 @@ describe('resolveApiUrl', () => {
     expect(resolveApiUrl('/api/v1/coffees', 'http://api:4000')).toBe(
       'http://api:4000/v1/coffees',
     );
-    expect(resolveApiUrl('/api/auth/login', 'http://localhost:4000/')).toBe(
-      'http://localhost:4000/auth/login',
+    expect(resolveApiUrl('/api/v1/auth/login', 'http://localhost:4000/')).toBe(
+      'http://localhost:4000/v1/auth/login',
     );
   });
 
@@ -51,7 +51,7 @@ describe('401 → silent refresh → retry', () => {
       .mockResolvedValueOnce(jsonResponse(200, { ok: true })) // the refresh
       .mockResolvedValueOnce(jsonResponse(200, { id: 'u_1', handle: 'nadia' }));
 
-    const result = await apiFetch<{ handle: string }>('/api/me', {
+    const result = await apiFetch<{ handle: string }>('/api/v1/users/me', {
       fetchImpl,
       baseUrl: BASE,
       refreshOn401: true,
@@ -59,10 +59,10 @@ describe('401 → silent refresh → retry', () => {
 
     expect(result.handle).toBe('nadia');
     expect(fetchImpl).toHaveBeenCalledTimes(3);
-    expect(fetchImpl.mock.calls[1]?.[0]).toBe('/api/auth/refresh');
+    expect(fetchImpl.mock.calls[1]?.[0]).toBe('/api/v1/auth/refresh');
     expect(fetchImpl.mock.calls[1]?.[1]?.method).toBe('POST');
     // Original request replayed unchanged.
-    expect(fetchImpl.mock.calls[2]?.[0]).toBe('/api/me');
+    expect(fetchImpl.mock.calls[2]?.[0]).toBe('/api/v1/users/me');
   });
 
   it('gives up after one refresh — never loops', async () => {
@@ -73,7 +73,7 @@ describe('401 → silent refresh → retry', () => {
       .mockResolvedValueOnce(jsonResponse(401, { error: 'unauthorized', message: '' }));
 
     await expect(
-      apiFetch('/api/me', { fetchImpl, baseUrl: BASE, refreshOn401: true }),
+      apiFetch('/api/v1/users/me', { fetchImpl, baseUrl: BASE, refreshOn401: true }),
     ).rejects.toBeInstanceOf(ApiError);
 
     expect(fetchImpl).toHaveBeenCalledTimes(3);
@@ -86,7 +86,7 @@ describe('401 → silent refresh → retry', () => {
       .mockResolvedValueOnce(jsonResponse(401, { error: 'unauthorized', message: '' }));
 
     await expect(
-      apiFetch('/api/me', { fetchImpl, baseUrl: BASE, refreshOn401: true }),
+      apiFetch('/api/v1/users/me', { fetchImpl, baseUrl: BASE, refreshOn401: true }),
     ).rejects.toMatchObject({ status: 401 });
 
     expect(fetchImpl).toHaveBeenCalledTimes(2);
@@ -100,7 +100,7 @@ describe('401 → silent refresh → retry', () => {
       );
 
     await expect(
-      apiFetch('/api/auth/login', {
+      apiFetch('/api/v1/auth/login', {
         method: 'POST',
         body: { email: 'a@b.co', password: 'x' },
         fetchImpl,
@@ -118,7 +118,7 @@ describe('401 → silent refresh → retry', () => {
       .mockResolvedValue(jsonResponse(401, { error: 'unauthorized', message: '' }));
 
     await expect(
-      apiFetch('/api/me', { fetchImpl, baseUrl: BASE, refreshOn401: false }),
+      apiFetch('/api/v1/users/me', { fetchImpl, baseUrl: BASE, refreshOn401: false }),
     ).rejects.toMatchObject({ status: 401 });
 
     expect(fetchImpl).toHaveBeenCalledTimes(1);
@@ -129,7 +129,7 @@ describe('401 → silent refresh → retry', () => {
     const fetchImpl = vi
       .fn<(input: string, init?: RequestInit) => Promise<Response>>()
       .mockImplementation((input: string) => {
-        if (input === '/api/auth/refresh') return Promise.resolve(jsonResponse(200, {}));
+        if (input === '/api/v1/auth/refresh') return Promise.resolve(jsonResponse(200, {}));
         const attempt = (seen.get(input) ?? 0) + 1;
         seen.set(input, attempt);
         return Promise.resolve(
@@ -140,12 +140,12 @@ describe('401 → silent refresh → retry', () => {
       });
 
     await Promise.all([
-      apiFetch('/api/me', { fetchImpl, baseUrl: BASE, refreshOn401: true }),
+      apiFetch('/api/v1/users/me', { fetchImpl, baseUrl: BASE, refreshOn401: true }),
       apiFetch('/api/v1/coffees', { fetchImpl, baseUrl: BASE, refreshOn401: true }),
     ]);
 
     const refreshCalls = fetchImpl.mock.calls.filter(
-      (call) => call[0] === '/api/auth/refresh',
+      (call) => call[0] === '/api/v1/auth/refresh',
     );
     expect(refreshCalls).toHaveLength(1);
   });
@@ -157,14 +157,17 @@ describe('request shaping', () => {
       .fn<(input: string, init?: RequestInit) => Promise<Response>>()
       .mockResolvedValue(jsonResponse(200, {}));
 
-    await apiFetch('/api/auth/login', {
+    await apiFetch('/api/v1/auth/login', {
       method: 'POST',
       body: { email: 'nadia@example.com', password: 'a-very-long-password' },
       fetchImpl,
       baseUrl: BASE,
     });
 
-    const init = fetchImpl.mock.calls[0]?.[1];
+    const loginCall = fetchImpl.mock.calls.find((call) =>
+      String(call[0]).includes('/v1/auth/login'),
+    );
+    const init = loginCall?.[1];
     expect(init?.credentials).toBe('include');
     expect(init?.body).toBe(
       JSON.stringify({ email: 'nadia@example.com', password: 'a-very-long-password' }),
@@ -178,7 +181,7 @@ describe('request shaping', () => {
       .mockResolvedValue(new Response(null, { status: 204 }));
 
     await expect(
-      apiFetch('/api/auth/logout', { method: 'POST', fetchImpl, baseUrl: BASE }),
+      apiFetch('/api/v1/auth/logout', { method: 'POST', fetchImpl, baseUrl: BASE }),
     ).resolves.toBeUndefined();
   });
 
@@ -187,7 +190,7 @@ describe('request shaping', () => {
       .fn<(input: string, init?: RequestInit) => Promise<Response>>()
       .mockRejectedValue(new Error('getaddrinfo ENOTFOUND api.internal'));
 
-    const error = await apiFetch('/api/me', { fetchImpl, baseUrl: BASE }).catch(
+    const error = await apiFetch('/api/v1/users/me', { fetchImpl, baseUrl: BASE }).catch(
       (caught: unknown) => caught,
     );
 
@@ -218,9 +221,9 @@ describe('error copy', () => {
 
 describe('shouldAttemptRefresh', () => {
   it('excludes every auth endpoint and nothing else', () => {
-    expect(shouldAttemptRefresh('/api/auth/refresh')).toBe(false);
-    expect(shouldAttemptRefresh('/api/auth/password-reset/confirm')).toBe(false);
-    expect(shouldAttemptRefresh('/api/me')).toBe(true);
+    expect(shouldAttemptRefresh('/api/v1/auth/refresh')).toBe(false);
+    expect(shouldAttemptRefresh('/api/v1/auth/password-reset/confirm')).toBe(false);
+    expect(shouldAttemptRefresh('/api/v1/users/me')).toBe(true);
     expect(shouldAttemptRefresh('/api/v1/coffees')).toBe(true);
   });
 });

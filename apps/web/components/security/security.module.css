@@ -1,0 +1,188 @@
+/*
+ * Two-factor setup styles.
+ *
+ * A CSS Module rather than additions to app/globals.css — globals belongs to
+ * another lane. Every value reuses the tokens declared there, so light (espresso
+ * on cream) and dark (the reversed lockup palette) both come for free.
+ *
+ * Two rules here are load-bearing rather than decorative:
+ *  - `.qr` keeps a white plate under the symbol in dark mode. QR decoding needs
+ *    dark-on-light; inverting it loses a share of real-world scanners.
+ *  - `.secret` and `.code` are monospaced with generous tracking, because both
+ *    are read off a screen and typed into a phone by a human.
+ */
+
+/* --- status --- */
+.statusRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid var(--bc-line);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+/* "On" is the strong state; never colour alone — the words differ too. */
+.pillOn {
+  background: var(--bc-ink);
+  color: var(--bc-bg);
+  border-color: var(--bc-ink);
+}
+.pillAttention {
+  border-color: var(--bc-danger);
+  border-width: 2px;
+  color: var(--bc-danger);
+}
+
+/* --- enrolment --- */
+.enrolGrid {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  align-items: start;
+}
+
+.qrFrame {
+  display: flex;
+  justify-content: center;
+  padding: 0.9rem;
+  background: #ffffff;
+  border: 1px solid var(--bc-line);
+  border-radius: var(--bc-radius);
+  width: fit-content;
+}
+
+.qr {
+  display: block;
+  width: min(232px, 60vw);
+  height: auto;
+}
+
+.secret {
+  display: block;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 1rem;
+  letter-spacing: 0.09em;
+  word-break: break-word;
+  padding: 0.6rem 0.7rem;
+  background: var(--bc-bg);
+  border: 1px solid var(--bc-line);
+  border-radius: var(--bc-radius-sm);
+}
+
+.codeInput {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 1.2rem;
+  letter-spacing: 0.35em;
+  max-width: 9.5rem;
+  text-align: center;
+}
+
+.meta {
+  font-size: 0.85rem;
+  color: var(--bc-ink-muted);
+  margin: 0;
+}
+
+/* --- recovery codes --- */
+.codeList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));
+  gap: 0.4rem 1rem;
+  list-style: none;
+  margin: 0;
+  padding: 0.75rem;
+  background: var(--bc-bg);
+  border: 1px solid var(--bc-line);
+  border-radius: var(--bc-radius-sm);
+}
+.codeList li {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+}
+
+.ack {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  font-weight: 600;
+}
+.ack input {
+  margin-top: 0.28rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: 0 0 auto;
+}
+
+/* --- management --- */
+.manageGrid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  align-items: start;
+}
+
+.manageCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: var(--bc-surface);
+  border: 1px solid var(--bc-line);
+  border-radius: var(--bc-radius);
+  padding: 1rem 1.1rem;
+}
+.manageCard h3 {
+  margin: 0;
+}
+.manageCard p {
+  max-width: none;
+  margin: 0;
+  font-size: 0.94rem;
+  color: var(--bc-ink-muted);
+}
+
+/* Destructive: heavier border in the danger tone, never colour alone. */
+.destructive {
+  border-color: var(--bc-danger);
+  border-width: 2px;
+  background: transparent;
+  color: var(--bc-danger);
+}
+.destructive:hover:not(:disabled) {
+  background: var(--bc-danger);
+  color: var(--bc-bg);
+}
+
+.consequence {
+  border-left: 4px solid var(--bc-danger);
+  padding-left: 0.9rem;
+  margin: 0;
+}
+
+.inlineActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+/* A focus target for a step heading — outlined only when focus lands on it. */
+.stepHeading:focus {
+  outline: none;
+}
+.stepHeading:focus-visible {
+  outline: 3px solid var(--bc-focus);
+  outline-offset: 4px;
+}

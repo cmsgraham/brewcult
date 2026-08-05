@@ -107,12 +107,12 @@ const isBrowser = (): boolean => typeof window !== 'undefined';
 
 /** Endpoints where a 401 is the *answer*, not a stale-token symptom. */
 const NO_REFRESH_PATHS = [
-  '/api/auth/refresh',
-  '/api/auth/login',
-  '/api/auth/register',
-  '/api/auth/logout',
-  '/api/auth/verify-email',
-  '/api/auth/password-reset',
+  '/api/v1/auth/refresh',
+  '/api/v1/auth/login',
+  '/api/v1/auth/register',
+  '/api/v1/auth/logout',
+  '/api/v1/auth/verify-email',
+  '/api/v1/auth/password-reset',
 ];
 
 export function shouldAttemptRefresh(path: string): boolean {
@@ -141,7 +141,7 @@ let refreshInFlight: Promise<boolean> | null = null;
 async function refreshSession(doFetch: FetchLike, baseUrl?: string): Promise<boolean> {
   refreshInFlight ??= (async () => {
     try {
-      const res = await doFetch(resolveApiUrl('/api/auth/refresh', baseUrl), {
+      const res = await doFetch(resolveApiUrl('/api/v1/auth/refresh', baseUrl), {
         method: 'POST',
         credentials: 'include',
         headers: { Accept: 'application/json' },
@@ -162,6 +162,37 @@ async function refreshSession(doFetch: FetchLike, baseUrl?: string): Promise<boo
 /** Test seam — drops any memoised refresh attempt. */
 export function resetRefreshState(): void {
   refreshInFlight = null;
+  csrfToken = null;
+}
+
+/**
+ * CSRF double-submit token. Cookie-authenticated mutations are rejected by the
+ * API's csrfGuard unless the token from `GET /v1/auth/csrf` is echoed in
+ * `x-csrf-token`. Handled here rather than per-caller so no future mutation can
+ * forget it (every caller that did forget got a silent 403).
+ */
+let csrfToken: string | null = null;
+
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+async function fetchCsrfToken(doFetch: FetchLike, baseUrl?: string): Promise<string | null> {
+  try {
+    const res = await doFetch(resolveApiUrl('/api/v1/auth/csrf', baseUrl), {
+      method: 'GET',
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return null;
+    const body: unknown = await res.json();
+    const token =
+      body && typeof body === 'object'
+        ? ((body as Record<string, unknown>)['csrf_token'] ??
+           (body as Record<string, unknown>)['token'])
+        : null;
+    return typeof token === 'string' ? token : null;
+  } catch {
+    return null;
+  }
 }
 
 async function readErrorBody(res: Response): Promise<ApiErrorBody> {
@@ -216,6 +247,15 @@ export async function apiFetch<T = unknown>(
     }
   }
 
+  // CSRF is lazy on purpose: the API only demands a double-submit token on
+  // requests that carry session cookies (login and friends are covered by its
+  // Origin allow-list instead). Sending a preflight on every mutation would add
+  // a round trip to flows that never need one, so we attach a cached token when
+  // we already have one and otherwise mint one only if the API says 403.
+  const method = (rest.method ?? 'GET').toUpperCase();
+  const mayNeedCsrf = MUTATING_METHODS.has(method) && !requestHeaders.has('x-csrf-token');
+  if (mayNeedCsrf && csrfToken) requestHeaders.set('x-csrf-token', csrfToken);
+
   const init: RequestInit = {
     ...rest,
     credentials: 'include',
@@ -232,6 +272,32 @@ export async function apiFetch<T = unknown>(
     throw new ApiError(0, { error: 'network_error', message: '' });
   }
 
+  // A missing, rotated or expired token reads as 403. Mint one and retry ONCE,
+  // and only when the failure actually looks like CSRF, so an ordinary
+  // permission denial (staff routes without MFA) is never retried.
+  //
+  // The body is parsed here rather than from a clone: a Response body is a
+  // single-use stream, and reading it twice left the error path with nothing
+  // (which silently swallowed the mfa_required message the console shows).
+  let prereadError: ApiErrorBody | null = null;
+  if (res.status === 403 && mayNeedCsrf) {
+    prereadError = await readErrorBody(res);
+    const looksLikeCsrf = JSON.stringify(prereadError).toLowerCase().includes('csrf');
+    if (looksLikeCsrf) {
+      const fresh = await fetchCsrfToken(doFetch, baseUrl);
+      if (fresh) {
+        csrfToken = fresh;
+        requestHeaders.set('x-csrf-token', fresh);
+        prereadError = null;
+        try {
+          res = await doFetch(url, { ...init, headers: requestHeaders });
+        } catch {
+          throw new ApiError(0, { error: 'network_error', message: '' });
+        }
+      }
+    }
+  }
+
   if (res.status === 401 && refreshOn401 && shouldAttemptRefresh(path)) {
     const refreshed = await refreshSession(doFetch, baseUrl);
     if (refreshed) {
@@ -244,7 +310,7 @@ export async function apiFetch<T = unknown>(
   }
 
   if (!res.ok) {
-    throw new ApiError(res.status, await readErrorBody(res));
+    throw new ApiError(res.status, prereadError ?? (await readErrorBody(res)));
   }
 
   if (res.status === 204) return undefined as T;
@@ -301,19 +367,19 @@ export const authApi = {
   register: (
     input: { email: string; password: string; handle: string; displayName?: string },
     options?: ApiRequestOptions,
-  ) => apiFetch<{ user?: SessionUser }>('/api/auth/register', { ...options, method: 'POST', body: input }),
+  ) => apiFetch<{ user?: SessionUser }>('/api/v1/auth/register', { ...options, method: 'POST', body: input }),
 
   login: (input: { email: string; password: string }, options?: ApiRequestOptions) =>
-    apiFetch<{ user?: SessionUser }>('/api/auth/login', { ...options, method: 'POST', body: input }),
+    apiFetch<{ user?: SessionUser }>('/api/v1/auth/login', { ...options, method: 'POST', body: input }),
 
   logout: (options?: ApiRequestOptions) =>
-    apiFetch<void>('/api/auth/logout', { ...options, method: 'POST' }),
+    apiFetch<void>('/api/v1/auth/logout', { ...options, method: 'POST' }),
 
   verifyEmail: (input: { token: string }, options?: ApiRequestOptions) =>
-    apiFetch<void>('/api/auth/verify-email', { ...options, method: 'POST', body: input }),
+    apiFetch<void>('/api/v1/auth/verify-email', { ...options, method: 'POST', body: input }),
 
   requestPasswordReset: (input: { email: string }, options?: ApiRequestOptions) =>
-    apiFetch<void>('/api/auth/password-reset/request', {
+    apiFetch<void>('/api/v1/auth/password-reset/request', {
       ...options,
       method: 'POST',
       body: input,
@@ -323,7 +389,7 @@ export const authApi = {
     input: { token: string; password: string },
     options?: ApiRequestOptions,
   ) =>
-    apiFetch<void>('/api/auth/password-reset/confirm', {
+    apiFetch<void>('/api/v1/auth/password-reset/confirm', {
       ...options,
       method: 'POST',
       body: input,
@@ -331,7 +397,7 @@ export const authApi = {
 } as const;
 
 /** Redirect start for Google OAuth — a plain link, never an XHR. */
-export const GOOGLE_OAUTH_START = '/api/auth/google';
+export const GOOGLE_OAUTH_START = '/api/v1/auth/google';
 
 export const catalogApi = {
   coffees: (options?: ApiRequestOptions) =>
@@ -351,5 +417,5 @@ export const catalogApi = {
 } as const;
 
 export const meApi = {
-  get: (options?: ApiRequestOptions) => apiFetch<SessionUser>('/api/me', options),
+  get: (options?: ApiRequestOptions) => apiFetch<SessionUser>('/api/v1/users/me', options),
 } as const;
