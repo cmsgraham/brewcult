@@ -14,7 +14,8 @@ import {
   type ScaField,
 } from '../../lib/coffee-reviews-client';
 import { Alert } from '../ui/alert';
-import { useTranslate } from '../locale-provider';
+import { useLocale, useTranslate } from '../locale-provider';
+import { localePath } from '../../lib/i18n';
 
 /**
  * What people thought of a coffee.
@@ -63,6 +64,7 @@ const EMPTY_SUMMARY: CoffeeRatingSummary = {
 
 export function CoffeeNotes({ slug }: { slug: string }) {
   const t = useTranslate();
+  const { locale } = useLocale();
   /**
    * Worked out here rather than passed in. The page above is `revalidate`d and
    * shared between everybody; reading a cookie there would make it per-request
@@ -206,7 +208,11 @@ export function CoffeeNotes({ slug }: { slug: string }) {
 
       {!signedIn ? (
         <p className="bc-muted">
-          <a href={`/login?next=${encodeURIComponent(`/coffee/${slug}`)}`}>
+          <a
+            href={`${localePath('/login', locale)}?next=${encodeURIComponent(
+              localePath(`/coffee/${slug}`, locale),
+            )}`}
+          >
             {t('common.signIn')}
           </a>{' '}
           {t('notes.signedOutPrompt')}
@@ -234,7 +240,7 @@ export function CoffeeNotes({ slug }: { slug: string }) {
             {/* The scale is not ours, and saying so is the point of using it. */}
             <span className="bc-muted" style={{ fontSize: '0.85rem' }}>
               {t('notes.scaleHint')}{' '}
-              <a href="/learn/cupping" target="_blank" rel="noreferrer">
+              <a href={localePath('/learn/cupping', locale)} target="_blank" rel="noreferrer">
                 {t('notes.whatEachMeans')}
               </a>
             </span>
@@ -252,7 +258,7 @@ export function CoffeeNotes({ slug }: { slug: string }) {
               </button>{' '}
               <span className="bc-muted">
                 {t('notes.fullFormHint')}{' '}
-                <a href="/learn/cupping" target="_blank" rel="noreferrer">
+                <a href={localePath('/learn/cupping', locale)} target="_blank" rel="noreferrer">
                   {t('notes.howToIdentify')}
                 </a>
               </span>

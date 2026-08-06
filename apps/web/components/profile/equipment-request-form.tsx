@@ -9,12 +9,13 @@ import {
 } from '../../lib/equipment-client';
 import {
   IMAGE_ACCEPT,
-  PHOTO_PRIVACY_NOTE,
   formatBytes,
   uploadMedia,
   validateImageFile,
 } from '../../lib/media-client';
 import { Alert } from '../ui/alert';
+import { useTranslate } from '../locale-provider';
+import type { MessageKey } from '../../lib/i18n';
 
 /**
  * A clipboard image arrives as a nameless Blob. The upload sends a filename, and
@@ -44,6 +45,19 @@ function fileFromClipboard(blob: Blob): File {
  * exists, and the assistant already knows most of this equipment anyway.
  */
 export function EquipmentRequestForm() {
+  const t = useTranslate();
+  // The API's status values are wire data ('pending', 'approved', 'rejected');
+  // this is the word a person reads. An unknown status falls through as-is
+  // rather than rendering a key — a new state is better shown raw than hidden.
+  const statusWord = (status: string) => {
+    const key: Record<string, MessageKey> = {
+      pending: 'suggestKit.statusPending',
+      approved: 'suggestKit.statusApproved',
+      rejected: 'suggestKit.statusRejected',
+    };
+    const found = key[status];
+    return found ? t(found) : status;
+  };
   const [open, setOpen] = useState(false);
   const [description, setDescription] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
@@ -135,11 +149,11 @@ export function EquipmentRequestForm() {
         attach(fileFromClipboard(await item.getType(type)));
         return;
       }
-      setError('There is no image on the clipboard — copy one first, or choose a file.');
+      setError(t('suggestKit.noClipboardImage'));
     } catch {
       // Denied permission, an empty clipboard, or a browser that changed its
       // mind about supporting this. Ctrl+V still works, so say so.
-      setError('The browser would not let us read the clipboard. Press Ctrl+V (or ⌘V) instead.');
+      setError(t('suggestKit.clipboardBlocked'));
     }
   }
 
@@ -179,7 +193,7 @@ export function EquipmentRequestForm() {
       setError(
         isApiError(failure)
           ? failure.userMessage
-          : 'That did not send. Try again in a moment.',
+          : t('suggestKit.sendFailed'),
       );
     } finally {
       setBusy(false);
@@ -196,42 +210,42 @@ export function EquipmentRequestForm() {
           tone={outcome.kind === 'published' ? 'success' : 'info'}
           title={
             outcome.kind === 'published'
-              ? `${outcome.label} is in the catalogue.`
-              : 'Thanks — that is with us.'
+              ? t('suggestKit.publishedTitle', { label: outcome.label })
+              : t('suggestKit.queuedTitle')
           }
         >
           {outcome.kind === 'published'
-            ? 'It has been added to your equipment too, so you can use it straight away.'
-            : 'The assistant was not sure enough to add it, so a person will look. Anything you already recorded yourself keeps working in the meantime.'}
+            ? t('suggestKit.publishedBody')
+            : t('suggestKit.queuedBody')}
         </Alert>
       ) : null}
 
       {!open ? (
         <p className="bc-muted" style={{ fontSize: '0.9rem' }}>
-          Think it belongs in the shared catalogue?{' '}
+          {t('suggestKit.prompt')}{' '}
           <button type="button" className="bc-link-button" onClick={() => setOpen(true)}>
-            Suggest it
+            {t('suggestKit.suggestIt')}
           </button>
-          {pending.length > 0 ? ` — you have ${pending.length} awaiting review.` : ''}
+          {pending.length === 0
+            ? ''
+            : pending.length === 1
+              ? t('suggestKit.awaitingOne')
+              : t('suggestKit.awaitingMany', { count: pending.length })}
         </p>
       ) : (
         <div className="bc-panel bc-stack" onPaste={onPaste}>
-          <p style={{ marginBottom: 0 }}>
-            Describe it, or paste the manufacturer&rsquo;s description. If the assistant
-            recognises the product it is added to the catalogue and to your equipment right
-            away. Anything it is unsure about waits for a person instead of guessing.
-          </p>
+          <p style={{ marginBottom: 0 }}>{t('suggestKit.intro')}</p>
 
           <span className="bc-field">
             <label className="bc-kit__label" htmlFor="request-description">
-              What is it?
+              {t('suggestKit.whatIsIt')}
             </label>
             <textarea
               id="request-description"
               className="bc-input"
               rows={4}
               maxLength={4000}
-              placeholder="e.g. Option-O Lagom P100 — 64mm flat burr single-dose grinder, stepless…"
+              placeholder={t('suggestKit.descriptionPlaceholder')}
               value={description}
               disabled={busy}
               onChange={(event) => setDescription(event.target.value)}
@@ -240,7 +254,7 @@ export function EquipmentRequestForm() {
 
           <span className="bc-field">
             <label className="bc-kit__label" htmlFor="request-photo">
-              Photo <span className="bc-muted">(optional)</span>
+              {t('suggestKit.photo')} <span className="bc-muted">{t('common.optional')}</span>
             </label>
 
             {photo && preview ? (
@@ -248,7 +262,7 @@ export function EquipmentRequestForm() {
                 {/* A pasted screenshot has no filename worth reading, so the
                     picture itself is the confirmation that the right thing
                     landed. */}
-                <img className="bc-photo-chosen__thumb" src={preview} alt="The photo you attached" />
+                <img className="bc-photo-chosen__thumb" src={preview} alt={t('suggestKit.photoAlt')} />
                 <span className="bc-photo-chosen__text">
                   <span>{photo.name}</span>
                   <span className="bc-muted">{formatBytes(photo.size)}</span>
@@ -259,7 +273,7 @@ export function EquipmentRequestForm() {
                   disabled={busy}
                   onClick={() => setPhoto(null)}
                 >
-                  Remove
+                  {t('common.remove')}
                 </button>
               </span>
             ) : (
@@ -280,20 +294,20 @@ export function EquipmentRequestForm() {
                       disabled={busy}
                       onClick={() => void pasteFromClipboard()}
                     >
-                      Paste from clipboard
+                      {t('suggestKit.paste')}
                     </button>
                   ) : null}
                   <span className="bc-muted" style={{ fontSize: '0.85rem' }}>
                     {canReadClipboard
-                      ? 'Or press Ctrl+V (⌘V) anywhere in this box.'
-                      : 'Copy a screenshot, then press Ctrl+V (⌘V) anywhere in this box.'}
+                      ? t('suggestKit.pasteHintCan')
+                      : t('suggestKit.pasteHintCannot')}
                   </span>
                 </span>
               </>
             )}
 
             <span className="bc-muted" style={{ fontSize: '0.85rem' }}>
-              {PHOTO_PRIVACY_NOTE}
+              {t('media.privacyNote')}
             </span>
           </span>
 
@@ -304,7 +318,7 @@ export function EquipmentRequestForm() {
               disabled={busy || description.trim() === ''}
               onClick={() => void submit()}
             >
-              {busy ? 'Sending…' : 'Send suggestion'}
+              {busy ? t('suggestKit.sending') : t('suggestKit.send')}
             </button>
             <button
               type="button"
@@ -312,7 +326,7 @@ export function EquipmentRequestForm() {
               disabled={busy}
               onClick={() => setOpen(false)}
             >
-              Cancel
+              {t('common.cancel')}
             </button>
           </div>
         </div>
@@ -320,7 +334,11 @@ export function EquipmentRequestForm() {
 
       {requests.length > 0 ? (
         <details className="bc-kit__history">
-          <summary>Your suggestions ({requests.length})</summary>
+          <summary>
+            {requests.length === 1
+              ? t('suggestKit.historyOne')
+              : t('suggestKit.historyMany', { count: requests.length })}
+          </summary>
           <ul className="bc-kit">
             {requests.map((request) => (
               <li key={request.id} className="bc-kit__row">
@@ -329,7 +347,9 @@ export function EquipmentRequestForm() {
                     {request.ai_draft?.name
                       ? [request.ai_draft.brand, request.ai_draft.name].filter(Boolean).join(' ')
                       : request.submitted_text.slice(0, 60)}
-                    <span className="bc-kit__badge bc-kit__badge--quiet">{request.status}</span>
+                    <span className="bc-kit__badge bc-kit__badge--quiet">
+                      {statusWord(request.status)}
+                    </span>
                   </span>
                   {request.decision_note ? (
                     <span className="bc-muted bc-kit__meta">{request.decision_note}</span>

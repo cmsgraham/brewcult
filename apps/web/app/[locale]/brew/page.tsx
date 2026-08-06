@@ -1,12 +1,20 @@
 import { type Metadata } from 'next';
 import { BrewLogger } from '../../../components/logger/brew-logger';
+import { localeParam, translator } from '../../../lib/locale-server';
 import './logger.css';
 
-export const metadata: Metadata = {
-  title: 'Log a brew',
-  description: 'Log a brew in one tap — your last recipe, prefilled, with steppers instead of a form.',
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const t = translator(localeParam((await params).locale));
+  return {
+    title: t('brew.title'),
+    description: t('brew.description'),
+    robots: { index: false, follow: false },
+  };
+}
 
 /**
  * The brew logger (BREW-02/03/04).
@@ -18,15 +26,13 @@ export const metadata: Metadata = {
  */
 export const dynamic = 'force-dynamic';
 
-export default function BrewPage() {
+export default async function BrewPage({ params }: { params: Promise<{ locale: string }> }) {
+  const t = translator(localeParam((await params).locale));
   return (
     <div className="bc-stack">
-      <h1 className="bc-visually-hidden">Log a brew</h1>
+      <h1 className="bc-visually-hidden">{t('brew.title')}</h1>
       <BrewLogger />
-      <p className="bc-muted bc-logger__footnote">
-        Filter and immersion for now. Espresso lands once this card clears its fifteen-second
-        bar with real people.
-      </p>
+      <p className="bc-muted bc-logger__footnote">{t('brew.footnote')}</p>
     </div>
   );
 }

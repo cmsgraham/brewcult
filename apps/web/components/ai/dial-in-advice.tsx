@@ -13,6 +13,7 @@ import {
 import { EntityLinks } from './entity-links';
 import { SafeMarkdown } from './markdown';
 import styles from './ai.module.css';
+import { useTranslate } from '../locale-provider';
 
 export interface DialInAdviceProps {
   /** The session that was just logged. */
@@ -48,6 +49,7 @@ export interface DialInAdviceProps {
  *    community data for this coffee yet — this is a general starting point".
  */
 export function DialInAdvice({ brewSessionId, verdict, fallback, fetchImpl }: DialInAdviceProps) {
+  const t = useTranslate();
   const [diagnosis, setDiagnosis] = useState<AiDiagnosis | null>(null);
   const [failure, setFailure] = useState<AiFailure | null>(null);
 
@@ -85,11 +87,8 @@ export function DialInAdvice({ brewSessionId, verdict, fallback, fetchImpl }: Di
     );
   }
 
-  const lead =
-    verdict === 'good'
-      ? 'Nice one. If you want to push it further:'
-      : "That happens — here's the usual fix.";
-  const uncertainty = confidenceLine(diagnosis.confidence);
+  const lead = verdict === 'good' ? t('ai.leadGood') : t('ai.leadFix');
+  const uncertainty = confidenceLine(diagnosis.confidence, t);
 
   return (
     <div className={styles.advice}>
@@ -105,7 +104,7 @@ export function DialInAdvice({ brewSessionId, verdict, fallback, fetchImpl }: Di
         <SafeMarkdown text={diagnosis.advice} />
       </div>
 
-      <p className={`bc-muted ${styles.quiet}`}>{describeBasis(diagnosis.basis)}</p>
+      <p className={`bc-muted ${styles.quiet}`}>{describeBasis(diagnosis.basis, t)}</p>
       {uncertainty ? <p className={`bc-muted ${styles.quiet}`}>{uncertainty}</p> : null}
 
       <EntityLinks entities={diagnosis.entities} />

@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { LocaleLink as Link } from '../../components/locale-link';
 import { type CoffeeSummary } from '../../lib/api';
 import { catalogCopy, processLabel } from '../catalog/copy';
 import { EntityImage } from '../media/entity-image';

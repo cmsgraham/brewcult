@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { LocaleLink as Link } from '../../components/locale-link';
 import type { GrindConversion } from './catalog-api';
 import styles from './catalog.module.css';
 import { catalogCopy } from './copy';

@@ -1,5 +1,5 @@
 import { type Metadata } from 'next';
-import Link from 'next/link';
+import { LocaleLink as Link } from '../../../components/locale-link';
 import { Breadcrumbs } from '../../../components/catalog/breadcrumbs';
 import { loadRoasters, type RoasterSummary } from '../../../components/catalog/catalog-api';
 import styles from '../../../components/catalog/catalog.module.css';

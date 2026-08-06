@@ -1,5 +1,5 @@
 import { type Metadata } from 'next';
-import Link from 'next/link';
+import { LocaleLink as Link } from '../../../components/locale-link';
 import { notFound } from 'next/navigation';
 import { MfaInterstitial } from '../../../components/admin/gate';
 import { SessionRestoreScreen } from '../../../components/session-restore-screen';

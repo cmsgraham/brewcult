@@ -1,5 +1,5 @@
 import { type Metadata } from 'next';
-import Link from 'next/link';
+import { LocaleLink as Link } from '../../../components/locale-link';
 
 export const metadata: Metadata = {
   title: 'Privacy',

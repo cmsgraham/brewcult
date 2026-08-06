@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { apiFetch, isApiError } from '../../lib/api';
 import { Alert } from '../ui/alert';
+import { useTranslate } from '../locale-provider';
 
 type Status =
   | { kind: 'idle' }
@@ -32,6 +33,7 @@ export function AccountActions({
   exportEnabled: boolean;
   deletionEnabled: boolean;
 }) {
+  const t = useTranslate();
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const [confirming, setConfirming] = useState(false);
 
@@ -44,7 +46,7 @@ export function AccountActions({
       tone: 'error',
       message: isApiError(error)
         ? error.userMessage
-        : 'Something went wrong on our side. Try again in a moment.',
+        : t('account.somethingWrong'),
     };
   }
 
@@ -55,15 +57,11 @@ export function AccountActions({
       setStatus({
         kind: 'note',
         tone: 'success',
-        message:
-          'We are packing up your data. You will get an email with a download link — it includes your brews, recipes, posts and taste profile.',
+        message: t('account.exportStarted'),
       });
     } catch (error) {
       setStatus(
-        describe(
-          error,
-          'Export is nearly ready — the button will start working without you doing anything. Your data is not going anywhere in the meantime.',
-        ),
+        describe(error, t('account.exportSoon')),
       );
     }
   }
@@ -79,17 +77,13 @@ export function AccountActions({
       setStatus({
         kind: 'note',
         tone: 'success',
-        message:
-          'Your account is scheduled for deletion. Public recipes other people have forked stay up with your name removed; everything personal is erased within 30 days.',
+        message: t('account.deletionScheduled'),
       });
       setConfirming(false);
     } catch (error) {
       setConfirming(false);
       setStatus(
-        describe(
-          error,
-          'Self-serve deletion is nearly ready. Until then, email us and a human will do it — no retention-offer runaround.',
-        ),
+        describe(error, t('account.deletionSoon')),
       );
     }
   }
@@ -109,8 +103,8 @@ export function AccountActions({
             disabled={working}
           >
             {status.kind === 'working' && status.action === 'export'
-              ? 'Preparing…'
-              : 'Export my data'}
+              ? t('account.preparing')
+              : t('account.exportMine')}
           </button>
         ) : null}
 
@@ -121,19 +115,14 @@ export function AccountActions({
             onClick={() => setConfirming(true)}
             disabled={working}
           >
-            Delete my account
+            {t('account.deleteMine')}
           </button>
         ) : null}
       </div>
 
       {confirming ? (
-        <div className="bc-panel bc-stack" role="group" aria-label="Confirm account deletion">
-          <p style={{ marginBottom: 0 }}>
-            This erases your account, brews, recipes and taste profile. Public recipes that
-            other people have forked stay up with your name removed, so their work does not
-            break. Order records are kept only as long as tax law requires. It cannot be
-            undone.
-          </p>
+        <div className="bc-panel bc-stack" role="group" aria-label={t('account.confirmLabel')}>
+          <p style={{ marginBottom: 0 }}>{t('account.confirmBody')}</p>
           <div className="bc-actions" style={{ marginTop: 0 }}>
             <button
               type="button"
@@ -142,8 +131,8 @@ export function AccountActions({
               disabled={working}
             >
               {status.kind === 'working' && status.action === 'delete'
-                ? 'Deleting…'
-                : 'Yes, delete it'}
+                ? t('account.deleting')
+                : t('account.yesDelete')}
             </button>
             <button
               type="button"
@@ -151,7 +140,7 @@ export function AccountActions({
               onClick={() => setConfirming(false)}
               disabled={working}
             >
-              Keep my account
+              {t('account.keepMine')}
             </button>
           </div>
         </div>

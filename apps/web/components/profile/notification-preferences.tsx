@@ -10,6 +10,7 @@ import {
   type NotificationType,
 } from '../../lib/notifications-client';
 import { Alert } from '../ui/alert';
+import { useTranslate } from '../locale-provider';
 
 /**
  * The switches.
@@ -20,6 +21,7 @@ import { Alert } from '../ui/alert';
  * non-optimistic toggle would send a second, opposite request.
  */
 export function NotificationPreferences() {
+  const t = useTranslate();
   const [prefs, setPrefs] = useState<NotificationPreference[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<NotificationType | null>(null);
@@ -31,12 +33,12 @@ export function NotificationPreferences() {
         if (!cancelled) setPrefs(next);
       })
       .catch(() => {
-        if (!cancelled) setError('We could not load your settings. Reload to try again.');
+        if (!cancelled) setError(t('notifications.loadFailed'));
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   async function toggle(type: NotificationType, next: boolean): Promise<void> {
     const previous = prefs;
@@ -53,7 +55,7 @@ export function NotificationPreferences() {
       setError(
         isApiError(failure)
           ? failure.userMessage
-          : 'That did not save. Try again in a moment.',
+          : t('notifications.saveFailed'),
       );
     } finally {
       setPending(null);
@@ -63,7 +65,7 @@ export function NotificationPreferences() {
   if (prefs === null) {
     return (
       <p className="bc-muted" role="status">
-        {error ?? 'Loading your settings…'}
+        {error ?? t('notifications.loading')}
       </p>
     );
   }
@@ -81,9 +83,9 @@ export function NotificationPreferences() {
             <li key={pref.type} className="bc-prefs__row">
               <div className="bc-prefs__text">
                 <label className="bc-prefs__label" htmlFor={inputId}>
-                  {copy.label}
+                  {t(copy.label)}
                 </label>
-                <p className="bc-muted bc-prefs__hint">{copy.description}</p>
+                <p className="bc-muted bc-prefs__hint">{t(copy.description)}</p>
               </div>
               <input
                 id={inputId}
@@ -101,8 +103,7 @@ export function NotificationPreferences() {
       {/* Say plainly what these switches do NOT cover, so nobody believes they
           have turned off a security alert they will later need. */}
       <p className="bc-muted" style={{ fontSize: '0.9rem' }}>
-        Security emails — sign-in codes, password changes, two-factor changes — are always
-        sent, and are not affected by these settings.
+        {t('notifications.securityAlways')}
       </p>
     </div>
   );

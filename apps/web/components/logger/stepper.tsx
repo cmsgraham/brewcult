@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useTranslate } from '../locale-provider';
 
 export interface StepperProps {
   label: string;
@@ -50,6 +51,7 @@ export function Stepper({
   hint,
   disabled = false,
 }: StepperProps) {
+  const t = useTranslate();
   const id = useId();
   const [editing, setEditing] = useState(false);
   const [typed, setTyped] = useState('');
@@ -96,7 +98,7 @@ export function Stepper({
         <button
           type="button"
           className="bc-stepper__btn"
-          aria-label={`Decrease ${label}`}
+          aria-label={t('brew.decrease', { label })}
           onClick={() => nudge(-1)}
           disabled={disabled || value <= min}
         >
@@ -109,7 +111,7 @@ export function Stepper({
             className="bc-stepper__input"
             type="text"
             inputMode="decimal"
-            aria-label={`${label}, exact value`}
+            aria-label={t('brew.exactValue', { label })}
             value={typed}
             onChange={(event) => setTyped(event.target.value)}
             onBlur={(event) => commit(event.target.value)}
@@ -148,7 +150,7 @@ export function Stepper({
         <button
           type="button"
           className="bc-stepper__btn"
-          aria-label={`Increase ${label}`}
+          aria-label={t('brew.increase', { label })}
           onClick={() => nudge(1)}
           disabled={disabled || value >= max}
         >

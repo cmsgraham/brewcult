@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { catalogApi, type AutocompleteSuggestion } from '../../lib/api';
+import { useLocale, useTranslate } from '../locale-provider';
+import { localePath } from '../../lib/i18n';
 
 const DEBOUNCE_MS = 250;
 const MIN_QUERY = 2;
@@ -25,6 +27,8 @@ export function EntitySearch({
 }: {
   types?: string[];
 }) {
+  const t = useTranslate();
+  const { locale } = useLocale();
   const router = useRouter();
   const listboxId = useId();
   const optionId = (index: number) => `${listboxId}-option-${index}`;
@@ -66,29 +70,33 @@ export function EntitySearch({
           setOpen(true);
           setStatus(
             items.length === 0
-              ? 'No matches yet — try fewer letters.'
-              : `${items.length} ${items.length === 1 ? 'match' : 'matches'}. Use the arrow keys to browse.`,
+              ? t('search.noMatches')
+              : items.length === 1
+                ? t('search.matchOne')
+                : t('search.matchMany', { count: items.length }),
           );
         } catch {
           // Aborts are the normal case while typing, not a failure to report.
           if (controller.signal.aborted) return;
           setResults([]);
           setOpen(false);
-          setStatus('Search is having a moment. Browsing below still works.');
+          setStatus(t('search.hiccup'));
         }
       })();
     }, DEBOUNCE_MS);
 
     return () => clearTimeout(timer);
-  }, [query, typesKey]);
+  }, [query, typesKey, t]);
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
   function hrefFor(item: AutocompleteSuggestion): string {
     const slug = item.slug ?? item.id;
-    if (item.type === 'roaster') return `/discover/roasters/${slug}`;
-    if (item.type === 'equipment') return `/discover/equipment/${slug}`;
-    return `/discover/${slug}`;
+    // Navigated with router.push rather than a <Link>, so the locale prefix has
+    // to be applied here — choosing a result must not drop you into English.
+    if (item.type === 'roaster') return localePath(`/discover/roasters/${slug}`, locale);
+    if (item.type === 'equipment') return localePath(`/discover/equipment/${slug}`, locale);
+    return localePath(`/discover/${slug}`, locale);
   }
 
   function choose(index: number) {
@@ -123,7 +131,7 @@ export function EntitySearch({
   return (
     <div className="bc-combobox">
       <div className="bc-field">
-        <label htmlFor={`${listboxId}-input`}>Search coffees, roasters and gear</label>
+        <label htmlFor={`${listboxId}-input`}>{t('search.label')}</label>
         <input
           id={`${listboxId}-input`}
           className="bc-input"
@@ -137,7 +145,7 @@ export function EntitySearch({
             expanded && activeIndex >= 0 ? optionId(activeIndex) : undefined
           }
           aria-describedby={`${listboxId}-status`}
-          placeholder="Yirgacheffe, Kalita, a roaster you like…"
+          placeholder={t('search.placeholder')}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={onKeyDown}
@@ -153,7 +161,7 @@ export function EntitySearch({
         className="bc-combobox__listbox"
         id={listboxId}
         role="listbox"
-        aria-label="Search suggestions"
+        aria-label={t('search.suggestions')}
         hidden={!expanded}
       >
         {results.map((item, index) => (

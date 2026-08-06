@@ -1,9 +1,10 @@
 'use client';
 
-import { useTranslate } from '../locale-provider';
+import { useLocale } from '../locale-provider';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { authApi } from '../../lib/api';
+import { localePath } from '../../lib/i18n';
 
 /**
  * Sign out.
@@ -18,7 +19,7 @@ import { authApi } from '../../lib/api';
  * the session server-side rather than just dropping cookies locally.
  */
 export function SignOutButton() {
-  const t = useTranslate();
+  const { locale, t } = useLocale();
   const router = useRouter();
   const [pending, setPending] = useState(false);
 
@@ -32,7 +33,9 @@ export function SignOutButton() {
       // session does or does not still exist, and the cookies are gone either
       // way once the server has answered.
     }
-    router.push('/login');
+    // In the language they were reading. Signing out is the one moment where
+    // landing on an English page reads as "the site logged me out AND broke".
+    router.push(localePath('/login', locale));
     router.refresh();
   }
 

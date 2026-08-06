@@ -1,14 +1,21 @@
 import { type Metadata } from 'next';
 import { AssistantChat } from '../../../components/ai/assistant-chat';
+import { localeParam, translator } from '../../../lib/locale-server';
 
-export const metadata: Metadata = {
-  title: 'Brew assistant',
-  description:
-    'Ask about your brews, your gear and the coffee in front of you — answers grounded in your own logs and the BrewCult catalogue.',
-  // A private, per-user tool over authenticated data. Nothing here is a landing
-  // page and nothing here should be crawled.
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const t = translator(localeParam((await params).locale));
+  return {
+    title: t('ai.title'),
+    description: t('ai.description'),
+    // A private, per-user tool over authenticated data. Nothing here is a
+    // landing page and nothing here should be crawled.
+    robots: { index: false, follow: false },
+  };
+}
 
 /**
  * /ai — Brew Intelligence, in conversation (second_draft §7).
@@ -20,22 +27,16 @@ export const metadata: Metadata = {
  */
 export const dynamic = 'force-dynamic';
 
-export default function AiPage() {
+export default async function AiPage({ params }: { params: Promise<{ locale: string }> }) {
+  const t = translator(localeParam((await params).locale));
   return (
     <div className="bc-stack">
-      <h1>Brew assistant</h1>
-      <p className="bc-lede">
-        It reads your brew logs, your equipment and the BrewCult catalogue before it answers —
-        and when the graph has nothing to say about your coffee, it tells you that instead of
-        making something up.
-      </p>
+      <h1>{t('ai.title')}</h1>
+      <p className="bc-lede">{t('ai.lede')}</p>
 
       <AssistantChat />
 
-      <p className="bc-muted">
-        One suggestion at a time, on purpose: changing three things at once teaches you nothing
-        about which one worked. Answers are a starting point — your palate settles it.
-      </p>
+      <p className="bc-muted">{t('ai.footnote')}</p>
     </div>
   );
 }

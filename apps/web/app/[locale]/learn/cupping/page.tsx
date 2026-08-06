@@ -1,8 +1,7 @@
 import { type Metadata } from 'next';
 import { localeAlternates } from '../../../../lib/seo';
 import { localeParam } from '../../../../lib/locale-server';
-import Link from 'next/link';
-import { localePath } from '../../../../lib/i18n';
+import { LocaleLink as Link } from '../../../../components/locale-link';
 import { guideContent } from './content';
 
 export async function generateMetadata({
@@ -11,10 +10,12 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const locale = localeParam((await params).locale);
+  // The guide's own title and lede, rather than a second copy of them here that
+  // could drift — and the Spanish page had an English <title> until now.
+  const content = guideContent(locale);
   return {
-  title: 'How coffee is scored — the SCA cupping form explained',
-  description:
-    'What fragrance, flavour, aftertaste, acidity, body, uniformity, balance, clean cup, sweetness and overall actually mean, how to identify each one, and how the 100-point score works.',
+    title: content.title,
+    description: content.lede,
     // Canonical for THIS language plus an hreflang for each, including
     // x-default — without which a search engine picks for a visitor whose
     // language is neither, and it does not pick well.
@@ -98,7 +99,7 @@ export default async function CuppingGuidePage({
         <p>{content.tryBody}</p>
         <p>
           {content.tryThen}{' '}
-          <Link href={localePath('/discover', locale)}>{content.browseLink}</Link>.
+          <Link href="/discover">{content.browseLink}</Link>.
         </p>
       </section>
     </div>

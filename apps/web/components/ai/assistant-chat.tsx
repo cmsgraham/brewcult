@@ -11,6 +11,8 @@ import {
 import { EntityLinks } from './entity-links';
 import { SafeMarkdown } from './markdown';
 import styles from './ai.module.css';
+import { useTranslate } from '../locale-provider';
+import type { MessageKey } from '../../lib/i18n';
 
 interface Turn {
   id: string;
@@ -26,10 +28,10 @@ export interface AssistantChatProps {
   newId?: () => string;
 }
 
-const OPENERS = [
-  'Why does my coffee taste sour?',
-  'What should I change to get more sweetness?',
-  'Give me a starting recipe for a V60.',
+const OPENER_KEYS: ReadonlyArray<MessageKey> = [
+  'ai.openerSour',
+  'ai.openerSweet',
+  'ai.openerV60',
 ];
 
 /**
@@ -53,6 +55,7 @@ const OPENERS = [
  * never HTML. Entity links come from the API's `entities[]`, never from prose.
  */
 export function AssistantChat({ fetchImpl, newId }: AssistantChatProps) {
+  const t = useTranslate();
   const [turns, setTurns] = useState<Turn[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
@@ -174,16 +177,13 @@ export function AssistantChat({ fetchImpl, newId }: AssistantChatProps) {
     setTurns((current) => current.map((turn) => ({ ...turn, streaming: false })));
   }, []);
 
-  const statusLine = activity ?? (streaming ? 'Thinking…' : '');
+  const statusLine = activity ?? (streaming ? t('ai.thinking') : '');
 
   return (
-    <section className={styles.chat} aria-label="Brew assistant">
+    <section className={styles.chat} aria-label={t('ai.chatLabel')}>
       <div className={styles.log} role="log" aria-live="polite" aria-atomic="false">
         {turns.length === 0 ? (
-          <p className="bc-muted">
-            Ask about a coffee, a brewer, or the cup you just drank. Answers come from your
-            brews and the BrewCult catalogue — and say so when they don&apos;t.
-          </p>
+          <p className="bc-muted">{t('ai.emptyPrompt')}</p>
         ) : null}
 
         {turns.map((turn) => (
@@ -194,7 +194,7 @@ export function AssistantChat({ fetchImpl, newId }: AssistantChatProps) {
             // the completed answer is announced once, when streaming stops.
             aria-hidden={turn.streaming ? true : undefined}
           >
-            <h2 className="bc-visually-hidden">{turn.role === 'user' ? 'You' : 'BrewCult'}</h2>
+            <h2 className="bc-visually-hidden">{turn.role === 'user' ? t('ai.you') : 'BrewCult'}</h2>
             {turn.role === 'user' ? (
               <p className={styles.turnUserText}>{turn.text}</p>
             ) : turn.text === '' ? (
@@ -236,7 +236,7 @@ export function AssistantChat({ fetchImpl, newId }: AssistantChatProps) {
           className={`bc-input ${styles.composerInput}`}
           rows={2}
           value={input}
-          placeholder="Ask about your brew…"
+          placeholder={t('ai.placeholder')}
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === 'Enter' && !event.shiftKey) {
@@ -247,11 +247,11 @@ export function AssistantChat({ fetchImpl, newId }: AssistantChatProps) {
         />
         <div className={styles.composerActions}>
           <button type="submit" className="bc-button" disabled={streaming || input.trim() === ''}>
-            Ask
+            {t('ai.ask')}
           </button>
           {streaming ? (
             <button type="button" className="bc-button bc-button--quiet" onClick={stop}>
-              Stop
+              {t('ai.stop')}
             </button>
           ) : null}
         </div>
@@ -259,17 +259,20 @@ export function AssistantChat({ fetchImpl, newId }: AssistantChatProps) {
 
       {turns.length === 0 ? (
         <ul className={styles.openers}>
-          {OPENERS.map((opener) => (
-            <li key={opener}>
-              <button
-                type="button"
-                className="bc-button bc-button--quiet"
-                onClick={() => void ask(opener)}
-              >
-                {opener}
-              </button>
-            </li>
-          ))}
+          {OPENER_KEYS.map((key) => {
+            const opener = t(key);
+            return (
+              <li key={key}>
+                <button
+                  type="button"
+                  className="bc-button bc-button--quiet"
+                  onClick={() => void ask(opener)}
+                >
+                  {opener}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       ) : null}
     </section>

@@ -3,6 +3,7 @@ import { localeAlternates } from '../../../lib/seo';
 import { CoffeeCard } from '../../../components/discover/coffee-card';
 import { AddCoffee } from '../../../components/coffee/add-coffee';
 import { localeParam, translator } from '../../../lib/locale-server';
+import { localePath } from '../../../lib/i18n';
 import { EntitySearch } from '../../../components/discover/entity-search';
 import { Alert } from '../../../components/ui/alert';
 import { apiFetch, type CoffeeSummary, type Paginated } from '../../../lib/api';
@@ -14,16 +15,15 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const locale = localeParam((await params).locale);
+  const t = translator(locale);
   return {
-  title: 'Discover coffee',
-  description:
-    'Browse specialty coffees by origin, process and roast level — with the tasting notes and the roasters behind them.',
-  openGraph: {
-    title: 'Discover coffee · BrewCult',
-    description:
-      'Browse specialty coffees by origin, process and roast level — with tasting notes and the roasters behind them.',
-    url: '/discover',
-  },
+    title: t('discover.title'),
+    description: t('discover.metaDescription'),
+    openGraph: {
+      title: t('discover.ogTitle'),
+      description: t('discover.metaDescription'),
+      url: localePath('/discover', locale),
+    },
     // Canonical for THIS language plus an hreflang for each, including
     // x-default — without which a search engine picks for a visitor whose
     // language is neither, and it does not pick well.

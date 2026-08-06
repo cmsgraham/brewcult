@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { LocaleLink as Link } from '../../components/locale-link';
 import { Fragment, type ReactNode } from 'react';
 import styles from './catalog.module.css';
 

@@ -16,6 +16,8 @@ import {
   type OwnedEquipment,
 } from '../../lib/equipment-client';
 import { Alert } from '../ui/alert';
+import { useLocale, useTranslate } from '../locale-provider';
+import { catalogCopy } from '../catalog/copy';
 import { EquipmentRequestForm } from './equipment-request-form';
 
 /**
@@ -35,6 +37,12 @@ import { EquipmentRequestForm } from './equipment-request-form';
  * suggestion (second_draft §10: ask for what you will use).
  */
 export function EquipmentManager() {
+  const t = useTranslate();
+  const { locale } = useLocale();
+  // Singular already, in both languages — the catalogue vocabulary spells these
+  // for the equipment pages, so this is the same word rather than a second one.
+  const categoryLabel = (category: EquipmentCategory) =>
+    catalogCopy(locale).EQUIPMENT_CATEGORY_LABEL[category];
   const [owned, setOwned] = useState<OwnedEquipment[] | null>(null);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<EquipmentSuggestion[]>([]);
@@ -56,7 +64,7 @@ export function EquipmentManager() {
       .catch(() => {
         if (!cancelled) {
           setOwned([]);
-          setError('We could not load your equipment. Reload to try again.');
+          setError(t('kit.loadFailed'));
         }
       });
     return () => {
@@ -106,7 +114,7 @@ export function EquipmentManager() {
       setOwned(await action());
     } catch (failure) {
       setError(
-        isApiError(failure) ? failure.userMessage : 'That did not save. Try again in a moment.',
+        isApiError(failure) ? failure.userMessage : t('kit.saveFailed'),
       );
     } finally {
       setBusy(false);
@@ -116,7 +124,7 @@ export function EquipmentManager() {
   if (owned === null) {
     return (
       <p className="bc-muted" role="status">
-        {error ?? 'Loading your equipment…'}
+        {error ?? t('kit.loading')}
       </p>
     );
   }
@@ -126,10 +134,7 @@ export function EquipmentManager() {
       {error ? <Alert tone="error">{error}</Alert> : null}
 
       {owned.length === 0 ? (
-        <p className="bc-muted">
-          Nothing here yet. Add the grinder and brewer you use most — that is enough for
-          suggestions to talk in your numbers.
-        </p>
+        <p className="bc-muted">{t('kit.empty')}</p>
       ) : (
         <ul className="bc-kit">
           {owned.map((item) => (
@@ -137,14 +142,20 @@ export function EquipmentManager() {
               <div className="bc-kit__text">
                 <span className="bc-kit__name">
                   {equipmentTitle(item)}
-                  {item.is_primary ? <span className="bc-kit__badge">Default</span> : null}
+                  {item.is_primary ? (
+                    <span className="bc-kit__badge">{t('kit.badgeDefault')}</span>
+                  ) : null}
                   {item.is_custom ? (
-                    <span className="bc-kit__badge bc-kit__badge--quiet">Yours</span>
+                    <span className="bc-kit__badge bc-kit__badge--quiet">
+                      {t('kit.badgeYours')}
+                    </span>
                   ) : null}
                 </span>
                 <span className="bc-muted bc-kit__meta">
-                  {CATEGORY_LABEL[item.category].replace(/s$/, '')}
-                  {item.grind_scale_type ? ` · ${item.grind_scale_type} scale` : ''}
+                  {categoryLabel(item.category)}
+                  {item.grind_scale_type
+                    ? ` · ${t('kit.scaleSuffix', { scale: item.grind_scale_type })}`
+                    : ''}
                 </span>
               </div>
               <div className="bc-kit__actions">
@@ -155,7 +166,7 @@ export function EquipmentManager() {
                     disabled={busy}
                     onClick={() => void run(() => makePrimaryEquipment(item.id))}
                   >
-                    Make default
+                    {t('kit.makeDefault')}
                   </button>
                 )}
                 <button
@@ -164,7 +175,8 @@ export function EquipmentManager() {
                   disabled={busy}
                   onClick={() => void run(() => removeMyEquipment(item.id))}
                 >
-                  Remove<span className="bc-visually-hidden"> {equipmentTitle(item)}</span>
+                  {t('common.remove')}
+                  <span className="bc-visually-hidden"> {equipmentTitle(item)}</span>
                 </button>
               </div>
             </li>
@@ -174,14 +186,14 @@ export function EquipmentManager() {
 
       <div className="bc-kit__search">
         <label className="bc-kit__label" htmlFor="equipment-search">
-          Add equipment
+          {t('kit.addLabel')}
         </label>
         <input
           id="equipment-search"
           className="bc-input"
           type="search"
           autoComplete="off"
-          placeholder="Search grinders, brewers, kettles, scales…"
+          placeholder={t('kit.searchPlaceholder')}
           value={query}
           disabled={busy}
           onChange={(event) => setQuery(event.target.value)}
@@ -195,12 +207,14 @@ export function EquipmentManager() {
             finds nothing reads as broken rather than as empty. */}
         <p className="bc-muted bc-kit__status" role="status">
           {query.trim() === ''
-            ? 'Type a brand or model — “niche”, “v60”, “stagg”.'
+            ? t('kit.hintType')
             : searching
-              ? 'Searching…'
+              ? t('kit.hintSearching')
               : results.length === 0
-                ? 'Nothing matched. If your gear is missing we will add it — the catalogue is still growing.'
-                : `${results.length} match${results.length === 1 ? '' : 'es'}`}
+                ? t('kit.hintNothing')
+                : results.length === 1
+                  ? t('kit.hintMatchOne')
+                  : t('kit.hintMatchMany', { count: results.length })}
         </p>
 
         {/* The fallback lives HERE — at the moment search disappoints, not
@@ -216,20 +230,17 @@ export function EquipmentManager() {
               setCustomOpen(true);
             }}
           >
-            Add “{query.trim()}” as your own
+            {t('kit.addAsOwn', { query: query.trim() })}
           </button>
         ) : null}
 
         {customOpen ? (
           <div className="bc-panel bc-stack">
-            <p style={{ marginBottom: 0 }}>
-              This stays on your account only — it will not appear in search or on any public
-              page. You can still log brews with it straight away.
-            </p>
+            <p style={{ marginBottom: 0 }}>{t('kit.customNote')}</p>
             <div className="bc-kit__custom">
               <span className="bc-field">
                 <label className="bc-kit__label" htmlFor="custom-brand">
-                  Brand <span className="bc-muted">(optional)</span>
+                  {t('kit.brand')} <span className="bc-muted">{t('common.optional')}</span>
                 </label>
                 <input
                   id="custom-brand"
@@ -241,7 +252,7 @@ export function EquipmentManager() {
               </span>
               <span className="bc-field">
                 <label className="bc-kit__label" htmlFor="custom-name">
-                  Model
+                  {t('kit.model')}
                 </label>
                 <input
                   id="custom-name"
@@ -253,7 +264,7 @@ export function EquipmentManager() {
               </span>
               <span className="bc-field">
                 <label className="bc-kit__label" htmlFor="custom-category">
-                  Type
+                  {t('kit.type')}
                 </label>
                 <select
                   id="custom-category"
@@ -265,7 +276,7 @@ export function EquipmentManager() {
                 >
                   {(Object.keys(CATEGORY_LABEL) as EquipmentCategory[]).map((category) => (
                     <option key={category} value={category}>
-                      {CATEGORY_LABEL[category].replace(/s$/, '')}
+                      {categoryLabel(category)}
                     </option>
                   ))}
                 </select>
@@ -292,7 +303,7 @@ export function EquipmentManager() {
                   })
                 }
               >
-                Add to my equipment
+                {t('kit.addToMine')}
               </button>
               <button
                 type="button"
@@ -300,7 +311,7 @@ export function EquipmentManager() {
                 disabled={busy}
                 onClick={() => setCustomOpen(false)}
               >
-                Cancel
+                {t('common.cancel')}
               </button>
             </div>
           </div>
@@ -331,7 +342,7 @@ export function EquipmentManager() {
                       })
                     }
                   >
-                    {already ? 'Added' : 'Add'}
+                    {already ? t('kit.added') : t('kit.add')}
                     <span className="bc-visually-hidden"> {item.label}</span>
                   </button>
                 </li>

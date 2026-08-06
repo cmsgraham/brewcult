@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { LocaleLink as Link } from '../../components/locale-link';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   ROLES,

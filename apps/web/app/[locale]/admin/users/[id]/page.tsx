@@ -1,5 +1,5 @@
 import { type Metadata } from 'next';
-import Link from 'next/link';
+import { LocaleLink as Link } from '../../../../../components/locale-link';
 import { notFound } from 'next/navigation';
 import { OnOffBadge, RoleBadge, StatusBadge } from '../../../../../components/admin/badges';
 import { coarseIp, formatWhen, shortAgent } from '../../../../../components/admin/format';

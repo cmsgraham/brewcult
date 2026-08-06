@@ -122,13 +122,29 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/** The page is a locale segment now; every render needs one. */
+function props(locale = 'en') {
+  return { params: Promise.resolve({ locale }) };
+}
+
 describe('/profile/security access', () => {
   it('sends a signed-out visitor to sign in, and comes back here afterwards', async () => {
     mockApi({ [ME]: { status: 401, body: { error: 'unauthorized', message: '' } } });
 
-    await expect(SecurityPage()).rejects.toMatchObject({
+    await expect(SecurityPage(props())).rejects.toMatchObject({
       name: 'RedirectError',
       to: '/login?next=%2Fprofile%2Fsecurity',
+    });
+  });
+
+  it('keeps a Spanish reader in Spanish through the sign-in round trip', async () => {
+    // Signing in used to drop you back on the English page — the whole reason
+    // "still in Spanish until you click something" was the bug it was.
+    mockApi({ [ME]: { status: 401, body: { error: 'unauthorized', message: '' } } });
+
+    await expect(SecurityPage(props('es'))).rejects.toMatchObject({
+      name: 'RedirectError',
+      to: '/es/login?next=%2Fes%2Fprofile%2Fsecurity',
     });
   });
 
@@ -140,13 +156,13 @@ describe('/profile/security access', () => {
     jarCookies = { bc_session: '1' };
     mockApi({ [ME]: { status: 401, body: { error: 'unauthorized', message: '' } } });
 
-    const output = render(await SecurityPage());
+    const output = render(await SecurityPage(props()));
     expect(output.getByText('Signing you back in…')).toBeInTheDocument();
   });
 
   it('redirects rather than 500s when the identity API is unreachable', async () => {
     mockApi({});
-    await expect(SecurityPage()).rejects.toBeInstanceOf(Error);
+    await expect(SecurityPage(props())).rejects.toBeInstanceOf(Error);
   });
 });
 
@@ -154,7 +170,7 @@ describe('/profile/security first paint', () => {
   it('knows two-factor is off before hydration', async () => {
     mockApi({ [ME]: me({ mfa_enabled: false }) });
 
-    render(await SecurityPage());
+    render(await SecurityPage(props()));
 
     expect(screen.getByRole('heading', { level: 1, name: /signing in safely/i })).toBeInTheDocument();
     expect(screen.getByTestId('mfa-status-pill')).toHaveTextContent('Off');
@@ -164,7 +180,7 @@ describe('/profile/security first paint', () => {
   it('knows two-factor is on before hydration', async () => {
     mockApi({ [ME]: me({ role: 'admin', mfa_enabled: true, mfa: true }) });
 
-    render(await SecurityPage());
+    render(await SecurityPage(props()));
 
     expect(screen.getByTestId('mfa-status-pill')).toHaveTextContent('On');
     expect(screen.getByRole('heading', { name: /new recovery codes/i })).toBeInTheDocument();
@@ -173,7 +189,7 @@ describe('/profile/security first paint', () => {
   it('lands an enrolled-but-unverified operator straight on the fix', async () => {
     mockApi({ [ME]: me({ role: 'moderator', mfa_enabled: true, mfa: false }) });
 
-    render(await SecurityPage());
+    render(await SecurityPage(props()));
 
     expect(
       screen.getByRole('heading', { name: /one more step to use staff areas/i }),
@@ -184,7 +200,7 @@ describe('/profile/security first paint', () => {
 describe('the /me path', () => {
   it('asks for the route the identity module actually mounts', async () => {
     mockApi({ [ME]: me({}) });
-    await SecurityPage();
+    await SecurityPage(props());
     expect(requested).toContain(ME);
   });
 

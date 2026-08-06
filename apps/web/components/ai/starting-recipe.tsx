@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { LocaleLink as Link } from '../../components/locale-link';
 import { useEffect, useRef, useState } from 'react';
 import type { FetchLike } from '../../lib/api';
 import {
@@ -12,6 +12,7 @@ import {
 import { EntityLinks } from './entity-links';
 import { SafeMarkdown } from './markdown';
 import styles from './ai.module.css';
+import { useTranslate } from '../locale-provider';
 
 export interface StartingRecipeCardProps {
   coffeeProductId: string;
@@ -46,6 +47,7 @@ export function StartingRecipeCard({
   grinderModelId,
   fetchImpl,
 }: StartingRecipeCardProps) {
+  const t = useTranslate();
   const [state, setState] = useState<State>({ status: 'idle' });
   const abortRef = useRef<AbortController | null>(null);
 
@@ -95,8 +97,8 @@ export function StartingRecipeCard({
             disabled={state.status === 'loading'}
           >
             {state.status === 'loading'
-              ? 'Working out a starting point…'
-              : 'Get a starting recipe for my setup'}
+              ? t('ai.workingOut')
+              : t('ai.getStarting')}
           </button>
         </p>
       ) : null}
@@ -104,7 +106,7 @@ export function StartingRecipeCard({
       {/* Politely announced: the reader asked for this, so they are waiting. */}
       <div role="status" aria-live="polite">
         {state.status === 'loading' ? (
-          <p className="bc-muted">Looking at the roaster&apos;s notes and community brews…</p>
+          <p className="bc-muted">{t('ai.lookingAt')}</p>
         ) : null}
 
         {state.status === 'failed' ? (

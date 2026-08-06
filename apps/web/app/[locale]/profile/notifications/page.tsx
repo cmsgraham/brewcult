@@ -1,39 +1,53 @@
 import { type Metadata } from 'next';
-import Link from 'next/link';
+import { LocaleLink as Link } from '../../../../components/locale-link';
 import { redirect } from 'next/navigation';
 import { NotificationPreferences } from '../../../../components/profile/notification-preferences';
 import { SessionRestoreScreen } from '../../../../components/session-restore-screen';
 import { canRestoreSession, getSessionUser } from '../../../../lib/server-api';
+import { localeParam, translator } from '../../../../lib/locale-server';
+import { localePath } from '../../../../lib/i18n';
 
-export const metadata: Metadata = {
-  title: 'Email settings',
-  description: 'Choose which BrewCult emails you receive.',
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const t = translator(localeParam((await params).locale));
+  return {
+    title: t('notifications.title'),
+    description: t('notifications.description'),
+    robots: { index: false, follow: false },
+  };
+}
 
 /** Personal settings — never cached, never statically rendered. */
 export const dynamic = 'force-dynamic';
 
-export default async function NotificationsPage() {
+export default async function NotificationsPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const locale = localeParam((await params).locale);
+  const t = translator(locale);
   const user = await getSessionUser();
   // A null user here is not proof of a stranger — the refresh cookie is
   // scoped to the auth path, so a page navigation carries nothing once the
   // access cookie has expired. Ask the browser before giving up on them.
   if (!user) {
-    if (await canRestoreSession()) return <SessionRestoreScreen next="/profile/notifications" />;
-    redirect('/login?next=%2Fprofile%2Fnotifications');
+    const self = localePath('/profile/notifications', locale);
+    if (await canRestoreSession()) return <SessionRestoreScreen next={self} />;
+    redirect(`${localePath('/login', locale)}?next=${encodeURIComponent(self)}`);
   }
 
   return (
     <div className="bc-stack">
       <p className="bc-muted">
-        <Link href="/profile">← Back to your profile</Link>
+        <Link href="/profile">{t('notifications.back')}</Link>
       </p>
 
-      <h1>Email settings</h1>
-      <p className="bc-lede">
-        Everything here is off by one click, and stays off. We do not send marketing.
-      </p>
+      <h1>{t('notifications.title')}</h1>
+      <p className="bc-lede">{t('notifications.lede')}</p>
 
       <NotificationPreferences />
     </div>

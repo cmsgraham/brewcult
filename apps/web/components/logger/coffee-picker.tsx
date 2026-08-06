@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { FetchLike } from '../../lib/api';
+import { useTranslate } from '../locale-provider';
+import type { MessageKey } from '../../lib/i18n';
 import {
   brewingApi,
   toCoffeeRef,
@@ -12,7 +14,18 @@ import {
 const DEBOUNCE_MS = 250;
 const MIN_QUERY = 2;
 
-const ROAST_LEVELS = ['Light', 'Medium-light', 'Medium', 'Medium-dark', 'Dark'] as const;
+/**
+ * The stored VALUE is English and stays English — it goes to the API and into
+ * the catalogue, where a Spanish "Medio" would be a different roast level than
+ * an English "Medium" as far as any query is concerned. Only the label moves.
+ */
+const ROAST_LEVELS: ReadonlyArray<{ value: string; label: MessageKey }> = [
+  { value: 'Light', label: 'brew.roastLight' },
+  { value: 'Medium-light', label: 'brew.roastMediumLight' },
+  { value: 'Medium', label: 'brew.roastMedium' },
+  { value: 'Medium-dark', label: 'brew.roastMediumDark' },
+  { value: 'Dark', label: 'brew.roastDark' },
+];
 
 export interface CoffeePickerProps {
   recent: CoffeeRef[];
@@ -42,6 +55,7 @@ export function CoffeePicker({
   fetchImpl,
   onInteract,
 }: CoffeePickerProps) {
+  const t = useTranslate();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<CoffeeRef[]>([]);
   const [status, setStatus] = useState('');
@@ -74,37 +88,39 @@ export function CoffeePicker({
           setResults(items);
           setStatus(
             items.length === 0
-              ? 'No match yet — you can add it in three fields below.'
-              : `${items.length} ${items.length === 1 ? 'match' : 'matches'}.`,
+              ? t('brew.noMatch')
+              : items.length === 1
+                ? t('brew.matchOne')
+                : t('brew.matchMany', { count: items.length }),
           );
           if (items.length === 0) setQuickAdd(true);
         } catch {
           if (controller.signal.aborted) return;
           setResults([]);
           // Offline is the expected case in a kitchen; say so without alarm.
-          setStatus('Search needs a connection. Add it in three fields below and log anyway.');
+          setStatus(t('brew.searchOffline'));
           setQuickAdd(true);
         }
       })();
     }, DEBOUNCE_MS);
 
     return () => clearTimeout(timer);
-  }, [query, fetchImpl]);
+  }, [query, fetchImpl, t]);
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
   const canQuickAdd = name.trim().length > 0;
 
   return (
-    <div className="bc-logger__picker bc-stack" aria-label="Choose a coffee">
+    <div className="bc-logger__picker bc-stack" aria-label={t('brew.chooseCoffee')}>
       <div className="bc-field">
-        <label htmlFor="brew-coffee-search">Which coffee?</label>
+        <label htmlFor="brew-coffee-search">{t('brew.whichCoffee')}</label>
         <input
           id="brew-coffee-search"
           className="bc-input"
           type="search"
           autoComplete="off"
-          placeholder="Start typing — “chelb” finds it"
+          placeholder={t('brew.searchPlaceholder')}
           value={query}
           onChange={(event) => {
             onInteract?.();
@@ -119,7 +135,7 @@ export function CoffeePicker({
 
       {query.trim().length < MIN_QUERY && recent.length > 0 ? (
         <div>
-          <h3 className="bc-logger__subhead">Recent bags</h3>
+          <h3 className="bc-logger__subhead">{t('brew.recentBags')}</h3>
           <ul className="bc-logger__options">
             {recent.map((coffee) => (
               <li key={coffee.id ?? coffee.label}>
@@ -156,9 +172,9 @@ export function CoffeePicker({
 
       {quickAdd ? (
         <div className="bc-panel bc-stack">
-          <h3 className="bc-logger__subhead">Add it in three fields</h3>
+          <h3 className="bc-logger__subhead">{t('brew.addInThree')}</h3>
           <div className="bc-field">
-            <label htmlFor="brew-quick-roaster">Roaster</label>
+            <label htmlFor="brew-quick-roaster">{t('brew.roaster')}</label>
             <input
               id="brew-quick-roaster"
               className="bc-input"
@@ -167,7 +183,7 @@ export function CoffeePicker({
             />
           </div>
           <div className="bc-field">
-            <label htmlFor="brew-quick-name">Coffee name</label>
+            <label htmlFor="brew-quick-name">{t('brew.coffeeName')}</label>
             <input
               id="brew-quick-name"
               className="bc-input"
@@ -176,7 +192,7 @@ export function CoffeePicker({
             />
           </div>
           <div className="bc-field">
-            <label htmlFor="brew-quick-roast">Roast level</label>
+            <label htmlFor="brew-quick-roast">{t('brew.roastLevel')}</label>
             <select
               id="brew-quick-roast"
               className="bc-input"
@@ -184,8 +200,8 @@ export function CoffeePicker({
               onChange={(event) => setRoastLevel(event.target.value)}
             >
               {ROAST_LEVELS.map((level) => (
-                <option key={level} value={level}>
-                  {level}
+                <option key={level.value} value={level.value}>
+                  {t(level.label)}
                 </option>
               ))}
             </select>
@@ -211,10 +227,10 @@ export function CoffeePicker({
               )
             }
           >
-            Use this coffee
+            {t('brew.useThisCoffee')}
           </button>
           <p className="bc-muted" style={{ marginBottom: 0, fontSize: '0.88rem' }}>
-            We&apos;ll match it to the catalogue later. Your brews stay attached to it either way.
+            {t('brew.matchLater')}
           </p>
         </div>
       ) : (
@@ -223,12 +239,12 @@ export function CoffeePicker({
           className="bc-button bc-button--quiet"
           onClick={() => setQuickAdd(true)}
         >
-          Not in the list? Add it in three fields
+          {t('brew.notInList')}
         </button>
       )}
 
       <button type="button" className="bc-button bc-button--quiet" onClick={onCancel}>
-        Back to brewing
+        {t('brew.backToBrewing')}
       </button>
     </div>
   );

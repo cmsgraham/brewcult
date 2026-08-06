@@ -3,6 +3,7 @@
 import { useId, useState } from 'react';
 import type { CoffeeRef } from '../../lib/brewing-client';
 import { BeanIcon } from '../ui/icon';
+import { useTranslate } from '../locale-provider';
 
 export interface BagSwitcherProps {
   active: CoffeeRef | null;
@@ -19,6 +20,7 @@ export interface BagSwitcherProps {
  * and closing it costs nothing.
  */
 export function BagSwitcher({ active, recent, onSwitch, onNewCoffee }: BagSwitcherProps) {
+  const t = useTranslate();
   const id = useId();
   const [open, setOpen] = useState(false);
   const others = recent.filter((coffee) => (coffee.id ?? coffee.label) !== (active?.id ?? active?.label));
@@ -28,7 +30,7 @@ export function BagSwitcher({ active, recent, onSwitch, onNewCoffee }: BagSwitch
       <div className="bc-logger__bag-row">
         <h2 className="bc-logger__coffee">
           <BeanIcon className="bc-logger__coffee-icon" />
-          {active?.label ?? 'No bag chosen yet'}
+          {active?.label ?? t('brew.noBag')}
         </h2>
         <button
           type="button"
@@ -37,7 +39,7 @@ export function BagSwitcher({ active, recent, onSwitch, onNewCoffee }: BagSwitch
           aria-controls={id}
           onClick={() => setOpen((value) => !value)}
         >
-          Switch bag
+          {t('brew.switchBag')}
         </button>
       </div>
 
@@ -67,7 +69,7 @@ export function BagSwitcher({ active, recent, onSwitch, onNewCoffee }: BagSwitch
                 onNewCoffee();
               }}
             >
-              <span>Brewing a new coffee…</span>
+              <span>{t('brew.newCoffee')}</span>
             </button>
           </li>
         </ul>

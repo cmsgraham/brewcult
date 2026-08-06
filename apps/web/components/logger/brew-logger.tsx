@@ -35,6 +35,7 @@ import { CoffeePicker } from './coffee-picker';
 import { PostLogNote } from './post-log-note';
 import { RepeatCard } from './repeat-card';
 import { TweakCard } from './tweak-card';
+import { useLocale, useTranslate } from '../locale-provider';
 
 export interface BrewLoggerProps {
   /** Injected in tests; otherwise the logger owns its engine. */
@@ -86,6 +87,8 @@ export function BrewLogger({
   onMeasure,
   registerServiceWorkerInBrowser,
 }: BrewLoggerProps) {
+  const t = useTranslate();
+  const { locale } = useLocale();
   const nowFn = useRef<() => number>(now ?? (() => Date.now()));
   nowFn.current = now ?? (() => Date.now());
 
@@ -250,12 +253,15 @@ export function BrewLogger({
         );
 
         const prior = historyRef.current;
-        const payback = buildPayback({
-          brewCountForBag: prior.length + 1,
-          verdict: current.verdict,
-          priorVerdicts: prior.map((entry) => entry.session.taste?.verdict),
-          changed: current.changed,
-        });
+        const payback = buildPayback(
+          {
+            brewCountForBag: prior.length + 1,
+            verdict: current.verdict,
+            priorVerdicts: prior.map((entry) => entry.session.taste?.verdict),
+            changed: current.changed,
+          },
+          { t, locale },
+        );
 
         setHistory([...prior, record]);
         setLogged({ record, payback, path: resolvedPath });
@@ -277,7 +283,7 @@ export function BrewLogger({
         setBusy(false);
       }
     },
-    [engine, onMeasure],
+    [engine, onMeasure, t, locale],
   );
 
   /** The non-blocking "rate it" tap — same session id, so one row, one PUT. */
@@ -303,15 +309,18 @@ export function BrewLogger({
       setLogged({
         ...current,
         record,
-        payback: buildPayback({
-          brewCountForBag: prior.length + 1,
-          verdict,
-          priorVerdicts: prior.map((entry) => entry.session.taste?.verdict),
-          changed: session.changed_fields as BrewField[],
-        }),
+        payback: buildPayback(
+          {
+            brewCountForBag: prior.length + 1,
+            verdict,
+            priorVerdicts: prior.map((entry) => entry.session.taste?.verdict),
+            changed: session.changed_fields as BrewField[],
+          },
+          { t, locale },
+        ),
       });
     },
-    [engine, logged],
+    [engine, logged, t, locale],
   );
 
   /* --- coffee / bag ------------------------------------------------ */
@@ -375,16 +384,16 @@ export function BrewLogger({
 
   if (status === 'loading' || !draft) {
     return (
-      <section className="bc-logger" aria-label="Brew logger">
+      <section className="bc-logger" aria-label={t('brew.loggerLabel')}>
         <p role="status" className="bc-muted">
-          Getting your last brew…
+          {t('brew.loading')}
         </p>
       </section>
     );
   }
 
   return (
-    <section className="bc-logger bc-panel" aria-label="Brew logger">
+    <section className="bc-logger bc-panel" aria-label={t('brew.loggerLabel')}>
       <BagSwitcher
         active={draft.coffee}
         recent={recent}
@@ -400,7 +409,7 @@ export function BrewLogger({
 
       {resumed && mode === 'tweak' ? (
         <p className="bc-logger__resumed" role="status">
-          Picked up where you left off — nothing was lost.
+          {t('brew.resumed')}
         </p>
       ) : null}
 
@@ -430,7 +439,7 @@ export function BrewLogger({
             : {})}
           synced={logged.record.synced || (sync.pending === 0 && sync.lastError === null)}
           pending={sync.pending}
-          shareText={`${draft.coffee?.label ?? 'This brew'} — ${summarizeDraft(draft)}`}
+          shareText={`${draft.coffee?.label ?? t('brew.thisBrew')} — ${summarizeDraft(draft)}`}
         />
         {/* "Log first, attach after" — the path we actually want people on,
             including everyone who came through Path A's single tap. */}
@@ -485,8 +494,9 @@ export function BrewLogger({
 
       {sync.pending > 0 ? (
         <p className="bc-logger__queue bc-muted" role="status">
-          {sync.pending} brew{sync.pending === 1 ? '' : 's'} waiting to sync. They are safe on
-          this device.
+          {sync.pending === 1
+            ? t('brew.queueOne')
+            : t('brew.queueMany', { count: sync.pending })}
         </p>
       ) : null}
     </section>

@@ -10,9 +10,10 @@
  * string (see markdown.tsx). An entity whose type or slug we cannot resolve to a
  * BrewCult route renders as plain text rather than a broken link.
  */
-import Link from 'next/link';
+import { LocaleLink as Link } from '../../components/locale-link';
 import { entityHref, type AiEntity } from '../../lib/ai-client';
 import styles from './ai.module.css';
+import { useTranslate } from '../locale-provider';
 
 const TYPE_LABEL: Record<AiEntity['type'], string> = {
   coffee: 'Coffee',
@@ -27,12 +28,14 @@ export interface EntityLinksProps {
   label?: string;
 }
 
-export function EntityLinks({ entities, label = 'Based on' }: EntityLinksProps) {
+export function EntityLinks({ entities, label }: EntityLinksProps) {
+  const t = useTranslate();
+  const heading = label ?? t('ai.basedOn');
   if (entities.length === 0) return null;
 
   return (
     <div className={styles.entities}>
-      <span className={styles.entitiesLabel}>{label}</span>
+      <span className={styles.entitiesLabel}>{heading}</span>
       <ul className={styles.entitiesList}>
         {entities.map((entity) => {
           const href = entityHref(entity);

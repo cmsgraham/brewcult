@@ -20,6 +20,8 @@ import { BrewTimer } from './brew-timer';
 import { Stepper } from './stepper';
 import { TasteRow } from './taste-row';
 import { LockIcon } from '../ui/icon';
+import { useLocale, useTranslate } from '../locale-provider';
+import { catalogCopy, grindCategoryInline } from '../catalog/copy';
 
 export interface TweakCardProps {
   draft: BrewDraft;
@@ -45,13 +47,19 @@ export interface TweakCardProps {
   photoSlot?: ReactNode;
 }
 
-const GRIND_CATEGORIES: ReadonlyArray<{ value: GrindCategory; label: string }> = [
-  { value: 'extra_fine', label: 'Extra fine' },
-  { value: 'fine', label: 'Fine' },
-  { value: 'medium_fine', label: 'Medium fine' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'medium_coarse', label: 'Medium coarse' },
-  { value: 'coarse', label: 'Coarse' },
+/**
+ * The stored VALUES, in order. The labels come from the catalogue vocabulary
+ * (components/catalog/copy) rather than being spelled again here: the grind
+ * categories are already translated there for the equipment pages, and one
+ * coffee term with two spellings is how a glossary starts to drift.
+ */
+const GRIND_CATEGORIES: ReadonlyArray<GrindCategory> = [
+  'extra_fine',
+  'fine',
+  'medium_fine',
+  'medium',
+  'medium_coarse',
+  'coarse',
 ];
 
 /**
@@ -79,6 +87,9 @@ export function TweakCard({
   onApplySuggestion,
   photoSlot,
 }: TweakCardProps) {
+  const t = useTranslate();
+  const { locale } = useLocale();
+  const grindLabels = catalogCopy(locale).GRIND_CATEGORY_LABEL;
   const grind = grindNumber(draft.grind_setting);
   const ratio = ratioOf(draft.dose_g, draft.water_g);
 
@@ -90,9 +101,9 @@ export function TweakCard({
   return (
     <div className="bc-logger__tweak">
       <div className="bc-logger__row">
-        <span className="bc-muted">{draft.brewer_label ?? 'Pour over'}</span>
+        <span className="bc-muted">{draft.brewer_label ?? t('brew.pourOver')}</span>
         <button type="button" className="bc-button bc-button--quiet" onClick={onChangeCoffee}>
-          Change coffee
+          {t('brew.changeCoffee')}
         </button>
       </div>
 
@@ -108,7 +119,7 @@ export function TweakCard({
                 onApplySuggestion();
               }}
             >
-              Apply it
+              {t('brew.applyIt')}
             </button>
           ) : null}
         </div>
@@ -117,7 +128,7 @@ export function TweakCard({
       <div className="bc-logger__fields">
         {grind === null ? (
           <div className="bc-field">
-            <label htmlFor="brew-grind-text">Grind</label>
+            <label htmlFor="brew-grind-text">{t('brew.grind')}</label>
             <input
               id="brew-grind-text"
               className="bc-input"
@@ -127,43 +138,43 @@ export function TweakCard({
           </div>
         ) : (
           <Stepper
-            label="Grind"
+            label={t('brew.grind')}
             value={grind}
             step={STEP.grind}
             min={LIMIT.grind.min}
             max={LIMIT.grind.max}
             decimals={2}
             display={draft.grind_setting}
-            valueText={`${draft.grind_setting}, ${draft.grind_category.replace('_', ' ')}`}
+            valueText={`${draft.grind_setting}, ${grindCategoryInline(draft.grind_category, locale)}`}
             onChange={(value) => apply(setNumericField(draft, 'grind', value))}
-            hint={draft.grind_category.replace('_', ' ')}
+            hint={grindCategoryInline(draft.grind_category, locale)}
           />
         )}
 
         <Stepper
-          label="Dose"
+          label={t('brew.dose')}
           value={draft.dose_g}
           step={STEP.dose_g}
           min={LIMIT.dose_g.min}
           max={LIMIT.dose_g.max}
           decimals={1}
           display={`${draft.dose_g}g`}
-          valueText={`${draft.dose_g} grams`}
+          valueText={t('brew.grams', { value: draft.dose_g })}
           onChange={(value) => apply(setNumericField(draft, 'dose_g', value))}
-          hint={draft.follow === 'dose' ? 'follows water' : null}
+          hint={draft.follow === 'dose' ? t('brew.followsWater') : null}
         />
 
         <Stepper
-          label="Water"
+          label={t('brew.water')}
           value={draft.water_g}
           step={STEP.water_g}
           min={LIMIT.water_g.min}
           max={LIMIT.water_g.max}
           decimals={0}
           display={`${draft.water_g}g`}
-          valueText={`${draft.water_g} grams`}
+          valueText={t('brew.grams', { value: draft.water_g })}
           onChange={(value) => apply(setNumericField(draft, 'water_g', value))}
-          hint={draft.follow === 'water' ? 'follows dose' : null}
+          hint={draft.follow === 'water' ? t('brew.followsDose') : null}
         />
 
         <div className="bc-logger__ratio">
@@ -174,25 +185,25 @@ export function TweakCard({
             aria-pressed={draft.follow === 'dose'}
             aria-label={
               draft.follow === 'water'
-                ? `Ratio ${formatRatio(ratio)}. Water follows dose. Activate so dose follows water instead.`
-                : `Ratio ${formatRatio(ratio)}. Dose follows water. Activate so water follows dose instead.`
+                ? t('brew.ratioWaterFollows', { ratio: formatRatio(ratio) })
+                : t('brew.ratioDoseFollows', { ratio: formatRatio(ratio) })
             }
             onClick={() => apply(toggleRatioLock(draft))}
           >
             <LockIcon />{' '}
-            {draft.follow === 'water' ? 'water follows dose' : 'dose follows water'}
+            {draft.follow === 'water' ? t('brew.waterFollowsDose') : t('brew.doseFollowsWater')}
           </button>
         </div>
 
         <Stepper
-          label="Temperature"
+          label={t('brew.temperature')}
           value={draft.temperature_c}
           step={STEP.temperature_c}
           min={LIMIT.temperature_c.min}
           max={LIMIT.temperature_c.max}
           decimals={0}
           display={`${draft.temperature_c}°`}
-          valueText={`${draft.temperature_c} degrees celsius`}
+          valueText={t('brew.degrees', { value: draft.temperature_c })}
           onChange={(value) => apply(setNumericField(draft, 'temperature_c', value))}
         />
 
@@ -213,11 +224,11 @@ export function TweakCard({
       {photoSlot ?? null}
 
       <details className="bc-logger__more">
-        <summary>More</summary>
+        <summary>{t('brew.more')}</summary>
         <div className="bc-field">
-          <label htmlFor="brew-grind-category">Grind category</label>
+          <label htmlFor="brew-grind-category">{t('brew.grindCategory')}</label>
           <span className="bc-field__hint" id="brew-grind-category-hint">
-            The only grind value that survives a change of grinder.
+            {t('brew.grindCategoryHint')}
           </span>
           <select
             id="brew-grind-category"
@@ -229,8 +240,8 @@ export function TweakCard({
             }
           >
             {GRIND_CATEGORIES.map((category) => (
-              <option key={category.value} value={category.value}>
-                {category.label}
+              <option key={category} value={category}>
+                {grindLabels[category]}
               </option>
             ))}
           </select>
@@ -239,10 +250,10 @@ export function TweakCard({
 
       <div className="bc-logger__actions">
         <button type="button" className="bc-button bc-logger__primary" onClick={onLog} disabled={busy}>
-          Log brew
+          {t('brew.logBrew')}
         </button>
         <button type="button" className="bc-button bc-button--quiet" onClick={onCancel}>
-          Back
+          {t('brew.back')}
         </button>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { LocaleLink as Link } from '../components/locale-link';
 
 export function SiteFooter() {
   return (

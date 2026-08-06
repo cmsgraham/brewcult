@@ -1,16 +1,25 @@
 import { type Metadata } from 'next';
-import Link from 'next/link';
+import { LocaleLink as Link } from '../../../../components/locale-link';
 import { redirect } from 'next/navigation';
 import { SecurityPanel } from '../../../../components/security/security-panel';
 import { fetchMfaStatus } from '../../../../lib/mfa-client';
 import { SessionRestoreScreen } from '../../../../components/session-restore-screen';
 import { canRestoreSession, serverApiFetch } from '../../../../lib/server-api';
+import { localeParam, translator } from '../../../../lib/locale-server';
+import { localePath } from '../../../../lib/i18n';
 
-export const metadata: Metadata = {
-  title: 'Two-factor authentication',
-  description: 'Add a second step to your BrewCult sign-in.',
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const t = translator(localeParam((await params).locale));
+  return {
+    title: t('security.title'),
+    description: t('security.description'),
+    robots: { index: false, follow: false },
+  };
+}
 
 /** Personal data — never cached, never statically rendered. */
 export const dynamic = 'force-dynamic';
@@ -26,30 +35,32 @@ export const dynamic = 'force-dynamic';
  * has had it on for a year. Everything that touches a secret is in the client
  * component below.
  */
-export default async function SecurityPage() {
+export default async function SecurityPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const locale = localeParam((await params).locale);
+  const t = translator(locale);
   const actor = await fetchMfaStatus(serverApiFetch);
 
   // Same reasoning as /profile: a page render cannot see a scoped refresh
   // cookie, so "no actor" may only mean "ask the browser".
   if (!actor) {
-    if (await canRestoreSession()) return <SessionRestoreScreen next="/profile/security" />;
-    redirect('/login?next=%2Fprofile%2Fsecurity');
+    const self = localePath('/profile/security', locale);
+    if (await canRestoreSession()) return <SessionRestoreScreen next={self} />;
+    redirect(`${localePath('/login', locale)}?next=${encodeURIComponent(self)}`);
   }
 
   return (
     <div className="bc-stack">
       <p className="bc-muted" style={{ marginBottom: 0 }}>
-        <Link href="/profile">← Your profile</Link>
+        <Link href="/profile">{t('security.back')}</Link>
       </p>
 
-      <h1>Signing in safely</h1>
+      <h1>{t('security.heading')}</h1>
 
-      <p className="bc-lede">
-        Two-factor authentication means a sign-in needs two things: your password, and a code
-        that changes every thirty seconds on a device you are holding. It is the single most
-        effective thing you can do for your account, and you can turn it off again whenever you
-        want.
-      </p>
+      <p className="bc-lede">{t('security.lede')}</p>
 
       <SecurityPanel
         handle={actor.handle}
@@ -60,23 +71,11 @@ export default async function SecurityPage() {
 
       <section aria-labelledby="mfa-honest-heading" className="bc-panel bc-stack">
         <h2 id="mfa-honest-heading" style={{ marginTop: 0 }}>
-          The honest version
+          {t('security.honestHeading')}
         </h2>
-        <p>
-          Two-factor is not about us not trusting you. Passwords get reused, and the leak is
-          usually somewhere else entirely — a forum from 2014, a shop that stored them badly.
-          A second factor means that leak stops being your problem.
-        </p>
-        <p>
-          If you hold a staff role, we require it, and the reason is narrow: everything done in
-          the operator console is written to an append-only log with a name against it. That
-          record is only meaningful if the person named is the only one who could have done it.
-        </p>
-        <p style={{ marginBottom: 0 }}>
-          We never see your codes and we cannot generate them. If you lose your phone, the
-          recovery codes are the way back in — which is why the setup makes such a fuss about
-          saving them.
-        </p>
+        <p>{t('security.honestOne')}</p>
+        <p>{t('security.honestTwo')}</p>
+        <p style={{ marginBottom: 0 }}>{t('security.honestThree')}</p>
       </section>
     </div>
   );

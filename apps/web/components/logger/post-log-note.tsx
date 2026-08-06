@@ -7,6 +7,7 @@ import type { FetchLike } from '../../lib/api';
 import type { PaybackLine } from '../../lib/brewing-client';
 import { TasteRow } from './taste-row';
 import { CheckIcon } from '../ui/icon';
+import { useTranslate } from '../locale-provider';
 
 export interface PostLogNoteProps {
   payback: PaybackLine;
@@ -49,6 +50,7 @@ export function PostLogNote({
   shareText,
   dialIn,
 }: PostLogNoteProps) {
+  const t = useTranslate();
   const [reminded, setReminded] = useState(false);
   const canShare =
     typeof navigator !== 'undefined' &&
@@ -66,7 +68,7 @@ export function PostLogNote({
 
       {payback.suggestion && onRemindMe ? (
         reminded ? (
-          <p className="bc-muted">It&apos;ll be waiting on tomorrow&apos;s card.</p>
+          <p className="bc-muted">{t('brew.reminded')}</p>
         ) : (
           <button
             type="button"
@@ -76,7 +78,7 @@ export function PostLogNote({
               onRemindMe();
             }}
           >
-            Remind me tomorrow
+            {t('brew.remindMe')}
           </button>
         )
       ) : null}
@@ -87,7 +89,7 @@ export function PostLogNote({
     <div className="bc-logger__logged bc-stack" role="status" aria-live="polite">
       <p className="bc-logger__logged-title">
         <CheckIcon className="bc-logger__logged-icon" />
-        Logged.
+        {t('brew.logged')}
       </p>
 
       {/* Advice is only worth asking for once there is a taste to explain — an
@@ -104,20 +106,20 @@ export function PostLogNote({
       )}
 
       {verdict === null ? (
-        <TasteRow value={verdict} onChange={onRate} legend="Rate it when you've tasted it" compact />
+        <TasteRow value={verdict} onChange={onRate} legend={t('brew.rateWhenTasted')} compact />
       ) : null}
 
       <p className="bc-muted bc-logger__sync">
         {synced
-          ? 'Synced.'
+          ? t('brew.synced')
           : pending > 0
-            ? 'Saved on this device. It syncs itself when you have signal.'
-            : 'Saved on this device.'}
+            ? t('brew.savedOffline')
+            : t('brew.savedLocally')}
       </p>
 
       <div className="bc-logger__actions">
         <button type="button" className="bc-button" onClick={onLogAnother}>
-          Log another
+          {t('brew.logAnother')}
         </button>
         {canShare ? (
           <button
@@ -129,7 +131,7 @@ export function PostLogNote({
                 .catch(() => undefined);
             }}
           >
-            Share this brew
+            {t('brew.share')}
           </button>
         ) : null}
       </div>

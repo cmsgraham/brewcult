@@ -1,11 +1,19 @@
 import { type Metadata } from 'next';
-import Link from 'next/link';
+import { LocaleLink as Link } from '../../../../components/locale-link';
+import { localeParam, translator } from '../../../../lib/locale-server';
 
-export const metadata: Metadata = {
-  title: 'Offline',
-  description: 'BrewCult works without a connection.',
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const t = translator(localeParam((await params).locale));
+  return {
+    title: t('brew.offlineTitle'),
+    description: t('brew.offlineDescription'),
+    robots: { index: false, follow: false },
+  };
+}
 
 /**
  * The service worker's navigation fallback (public/sw.js).
@@ -14,17 +22,20 @@ export const metadata: Metadata = {
  * the browser's dinosaur — and the message is the true one: brews logged while
  * offline are safe on the device and sync themselves later.
  */
-export default function BrewOfflinePage() {
+export default async function BrewOfflinePage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const locale = localeParam((await params).locale);
+  const t = translator(locale);
   return (
     <div className="bc-stack">
-      <h1>You&rsquo;re offline</h1>
-      <p className="bc-lede">
-        Nothing is lost. Any brew you logged is stored on this device and syncs itself the
-        moment you have signal again — you don&rsquo;t have to do anything.
-      </p>
+      <h1>{t('brew.offlineTitle')}</h1>
+      <p className="bc-lede">{t('brew.offlineBody')}</p>
       <p>
         <Link className="bc-button" href="/brew">
-          Back to the logger
+          {t('brew.backToLogger')}
         </Link>
       </p>
     </div>

@@ -7,7 +7,10 @@
  * make the site subtly wrong for the half of the audience that reads the other
  * language, which is the half least likely to report it.
  */
+import { renderHook } from '@testing-library/react';
+import { createElement, type ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
+import { LocaleProvider, useLocale } from '../components/locale-provider';
 import { en } from '../messages/en';
 import { es } from '../messages/es';
 import type { Locale } from '../lib/i18n';
@@ -248,5 +251,68 @@ describe('nav labels', () => {
     expect(translate(en, 'nav.brew')).toBe('Brew');
     expect(translate(en, 'nav.ai')).toBe('AI');
     expect(translate(en, 'nav.logIn')).toBe('Log in');
+  });
+});
+
+/**
+ * The same rule as the nav test above, applied where it went wrong again.
+ *
+ * Moving a string from a component into the catalogue is a move, not an edit.
+ * Punctuation counts: a typographic apostrophe is a different string from a
+ * straight one, and the only thing that noticed was a test looking for the
+ * sentence the component used to render.
+ */
+describe('English copy survived the move into the catalogue', () => {
+  it('kept the apostrophe the component had', () => {
+    expect(translate(en, 'ai.leadFix')).toBe("That happens — here's the usual fix.");
+  });
+
+  it('says what it looked at once, not twice', () => {
+    // `basisMine` had gained an "of this coffee" that `brewCountMany` already
+    // carried, so the honest-provenance line read "your 3 brews of this coffee
+    // of this coffee". Spanish had it right; only English doubled up.
+    const line = translate(en, 'ai.basisMine', {
+      mine: translate(en, 'ai.brewCountMany', { count: 3 }),
+    });
+    expect(line).toBe('Based on your 3 brews of this coffee.');
+  });
+});
+
+/**
+ * `t` has to be stable, or `[t]` means "every render".
+ *
+ * Three components legitimately depend on `t` in an effect — a status message
+ * set asynchronously has to be re-translated if the language changes. That is
+ * only safe while `t` keeps its identity between renders.
+ *
+ * The no-provider path did not. It built a fresh object, and therefore a fresh
+ * `t`, on every call, so those effects re-ran on every render, set state, and
+ * rendered again. `test/logger-paths.test.tsx` renders the logger bare: the
+ * coffee picker span its debounced search until the file reached an 8 GB heap
+ * and killed the run. For a long time that read as "vitest leaks memory".
+ *
+ * It is not only a test concern. The provider does not wrap the whole tree —
+ * the nav sat outside it once already — and any component that ends up outside
+ * it would spin the same way in a real browser.
+ */
+describe('the translator is stable between renders', () => {
+  it('hands back the same t with no provider above it', () => {
+    const { result, rerender } = renderHook(() => useLocale());
+    const first = result.current.t;
+    rerender();
+    rerender();
+    expect(result.current.t).toBe(first);
+    expect(result.current.locale).toBe('en');
+  });
+
+  it('hands back the same t inside a provider', () => {
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(LocaleProvider, { locale: 'es' as Locale, children });
+
+    const { result, rerender } = renderHook(() => useLocale(), { wrapper });
+    const first = result.current.t;
+    rerender();
+    expect(result.current.t).toBe(first);
+    expect(result.current.t('nav.home')).toBe('Inicio');
   });
 });

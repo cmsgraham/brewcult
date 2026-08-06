@@ -23,9 +23,29 @@ import type {
   TasteVerdict,
 } from '@brewcult/shared-types';
 import { apiFetch, catalogApi, type ApiRequestOptions, type AutocompleteSuggestion } from './api';
+import { en } from '../messages/en';
+import {
+  DEFAULT_LOCALE,
+  translate,
+  type Locale,
+  type MessageKey,
+  type Messages,
+  type Translator,
+} from './i18n';
 
 /** This client writes v1 params (see shared-types header on versioning). */
 export const PARAMS_SCHEMA_VERSION: ParamsSchemaVersion = 1;
+
+/**
+ * English unless told otherwise.
+ *
+ * The pure functions below (payback lines, taste labels) predate translation
+ * and are called from tests and from server code that has no translator to
+ * hand. Rather than force a locale through every call site, they take an
+ * optional `t` and fall back to this — so an untranslated caller keeps exactly
+ * the wording it had.
+ */
+const EN: Translator = (key, values) => translate(en as Messages, key, values);
 
 /* ------------------------------------------------------------------ *
  * Wire shapes
@@ -520,17 +540,35 @@ export function summarizeDraft(draft: BrewDraft): string {
  * house styles across platforms — only adding noise to a control that has to be
  * tapped in under fifteen seconds. The selected state carries the weight now.
  */
-export const TASTE_OPTIONS: ReadonlyArray<{
+export interface TasteOption {
   verdict: TasteVerdict;
   label: string;
   /** Client-side hint only — the authoritative mapping is server-side. */
   hint: string;
+}
+
+const TASTE_KEYS: ReadonlyArray<{
+  verdict: TasteVerdict;
+  label: MessageKey;
+  hint: MessageKey;
 }> = [
-  { verdict: 'bitter', label: 'Bitter', hint: 'usually over-extracted' },
-  { verdict: 'sour', label: 'Sour', hint: 'usually under-extracted' },
-  { verdict: 'weak', label: 'Weak', hint: 'usually under-extracted' },
-  { verdict: 'good', label: 'Good', hint: 'a keeper' },
+  { verdict: 'bitter', label: 'brew.tasteBitter', hint: 'brew.hintOverExtracted' },
+  { verdict: 'sour', label: 'brew.tasteSour', hint: 'brew.hintUnderExtracted' },
+  { verdict: 'weak', label: 'brew.tasteWeak', hint: 'brew.hintUnderExtracted' },
+  { verdict: 'good', label: 'brew.tasteGood', hint: 'brew.hintKeeper' },
 ];
+
+/** The four taste buttons, in the reader's language. */
+export function tasteOptions(t: Translator = EN): ReadonlyArray<TasteOption> {
+  return TASTE_KEYS.map((option) => ({
+    verdict: option.verdict,
+    label: t(option.label),
+    hint: t(option.hint),
+  }));
+}
+
+/** English, for callers with no translator to hand. */
+export const TASTE_OPTIONS: ReadonlyArray<TasteOption> = tasteOptions();
 
 export interface BrewSuggestion {
   /** Warm, optional, never an instruction (§10.2 autonomy). */
@@ -555,6 +593,35 @@ export function ordinal(n: number): string {
   return `${n}${suffix}`;
 }
 
+/**
+ * Spanish ordinals, feminine — they agree with "preparación".
+ *
+ * This one piece of vocabulary lives in code rather than the message catalogue
+ * because it is a numeral system, not copy: the same list would serve any
+ * sentence that counts something feminine, and splitting it across ten
+ * catalogue keys would only obscure that. Past ten, Spanish stops reaching for
+ * an ordinal word in casual speech — "la preparación 27" is what somebody
+ * actually says — so this returns null and the caller uses the plain form.
+ */
+const ES_ORDINALS_FEMININE = [
+  'Primera',
+  'Segunda',
+  'Tercera',
+  'Cuarta',
+  'Quinta',
+  'Sexta',
+  'Séptima',
+  'Octava',
+  'Novena',
+  'Décima',
+];
+
+/** An ordinal word for `n`, or null when the language would rather use a digit. */
+export function ordinalWord(n: number, locale: Locale): string | null {
+  if (locale === 'en') return ordinal(n);
+  return ES_ORDINALS_FEMININE[n - 1] ?? null;
+}
+
 function verdictScore(verdict: TasteVerdict | undefined): number | null {
   if (!verdict) return null;
   return verdict === 'good' ? 1 : 0;
@@ -575,24 +642,24 @@ export function ratingsTrendingUp(verdicts: Array<TasteVerdict | undefined>): bo
   return mean(recent) > mean(earlier);
 }
 
-const SUGGESTION_BY_VERDICT: Record<TasteVerdict, BrewSuggestion | undefined> = {
-  bitter: {
-    text: 'That happens — bitter usually means over-extracted. Try 0.5 coarser tomorrow?',
-    field: 'grind',
-    delta: STEP.grind,
-  },
-  sour: {
-    text: 'Sour usually means under-extracted. Try 0.5 finer tomorrow?',
-    field: 'grind',
-    delta: -STEP.grind,
-  },
-  weak: {
-    text: 'Weak usually means under-extracted. A little finer, or a touch more coffee?',
-    field: 'grind',
-    delta: -STEP.grind,
-  },
+/**
+ * The suggestion attached to each unhappy verdict.
+ *
+ * `field` and `delta` are behaviour — they are what "Apply it" actually does —
+ * so they stay here. Only `text` is copy, and it is looked up per call rather
+ * than baked in, because the same suggestion has to arrive in the reader's
+ * language.
+ */
+const SUGGESTION_BY_VERDICT: Record<
+  TasteVerdict,
+  { key: MessageKey; field: BrewField; delta: number } | undefined
+> = {
+  bitter: { key: 'brew.suggestBitter', field: 'grind', delta: STEP.grind },
+  sour: { key: 'brew.suggestSour', field: 'grind', delta: -STEP.grind },
+  weak: { key: 'brew.suggestWeak', field: 'grind', delta: -STEP.grind },
   good: undefined,
 };
+
 
 /**
  * The single line of payback the card shows after a log (§6).
@@ -600,31 +667,48 @@ const SUGGESTION_BY_VERDICT: Record<TasteVerdict, BrewSuggestion | undefined> = 
  * Rules: progress not streaks; no shaming; never a claim the data does not
  * support. `priorVerdicts` is oldest-first and covers this bag only.
  */
-export function buildPayback(input: {
-  brewCountForBag: number;
-  verdict: TasteVerdict | null;
-  priorVerdicts: Array<TasteVerdict | undefined>;
-  changed: BrewField[];
-}): PaybackLine {
+export function buildPayback(
+  input: {
+    brewCountForBag: number;
+    verdict: TasteVerdict | null;
+    priorVerdicts: Array<TasteVerdict | undefined>;
+    changed: BrewField[];
+  },
+  /** Omit for English. Every existing caller does, and gets what it always got. */
+  options: { t?: Translator; locale?: Locale } = {},
+): PaybackLine {
+  const t = options.t ?? EN;
+  const locale = options.locale ?? DEFAULT_LOCALE;
   const count = Math.max(1, input.brewCountForBag);
-  const nth = `${ordinal(count)} brew of this bag`;
+
+  const word = ordinalWord(count, locale);
+  const nth =
+    word === null
+      ? t('brew.paybackNthPlain', { n: count })
+      : t('brew.paybackNth', { ordinal: word, n: count });
 
   if (input.verdict && input.verdict !== 'good') {
-    const suggestion = SUGGESTION_BY_VERDICT[input.verdict];
-    return suggestion ? { line: `${nth}. ${suggestion.text}`, suggestion } : { line: `${nth}.` };
+    const found = SUGGESTION_BY_VERDICT[input.verdict];
+    if (!found) return { line: t('brew.paybackPlain', { nth }) };
+    const suggestion: BrewSuggestion = {
+      text: t(found.key),
+      field: found.field,
+      delta: found.delta,
+    };
+    return { line: t('brew.paybackWith', { nth, suggestion: suggestion.text }), suggestion };
   }
 
   const all = [...input.priorVerdicts, input.verdict ?? undefined];
   if (input.verdict === 'good' && ratingsTrendingUp(all)) {
-    return { line: `${nth} — your ratings are trending up.` };
+    return { line: t('brew.paybackTrending', { nth }) };
   }
   if (input.verdict === 'good') {
-    return { line: `${nth}, and a good one. Worth repeating.` };
+    return { line: t('brew.paybackGood', { nth }) };
   }
   if (input.changed.length === 1) {
-    return { line: `${nth}. One thing changed — we'll compare it to the last one for you.` };
+    return { line: t('brew.paybackOneThing', { nth }) };
   }
-  return { line: `${nth}.` };
+  return { line: t('brew.paybackPlain', { nth }) };
 }
 
 /* ------------------------------------------------------------------ *

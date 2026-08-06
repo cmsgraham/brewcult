@@ -1,6 +1,6 @@
 import { type Metadata } from 'next';
 import { localeParam } from '../../../../lib/locale-server';
-import Link from 'next/link';
+import { LocaleLink as Link } from '../../../../components/locale-link';
 import { Breadcrumbs } from '../../../../components/catalog/breadcrumbs';
 import { loadRecipe, type RecipeView } from '../../../../components/catalog/catalog-api';
 import styles from '../../../../components/catalog/catalog.module.css';

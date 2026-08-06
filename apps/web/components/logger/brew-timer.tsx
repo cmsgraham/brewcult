@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { formatDuration, LIMIT, STEP } from '../../lib/brewing-client';
 import { Stepper } from './stepper';
+import { useTranslate } from '../locale-provider';
 
 export interface BrewTimerProps {
   seconds: number | null;
@@ -31,6 +32,7 @@ export function BrewTimer({
   onStartedAtChange,
   now = () => Date.now(),
 }: BrewTimerProps) {
+  const t = useTranslate();
   const running = startedAt !== null;
   const [, setTick] = useState(0);
 
@@ -45,7 +47,7 @@ export function BrewTimer({
   return (
     <div className="bc-timer">
       {running ? (
-        <div className="bc-stepper" role="group" aria-label="Brew time">
+        <div className="bc-stepper" role="group" aria-label={t('brew.brewTime')}>
           <span className="bc-stepper__label">Time</span>
           <div className="bc-stepper__control">
             <output className="bc-timer__running" aria-live="off">
@@ -56,7 +58,7 @@ export function BrewTimer({
         </div>
       ) : (
         <Stepper
-          label="Time"
+          label={t('brew.time')}
           value={seconds ?? 0}
           step={STEP.brew_time_s}
           min={LIMIT.brew_time_s.min}
@@ -80,7 +82,7 @@ export function BrewTimer({
           }
         }}
       >
-        <span aria-hidden="true">⏱</span> {running ? 'Stop timer' : 'Start timer'}
+        <span aria-hidden="true">⏱</span> {running ? t('brew.stopTimer') : t('brew.startTimer')}
       </button>
     </div>
   );

@@ -32,6 +32,8 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import { ApiError, apiFetch, isApiError, type ApiRequestOptions } from './api';
+import { en } from '../messages/en';
+import { translate, type MessageKey, type Messages, type Translator } from './i18n';
 import type { OfflineStore } from './offline/store';
 
 export const MEDIA_PATHS = {
@@ -122,7 +124,14 @@ export const IMAGE_ACCEPT = 'image/*';
  * The one line of privacy copy shown wherever a person uploads a photo.
  * It is true because the API re-encodes every upload, which drops EXIF.
  */
-export const PHOTO_PRIVACY_NOTE = 'Location data is stripped from photos when they upload.';
+/**
+ * English, for callers with no translator to hand. The translated forms live in
+ * `messages/*.media` — everything below takes an optional `t` and falls back to
+ * this, so an untranslated call site keeps exactly the wording it had.
+ */
+const EN: Translator = (key, values) => translate(en as Messages, key, values);
+
+export const PHOTO_PRIVACY_NOTE = EN('media.privacyNote');
 
 export function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${Math.round(bytes / (1024 * 1024))} MB`;
@@ -134,18 +143,22 @@ export function formatBytes(bytes: number): string {
  * Pre-flight a file in the browser. Returns a line of copy to show, or null
  * when the file is worth trying. Never throws.
  */
-export function validateImageFile(file: File | Blob | null | undefined): string | null {
+export function validateImageFile(
+  file: File | Blob | null | undefined,
+  t: Translator = EN,
+): string | null {
   if (!file) return null;
   const type = (file.type || '').toLowerCase();
   if (type !== '' && !type.startsWith('image/')) {
-    return 'That file is not an image. JPEG, PNG, WebP or HEIC all work.';
+    return t('media.notAnImage');
   }
   if (file.size > MAX_IMAGE_BYTES) {
-    return `That photo is ${formatBytes(file.size)} — anything under ${formatBytes(
-      MAX_IMAGE_BYTES,
-    )} works. A smaller export or a screenshot will do it.`;
+    return t('media.tooBigExact', {
+      size: formatBytes(file.size),
+      limit: formatBytes(MAX_IMAGE_BYTES),
+    });
   }
-  if (file.size === 0) return 'That file came through empty. Try picking it again.';
+  if (file.size === 0) return t('media.emptyFile');
   return null;
 }
 
@@ -170,12 +183,12 @@ export function isRetryableMediaError(error: unknown): boolean {
   return error.status >= 500 && error.status !== 501;
 }
 
-const TOO_BIG = `That photo is over the ${formatBytes(MAX_IMAGE_BYTES)} limit. A smaller export will go through.`;
-const WRONG_TYPE = 'That file type is not supported. JPEG, PNG, WebP or HEIC all work.';
-const UNREADABLE = "We couldn't read that image. Try a different file, or re-export it as JPEG.";
-const OUT_OF_ROOM = 'Your photo storage is full. Removing an old photo makes room for this one.';
+const TOO_BIG: MessageKey = 'media.tooBig';
+const WRONG_TYPE: MessageKey = 'media.wrongType';
+const UNREADABLE: MessageKey = 'media.unreadable';
+const OUT_OF_ROOM: MessageKey = 'media.outOfRoom';
 
-const MEDIA_ERROR_BY_CODE: Record<string, string> = {
+const MEDIA_ERROR_BY_CODE: Record<string, MessageKey> = {
   file_too_large: TOO_BIG,
   payload_too_large: TOO_BIG,
   unsupported_media_type: WRONG_TYPE,
@@ -185,7 +198,7 @@ const MEDIA_ERROR_BY_CODE: Record<string, string> = {
   storage_quota_exceeded: OUT_OF_ROOM,
 };
 
-const MEDIA_ERROR_BY_STATUS: Record<number, string> = {
+const MEDIA_ERROR_BY_STATUS: Record<number, MessageKey> = {
   413: TOO_BIG,
   415: WRONG_TYPE,
   422: UNREADABLE,
@@ -203,23 +216,23 @@ const MEDIA_ERROR_BY_STATUS: Record<number, string> = {
  * uploaded 40 images in the last 24 hours…"), and the generic mapping in
  * lib/api.ts would replace real information with a shrug.
  */
-export function describeMediaError(error: unknown): string {
+export function describeMediaError(error: unknown, t: Translator = EN): string {
   if (isMediaUnavailable(error)) {
-    return 'Photos are not switched on yet. Everything else saved normally.';
+    return t('media.notSwitchedOn');
   }
   if (isOfflineError(error)) {
-    return "You're offline, so the photo is waiting on this device. It uploads when you have signal.";
+    return t('media.offline');
   }
-  if (!isApiError(error)) return 'That upload did not go through. Try again in a moment.';
+  if (!isApiError(error)) return t('media.uploadFailed');
 
   const serverSaidSomethingUseful =
     (error.status === 400 || error.status === 429) && error.message !== '';
 
-  return (
-    MEDIA_ERROR_BY_CODE[error.code] ??
-    MEDIA_ERROR_BY_STATUS[error.status] ??
-    (serverSaidSomethingUseful ? error.message : error.userMessage)
-  );
+  const key = MEDIA_ERROR_BY_CODE[error.code] ?? MEDIA_ERROR_BY_STATUS[error.status];
+  if (key) return t(key, { limit: formatBytes(MAX_IMAGE_BYTES) });
+
+  // The API's own wording, in whatever language it sent — not ours to restate.
+  return serverSaidSomethingUseful ? error.message : error.userMessage;
 }
 
 /* ------------------------------------------------------------------ *

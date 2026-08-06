@@ -1,8 +1,7 @@
 import { type Metadata } from 'next';
-import { localePath } from '../../lib/i18n';
 import { localeAlternates } from '../../lib/seo';
 import { localeParam, translator } from '../../lib/locale-server';
-import Link from 'next/link';
+import { LocaleLink as Link } from '../../components/locale-link';
 import { JsonLd, readCspNonce } from '../../components/catalog/json-ld';
 import { brandSameAs } from '../../lib/seo';
 import { organizationJsonLd, websiteJsonLd } from '../../lib/structured-data';
@@ -64,24 +63,24 @@ export default async function HomePage({
       <div className="bc-actions">
         {user ? (
           <>
-            <Link className="bc-button" href={localePath('/discover', locale)}>
+            <Link className="bc-button" href="/discover">
               {t('home.discoverCta')}
             </Link>
             <Link
               className="bc-button bc-button--secondary"
-              href={localePath('/profile', locale)}
+              href="/profile"
             >
               {t('home.profileCta')}
             </Link>
           </>
         ) : (
           <>
-            <Link className="bc-button" href={localePath('/register', locale)}>
+            <Link className="bc-button" href="/register">
               {t('home.registerCta')}
             </Link>
             <Link
               className="bc-button bc-button--secondary"
-              href={localePath('/discover', locale)}
+              href="/discover"
             >
               {t('home.lookAroundCta')}
             </Link>

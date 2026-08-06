@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { LocaleLink as Link } from '../../components/locale-link';
 import { type ReactNode } from 'react';
 import { MFA_SETUP_PATH, type AdminActor } from '../../lib/admin-client';
 import styles from './admin.module.css';

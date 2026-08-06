@@ -3,6 +3,9 @@
 import type { BrewPrefill } from '@brewcult/shared-types';
 import { useRef } from 'react';
 import { formatDuration, formatRatio, ratioOf, type BrewDraft } from '../../lib/brewing-client';
+import { useLocale, useTranslate } from '../locale-provider';
+import { grindCategoryInline } from '../catalog/copy';
+import type { MessageKey } from '../../lib/i18n';
 
 export interface RepeatCardProps {
   draft: BrewDraft;
@@ -15,11 +18,11 @@ export interface RepeatCardProps {
 const LONG_PRESS_MS = 500;
 
 /** Honest about where the numbers came from — never "your recipe" when it isn't. */
-const BASIS_COPY: Record<BrewPrefill['basis'], string> = {
-  last_session: 'Same as your last brew',
-  official_recipe: "The roaster's recipe for this coffee",
-  community_recipe: 'A community recipe for your gear',
-  defaults: 'A starting point — change anything',
+const BASIS_KEY: Record<BrewPrefill['basis'], MessageKey> = {
+  last_session: 'brew.basisLast',
+  official_recipe: 'brew.basisOfficial',
+  community_recipe: 'brew.basisCommunity',
+  defaults: 'brew.basisDefaults',
 };
 
 /**
@@ -30,6 +33,8 @@ const BASIS_COPY: Record<BrewPrefill['basis'], string> = {
  * as tapping tweak, so the thumb never has to travel.
  */
 export function RepeatCard({ draft, basis, onRepeat, onTweak, busy = false }: RepeatCardProps) {
+  const t = useTranslate();
+  const { locale } = useLocale();
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressed = useRef(false);
 
@@ -42,33 +47,33 @@ export function RepeatCard({ draft, basis, onRepeat, onTweak, busy = false }: Re
 
   return (
     <div className="bc-logger__repeat">
-      <p className="bc-logger__basis">{BASIS_COPY[basis]}</p>
+      <p className="bc-logger__basis">{t(BASIS_KEY[basis])}</p>
 
       <dl className="bc-logger__recap">
         <div>
-          <dt>Brewer</dt>
-          <dd>{draft.brewer_label ?? 'Pour over'}</dd>
+          <dt>{t('brew.brewer')}</dt>
+          <dd>{draft.brewer_label ?? t('brew.pourOver')}</dd>
         </div>
         <div>
-          <dt>Dose → water</dt>
+          <dt>{t('brew.doseWater')}</dt>
           <dd>
             {draft.dose_g}g → {draft.water_g}g{' '}
             <span className="bc-muted">({formatRatio(ratioOf(draft.dose_g, draft.water_g))})</span>
           </dd>
         </div>
         <div>
-          <dt>Temperature</dt>
+          <dt>{t('brew.temperature')}</dt>
           <dd>{draft.temperature_c}°C</dd>
         </div>
         <div>
-          <dt>Time</dt>
+          <dt>{t('brew.time')}</dt>
           <dd>{formatDuration(draft.brew_time_s)}</dd>
         </div>
         <div>
-          <dt>Grind</dt>
+          <dt>{t('brew.grind')}</dt>
           <dd>
             {draft.grind_setting || '—'}{' '}
-            <span className="bc-muted">({draft.grind_category.replace('_', ' ')})</span>
+            <span className="bc-muted">({grindCategoryInline(draft.grind_category, locale)})</span>
           </dd>
         </div>
       </dl>
@@ -97,10 +102,11 @@ export function RepeatCard({ draft, basis, onRepeat, onTweak, busy = false }: Re
           onPointerLeave={clearLongPress}
           onPointerCancel={clearLongPress}
         >
-          {draft.coffee ? 'Brew this again' : 'Log this brew'}
+          {draft.coffee ? t('brew.brewAgain') : t('brew.logThis')}
         </button>
         <button type="button" className="bc-button bc-button--quiet" onClick={onTweak}>
-          <span aria-hidden="true">▸ </span>Tweak
+          <span aria-hidden="true">▸ </span>
+          {t('brew.tweak')}
         </button>
       </div>
     </div>

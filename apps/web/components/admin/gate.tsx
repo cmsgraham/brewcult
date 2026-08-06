@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { LocaleLink as Link } from '../../components/locale-link';
 import { MFA_SETUP_PATH, ROLE_LABEL, type AdminActor } from '../../lib/admin-client';
 import styles from './admin.module.css';
 

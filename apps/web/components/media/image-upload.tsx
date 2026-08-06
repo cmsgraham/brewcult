@@ -5,7 +5,6 @@ import type { FetchLike } from '../../lib/api';
 import {
   IMAGE_ACCEPT,
   MAX_IMAGE_BYTES,
-  PHOTO_PRIVACY_NOTE,
   describeMediaError,
   formatBytes,
   uploadMedia,
@@ -14,6 +13,8 @@ import {
   type MediaKind,
 } from '../../lib/media-client';
 import styles from './media.module.css';
+import { useTranslate } from '../locale-provider';
+import type { MessageKey } from '../../lib/i18n';
 
 /**
  * The one image uploader. Everything that takes a picture in BrewCult uses it:
@@ -88,11 +89,11 @@ export interface ImageUploadProps {
   ctaText?: string;
 }
 
-const DEFAULT_STATUS_TEXT: Record<UploadStatus, string | null> = {
+const DEFAULT_STATUS_KEY: Record<UploadStatus, MessageKey | null> = {
   idle: null,
-  uploading: 'Uploading your photo…',
-  ready: 'Photo added.',
-  queued: 'Saved on this device — it uploads when you have signal.',
+  uploading: 'media.uploading',
+  ready: 'media.photoAdded',
+  queued: 'media.photoQueued',
   error: null,
 };
 
@@ -125,6 +126,7 @@ export function useImageUpload(options: {
   fetchImpl?: FetchLike;
   onUploaded?: (asset: MediaAsset) => void | Promise<void>;
 }): UploadController & { asset: MediaAsset | null } {
+  const t = useTranslate();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<UploadStatus>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -158,7 +160,7 @@ export function useImageUpload(options: {
         return;
       }
 
-      const complaint = validateImageFile(file);
+      const complaint = validateImageFile(file, t);
       if (complaint !== null) {
         setStatus('error');
         setError(complaint);
@@ -189,11 +191,11 @@ export function useImageUpload(options: {
         } catch (cause) {
           if (!aliveRef.current) return;
           setStatus('error');
-          setError(describeMediaError(cause));
+          setError(describeMediaError(cause, t));
         }
       })();
     },
-    [clear, fetchImpl, kind, onUploaded],
+    [clear, fetchImpl, kind, onUploaded, t],
   );
 
   return { previewUrl, status, error, select, clear, asset };
@@ -214,6 +216,7 @@ export function ImageUpload({
   disabled = false,
   ctaText,
 }: ImageUploadProps) {
+  const t = useTranslate();
   const internal = useImageUpload({
     kind,
     ...(fetchImpl ? { fetchImpl } : {}),
@@ -231,10 +234,13 @@ export function ImageUpload({
 
   const shownUrl = active.previewUrl ?? currentUrl;
   const hasImage = shownUrl !== null;
+  const statusKey = DEFAULT_STATUS_KEY[active.status];
   const statusText =
     active.statusText !== undefined
       ? active.statusText
-      : DEFAULT_STATUS_TEXT[active.status];
+      : statusKey === null
+        ? null
+        : t(statusKey);
 
   function handleFiles(files: FileList | null): void {
     const file = files?.[0] ?? null;
@@ -301,12 +307,12 @@ export function ImageUpload({
 
         <span className={styles.dropzoneCopy}>
           <span className={styles.dropzoneTitle}>
-            {hasImage ? 'Choose a different photo' : (ctaText ?? 'Add a photo')}
+            {hasImage ? t('media.chooseDifferent') : (ctaText ?? t('media.addPhoto'))}
           </span>
           <span className={styles.dropzoneSub}>
             {capture
-              ? `Take one, or pick a file. Up to ${formatBytes(MAX_IMAGE_BYTES)}.`
-              : `Drop one here or pick a file. Up to ${formatBytes(MAX_IMAGE_BYTES)}.`}
+              ? t('media.takeOrPick', { limit: formatBytes(MAX_IMAGE_BYTES) })
+              : t('media.dropOrPick', { limit: formatBytes(MAX_IMAGE_BYTES) })}
           </span>
         </span>
 
@@ -353,7 +359,7 @@ export function ImageUpload({
             disabled={disabled}
             onClick={() => inputRef.current?.click()}
           >
-            {active.status === 'error' ? 'Try another photo' : 'Replace photo'}
+            {active.status === 'error' ? t('media.tryAnother') : t('media.replacePhoto')}
           </button>
           {hasImage ? (
             <button
@@ -365,13 +371,13 @@ export function ImageUpload({
                 void onRemove?.();
               }}
             >
-              Remove photo
+              {t('media.removePhoto')}
             </button>
           ) : null}
         </div>
       ) : null}
 
-      {showPrivacyNote ? <p className={styles.hint}>{PHOTO_PRIVACY_NOTE}</p> : null}
+      {showPrivacyNote ? <p className={styles.hint}>{t('media.privacyNote')}</p> : null}
     </div>
   );
 }

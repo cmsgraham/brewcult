@@ -3,6 +3,7 @@
 import { ImageUpload } from './image-upload';
 import type { BrewPhotoController } from './use-brew-photo';
 import styles from './media.module.css';
+import { useTranslate } from '../locale-provider';
 
 /**
  * The photo affordance inside the brew logger.
@@ -30,13 +31,14 @@ export function BrewPhotoField({
   variant = 'collapsed',
   logged = false,
 }: BrewPhotoFieldProps) {
+  const t = useTranslate();
   const uploader = (
     <ImageUpload
-      label={logged ? 'Add a photo of this brew' : 'Photo of this brew'}
+      label={logged ? t('brew.addPhotoOf') : t('brew.photoOf')}
       controller={controller}
       capture
       compact
-      ctaText="Take or choose a photo"
+      ctaText={t('brew.photoCta')}
     />
   );
 
@@ -48,10 +50,10 @@ export function BrewPhotoField({
     /* `bc-logger__more` is the logger's own disclosure styling (44px summary
        target); the media styles only dress the contents. */
     <details className="bc-logger__more" open={controller.hasPhoto}>
-      <summary>Add a photo (optional)</summary>
+      <summary>{t('brew.addPhotoOptional')}</summary>
       <div className={styles.brewPhoto}>
         <p className={styles.brewPhotoNote}>
-          It never holds the log up — log the brew and the photo catches up.
+          {t('brew.photoNote')}
         </p>
         {uploader}
       </div>

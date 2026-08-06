@@ -1,12 +1,17 @@
 'use client';
 
 import type { TasteVerdict } from '@brewcult/shared-types';
-import { TASTE_OPTIONS } from '../../lib/brewing-client';
+import { tasteOptions } from '../../lib/brewing-client';
+import { useTranslate } from '../locale-provider';
 
 export interface TasteRowProps {
   value: TasteVerdict | null;
   onChange: (verdict: TasteVerdict | null) => void;
-  /** Heading above the row; the post-log offer words it differently. */
+  /**
+   * Heading above the row; the post-log offer words it differently. Absent
+   * means "How was it?" in the reader's language — which is why this is not a
+   * default parameter any more: a default would have to be English.
+   */
   legend?: string;
   compact?: boolean;
 }
@@ -22,16 +27,18 @@ export interface TasteRowProps {
  * it is server-authoritative (shared-types), so advice and stored diagnoses
  * cannot drift between clients. The hints below are only copy.
  */
-export function TasteRow({ value, onChange, legend = 'How was it?', compact = false }: TasteRowProps) {
+export function TasteRow({ value, onChange, legend, compact = false }: TasteRowProps) {
+  const t = useTranslate();
+  const heading = legend ?? t('brew.howWasIt');
   return (
     <div
       className={`bc-taste${compact ? ' bc-taste--compact' : ''}`}
       role="group"
-      aria-label={legend}
+      aria-label={heading}
     >
-      <span className="bc-taste__legend">{legend}</span>
+      <span className="bc-taste__legend">{heading}</span>
       <div className="bc-taste__options">
-        {TASTE_OPTIONS.map((option) => {
+        {tasteOptions(t).map((option) => {
           const selected = value === option.verdict;
           return (
             <button

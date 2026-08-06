@@ -226,6 +226,19 @@ export function grindCategoryLabel(
   return catalogCopy(locale).GRIND_CATEGORY_LABEL[category] ?? category;
 }
 
+/**
+ * The same label, lowercased, for the parenthetical spots inside the logger —
+ * "(medium fine)", "(media-fina)". Only the first character changes, which is
+ * what both languages want mid-sentence and what leaves acronyms alone.
+ */
+export function grindCategoryInline(
+  category: GrindCategory | null | undefined,
+  locale = 'en',
+): string | null {
+  const label = grindCategoryLabel(category, locale);
+  return label === null ? null : label.charAt(0).toLowerCase() + label.slice(1);
+}
+
 /** "Ethiopia, Yirgacheffe" / "Ethiopia" — never a dangling comma. */
 export function originLabel(
   origin: { country: string; region: string | null } | null | undefined,

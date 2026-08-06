@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { LocaleLink as Link } from '../../components/locale-link';
 import { EntityImage } from '../media/entity-image';
 import type { CoffeeSummary, EquipmentSummary, RecipeView, RoasterSummary } from './catalog-api';
 import { catalogCopy, grindCategoryLabel, originLabel, processLabel, roastLevelLabel } from './copy';

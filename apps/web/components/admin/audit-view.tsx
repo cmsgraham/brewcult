@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { LocaleLink as Link } from '../../components/locale-link';
 import { queryString, type AuditEntry } from '../../lib/admin-client';
 import { formatWhen } from './format';
 import styles from './admin.module.css';

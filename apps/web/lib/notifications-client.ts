@@ -7,6 +7,7 @@
  * §9.1 for the three production bugs it caused.
  */
 import { apiFetch, type ApiRequestOptions } from './api';
+import type { MessageKey } from './i18n';
 
 export const NOTIFICATION_PREFERENCES_PATH = '/api/v1/notifications/preferences';
 export const UNSUBSCRIBE_PATH = '/api/v1/notifications/unsubscribe';
@@ -24,19 +25,22 @@ interface PreferencesResponse {
 }
 
 /** Copy lives here, beside the type, so the screen cannot drift from the API. */
+/**
+ * Which message describes each switch. Keys rather than words, because the
+ * component rendering them has a translator and this module does not — and a
+ * notification type is a wire value, not copy.
+ */
 export const NOTIFICATION_COPY: Record<
   NotificationType,
-  { label: string; description: string }
+  { label: MessageKey; description: MessageKey }
 > = {
   weekly_recap: {
-    label: 'Weekly brew recap',
-    description:
-      'A short summary of what you brewed, once a week. Your own data, nobody else’s. A week with no brews sends nothing at all.',
+    label: 'notifications.weeklyLabel',
+    description: 'notifications.weeklyBody',
   },
   recipe_forked: {
-    label: 'Someone builds on your recipe',
-    description:
-      'When another person forks a recipe you published, so you can see where it went.',
+    label: 'notifications.forkedLabel',
+    description: 'notifications.forkedBody',
   },
 };
 

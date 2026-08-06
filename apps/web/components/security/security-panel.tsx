@@ -1,6 +1,8 @@
 'use client';
 
-import Link from 'next/link';
+import { LocaleLink as Link } from '../../components/locale-link';
+import { useLocale } from '../locale-provider';
+import { localePath, type Locale } from '../../lib/i18n';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { ROLE_LABEL, isStaffRole, type AdminRole } from '../../lib/admin-client';
@@ -30,7 +32,18 @@ type View =
   | { kind: 'enrol'; enrolment: MfaEnrolment }
   | { kind: 'codes'; codes: string[]; origin: 'enrolled' | 'regenerated' };
 
-const SIGN_IN_AGAIN = '/login?next=%2Fprofile%2Fsecurity';
+/**
+ * Sign in again, and come back to this page — in the language it was read in.
+ *
+ * It was a module constant, which meant both the encoded `next` and `/login`
+ * itself were pinned to English. `LocaleLink` fixed half of it for the link and
+ * nothing for `router.push`, which is the subtler failure: the redirect works,
+ * so nobody files a bug, they just quietly end up in the other language.
+ */
+function signInAgain(locale: Locale): string {
+  const back = localePath('/profile/security', locale);
+  return `${localePath('/login', locale)}?next=${encodeURIComponent(back)}`;
+}
 
 /**
  * The interactive half of /profile/security.
@@ -54,6 +67,7 @@ const SIGN_IN_AGAIN = '/login?next=%2Fprofile%2Fsecurity';
  * anything code-shaped out of the one string that reaches the UI.
  */
 export function SecurityPanel({ handle, role, enrolled, sessionVerified }: SecurityPanelProps) {
+  const { locale } = useLocale();
   const router = useRouter();
   const [view, setView] = useState<View>({ kind: 'overview' });
   const [isOn, setIsOn] = useState(enrolled);
@@ -99,7 +113,7 @@ export function SecurityPanel({ handle, role, enrolled, sessionVerified }: Secur
       // Even a failed logout should not strand them here — the sign-in page
       // will sort out whatever session is or is not still valid.
     }
-    router.push(SIGN_IN_AGAIN);
+    router.push(signInAgain(locale));
     router.refresh();
   }
 
@@ -195,7 +209,8 @@ export function SecurityPanel({ handle, role, enrolled, sessionVerified }: Secur
             >
               {signingOut ? 'Signing out…' : 'Sign out and sign back in'}
             </button>
-            <Link className="bc-button bc-button--quiet" href={SIGN_IN_AGAIN}>
+            {/* Already prefixed; LocaleLink's own prefixing is idempotent. */}
+            <Link className="bc-button bc-button--quiet" href={signInAgain(locale)}>
               Go to sign-in
             </Link>
           </div>

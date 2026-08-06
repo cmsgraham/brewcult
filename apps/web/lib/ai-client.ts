@@ -32,6 +32,19 @@ import {
   type ApiRequestOptions,
   type FetchLike,
 } from './api';
+import { en } from '../messages/en';
+import { translate, type Messages, type Translator } from './i18n';
+
+/**
+ * English unless told otherwise.
+ *
+ * NOTE: this covers the sentences WE write around an answer — the basis line,
+ * the confidence hedge, the lead-in. The answer itself is generated server-side
+ * and arrives in whatever language the model was asked for, so a Spanish reader
+ * still gets English advice until the API is told the locale. That is a server
+ * change, not a client one.
+ */
+const EN: Translator = (key, values) => translate(en as Messages, key, values);
 
 export const AI_PATHS = {
   diagnose: '/api/v1/ai/diagnose',
@@ -195,30 +208,26 @@ export function normalizeBasis(raw: unknown): AiBasis | null {
   };
 }
 
-const NO_DATA_LINE =
-  'No community data for this coffee yet — this is a general starting point.';
-
 /**
  * Honest provenance in one line. Never inflates: with nothing to stand on it
  * says so, which §7.2 treats as a feature and not an apology.
  */
-export function describeBasis(basis: AiBasis | null): string {
-  if (!basis) return NO_DATA_LINE;
+export function describeBasis(basis: AiBasis | null, t: Translator = EN): string {
+  if (!basis) return t('ai.noData');
+  // The server's own words for what it looked at. Not ours to restate.
   if (basis.label) return basis.label;
 
   const mine = basis.brewCount ?? 0;
   const theirs = basis.communityCount ?? 0;
-  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+  const mineText =
+    mine === 1 ? t('ai.brewCountOne') : t('ai.brewCountMany', { count: mine });
+  const theirsText =
+    theirs === 1 ? t('ai.communityCountOne') : t('ai.communityCountMany', { count: theirs });
 
-  if (mine > 0 && theirs > 0) {
-    return `Based on your ${plural(mine, 'brew')} of this coffee and ${plural(
-      theirs,
-      'community brew',
-    )}.`;
-  }
-  if (mine > 0) return `Based on your ${plural(mine, 'brew')} of this coffee.`;
-  if (theirs > 0) return `Based on ${plural(theirs, 'community brew')} of this coffee.`;
-  return NO_DATA_LINE;
+  if (mine > 0 && theirs > 0) return t('ai.basisBoth', { mine: mineText, theirs: theirsText });
+  if (mine > 0) return t('ai.basisMine', { mine: mineText });
+  if (theirs > 0) return t('ai.basisTheirs', { theirs: theirsText });
+  return t('ai.noData');
 }
 
 /* ------------------------------------------------------------------ *
@@ -239,12 +248,15 @@ export function normalizeConfidence(raw: unknown): AiConfidence | null {
 }
 
 /** Spoken uncertainty (§7.2.3). Silence for `high` — confidence needs no caveat. */
-export function confidenceLine(confidence: AiConfidence | null): string | null {
+export function confidenceLine(
+  confidence: AiConfidence | null,
+  t: Translator = EN,
+): string | null {
   switch (confidence) {
     case 'low':
-      return "I'm guessing more than usual here — worth a try, not a rule.";
+      return t('ai.confidenceLow');
     case 'medium':
-      return 'Fairly confident, though your palate is the final word.';
+      return t('ai.confidenceMedium');
     default:
       return null;
   }
