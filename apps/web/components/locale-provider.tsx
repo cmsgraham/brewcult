@@ -54,6 +54,32 @@ export function LocaleProvider({ locale, children }: { locale: Locale; children:
 }
 
 /**
+ * The value `useLocale` hands back when there is no provider above it.
+ *
+ * ── WHY THIS IS A MODULE CONSTANT AND NOT AN OBJECT LITERAL ─────────────────
+ * It used to be built inside the hook, which meant a fresh `t` on every single
+ * render. `t` is a legitimate dependency — a status message set in an effect
+ * has to be re-translated when the language changes — so components correctly
+ * list it in their dependency arrays. With an unstable identity that array
+ * never matches, and `[t]` becomes "every render": the effect runs, sets state,
+ * causes a render, and runs again. An infinite loop, dressed as a dependency.
+ *
+ * It cost an afternoon. `test/logger-paths.test.tsx` renders the logger with no
+ * provider, so `coffee-picker` span its debounced search forever; the file
+ * climbed to an 8 GB heap and took the whole suite down with it, which read as
+ * "vitest leaks memory" for as long as nobody looked closely.
+ *
+ * The provider's own value is already memoised on `locale`, so this is the only
+ * path that was ever unstable — and it is exactly the path that is hardest to
+ * notice, because a missing provider otherwise fails so gracefully.
+ */
+const ENGLISH_FALLBACK: LocaleContextValue = {
+  locale: DEFAULT_LOCALE,
+  t: (key: MessageKey, values?: Record<string, string | number>) =>
+    translate(CATALOGUES[DEFAULT_LOCALE], key, values),
+};
+
+/**
  * Falls back to English rather than throwing when no provider is above.
  *
  * A missing provider is a wiring mistake, and the honest failure for one is an
@@ -61,12 +87,7 @@ export function LocaleProvider({ locale, children }: { locale: Locale; children:
  * would take down a working page over a translation.
  */
 export function useLocale(): LocaleContextValue {
-  const found = useContext(LocaleContext);
-  if (found) return found;
-  return {
-    locale: DEFAULT_LOCALE,
-    t: (key, values) => translate(CATALOGUES[DEFAULT_LOCALE], key, values),
-  };
+  return useContext(LocaleContext) ?? ENGLISH_FALLBACK;
 }
 
 /** The common case: just the translator. */
