@@ -19,6 +19,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh, replace }),
 }));
 
+const { LocaleProvider } = await import('../components/locale-provider');
 const { SessionRestorer } = await import('../components/session-restorer');
 const { SessionRestoreScreen } = await import('../components/session-restore-screen');
 const { resetRefreshState, SESSION_HINT_COOKIE } = await import('../lib/api');
@@ -147,5 +148,21 @@ describe('the restore screen on a private page', () => {
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/login?next=%2Fprofile%2Fsecurity'));
     expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('sends a Spanish reader to the Spanish sign-in page', async () => {
+    // `next` already arrived in Spanish — the guard that built it knew which
+    // page it was protecting. `/login` did not, so a lapsed session was handed
+    // to the English sign-in page to come back from.
+    fetchMock.mockResolvedValue(unauthorized());
+    render(
+      <LocaleProvider locale="es">
+        <SessionRestoreScreen next="/es/profile/security" />
+      </LocaleProvider>,
+    );
+
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith('/es/login?next=%2Fes%2Fprofile%2Fsecurity'),
+    );
   });
 });

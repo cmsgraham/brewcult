@@ -60,7 +60,10 @@ vi.mock('next/navigation', () => ({
   notFound: () => {
     throw new NotFoundError();
   },
-  useRouter: () => ({ refresh: () => undefined }),
+  // `replace` as well as `refresh`: the restore screen calls one or the other
+  // depending on whether the session came back, and a mock missing either turns
+  // a passing test into an unhandled rejection that fails the whole run.
+  useRouter: () => ({ refresh: () => undefined, replace: () => undefined }),
 }));
 
 const { default: AdminOverviewPage } = await import('../app/[locale]/admin/page');

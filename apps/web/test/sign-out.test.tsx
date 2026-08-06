@@ -21,6 +21,7 @@ vi.mock('../lib/api', async () => {
   return { ...actual, authApi: { ...actual.authApi, logout } };
 });
 
+const { LocaleProvider } = await import('../components/locale-provider');
 const { SignOutButton } = await import('../components/profile/sign-out-button');
 
 beforeEach(() => {
@@ -51,5 +52,22 @@ describe('SignOutButton', () => {
 
     // A failed logout must never strand somebody on the page they are leaving.
     await waitFor(() => expect(push).toHaveBeenCalledWith('/login'));
+  });
+
+  it('leaves a Spanish reader on the Spanish sign-in page', async () => {
+    // Signing out sent everybody to `/login` regardless. The redirect worked,
+    // so it never looked like a bug — it just quietly changed your language at
+    // the one moment you are most likely to think the site is broken.
+    const user = userEvent.setup();
+    logout.mockResolvedValueOnce(undefined);
+    render(
+      <LocaleProvider locale="es">
+        <SignOutButton />
+      </LocaleProvider>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/es/login'));
   });
 });

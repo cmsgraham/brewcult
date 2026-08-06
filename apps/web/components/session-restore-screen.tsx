@@ -3,7 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { restoreSession } from '../lib/api';
-import { useTranslate } from './locale-provider';
+import { localePath } from '../lib/i18n';
+import { useLocale } from './locale-provider';
 
 /**
  * What a private page shows instead of bouncing you to /login.
@@ -17,18 +18,23 @@ import { useTranslate } from './locale-provider';
  * So: pause here, ask the browser, and go to /login only if the answer is no.
  */
 export function SessionRestoreScreen({ next }: { next: string }) {
-  const t = useTranslate();
+  const { locale, t } = useLocale();
   const router = useRouter();
   const attempted = useRef(false);
+
+  // `next` arrives already in the right language — the guard that built it knew
+  // which page it was protecting. `/login` itself did not, so a lapsed Spanish
+  // session was sent to the English sign-in page to come back from.
+  const signIn = `${localePath('/login', locale)}?next=${encodeURIComponent(next)}`;
 
   useEffect(() => {
     if (attempted.current) return;
     attempted.current = true;
     void restoreSession().then((ok) => {
       if (ok) router.refresh();
-      else router.replace(`/login?next=${encodeURIComponent(next)}`);
+      else router.replace(signIn);
     });
-  }, [next, router]);
+  }, [signIn, router]);
 
   return (
     <div className="bc-stack" aria-live="polite">
@@ -38,8 +44,7 @@ export function SessionRestoreScreen({ next }: { next: string }) {
       <p className="bc-muted">{t('session.restoring')}</p>
       <noscript>
         <p>
-          {t('session.noScript')}{' '}
-          <a href={`/login?next=${encodeURIComponent(next)}`}>{t('common.signIn')}</a>.
+          {t('session.noScript')} <a href={signIn}>{t('common.signIn')}</a>.
         </p>
       </noscript>
     </div>
