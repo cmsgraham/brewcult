@@ -26,12 +26,21 @@ import {
  * the URL the visitor sees never changes — that is what keeps every already
  * indexed URL working.
  *
- * A first-time visitor whose browser asks for Spanish is REDIRECTED to `/es/…`
- * once, and the choice is remembered in a cookie. Redirect rather than rewrite,
- * because the language a person reads should be in the URL they can bookmark
- * and send to somebody else. Anybody who has chosen a language is never
- * redirected again — the cookie beats the header, and an explicit prefix beats
- * both.
+ * ── THE ONE RULE: A REQUESTED URL IS NEVER REDIRECTED ───────────────────────
+ * The cookie guesses for a FIRST visit and never again. That is the whole rule,
+ * and it exists because the obvious alternative — "remember their language and
+ * always send them there" — breaks the language switcher: clicking English on a
+ * Spanish page requests `/discover`, the cookie says `es`, and the middleware
+ * bounces them straight back. The switcher looked dead while working perfectly.
+ *
+ * It breaks shared links the same way. Sending somebody `/coffee/x` and having
+ * them land on `/es/coffee/x` because of a cookie they forgot they had is the
+ * kind of thing that makes people distrust a site's URLs.
+ *
+ * So: no cookie at all + an unprefixed URL is the only case where
+ * `Accept-Language` gets a vote. After that the URL is the truth, and the
+ * cookie merely follows it — which is what makes it a memory of a choice
+ * rather than an override of one.
  *
  * ── Note for infra ────────────────────────────────────────────────────────────
  * Caddy's `header Content-Security-Policy "…"` *replaces* this one, and the
@@ -87,44 +96,48 @@ export function middleware(request: NextRequest) {
   }
 
   const prefix = pathname.split('/')[1];
+  const remembered = request.cookies.get(LOCALE_COOKIE)?.value;
 
-  // Already asking for a language explicitly: serve it, and remember it. This
-  // is how a shared `/es/…` link teaches the site what the recipient reads.
-  if (isLocale(prefix)) {
-    const response = withCsp(NextResponse.next({ request: { headers: requestHeaders } }));
-    if (request.cookies.get(LOCALE_COOKIE)?.value !== prefix) {
-      response.cookies.set(LOCALE_COOKIE, prefix, {
+  /** Records what they are actually reading, so the memory follows the URL. */
+  const remember = (response: NextResponse, locale: string): NextResponse => {
+    if (remembered !== locale) {
+      response.cookies.set(LOCALE_COOKIE, locale, {
         path: '/',
         maxAge: LOCALE_COOKIE_MAX_AGE,
         sameSite: 'lax',
       });
     }
     return response;
+  };
+
+  // An explicit `/es/…`. Serve it and remember it — this is how a shared link
+  // teaches the site what its recipient reads.
+  if (isLocale(prefix)) {
+    return remember(
+      withCsp(NextResponse.next({ request: { headers: requestHeaders } })),
+      prefix,
+    );
   }
 
-  // Unprefixed. Either this person wants English, or they have never been here
-  // and their browser is asking for something else.
-  const chosen = request.cookies.get(LOCALE_COOKIE)?.value;
-  const preferred = isLocale(chosen)
-    ? chosen
-    : localeFromAcceptLanguage(request.headers.get('accept-language'));
-
-  if (preferred !== DEFAULT_LOCALE && LOCALES.includes(preferred)) {
-    const url = request.nextUrl.clone();
-    url.pathname = `/${preferred}${pathname === '/' ? '' : pathname}`;
-    const response = withCsp(NextResponse.redirect(url));
-    response.cookies.set(LOCALE_COOKIE, preferred, {
-      path: '/',
-      maxAge: LOCALE_COOKIE_MAX_AGE,
-      sameSite: 'lax',
-    });
-    return response;
+  // Unprefixed, and they have never been here: the only moment the browser's
+  // Accept-Language gets a vote.
+  if (!isLocale(remembered)) {
+    const guessed = localeFromAcceptLanguage(request.headers.get('accept-language'));
+    if (guessed !== DEFAULT_LOCALE && LOCALES.includes(guessed)) {
+      const url = request.nextUrl.clone();
+      url.pathname = `/${guessed}${pathname === '/' ? '' : pathname}`;
+      return remember(withCsp(NextResponse.redirect(url)), guessed);
+    }
   }
 
-  // English, served from the unprefixed URL it was indexed under.
+  // Unprefixed IS the English URL. Serve it — never redirect a URL somebody
+  // asked for — and let the memory follow what they are reading.
   const url = request.nextUrl.clone();
   url.pathname = `/${DEFAULT_LOCALE}${pathname === '/' ? '' : pathname}`;
-  return withCsp(NextResponse.rewrite(url, { request: { headers: requestHeaders } }));
+  return remember(
+    withCsp(NextResponse.rewrite(url, { request: { headers: requestHeaders } })),
+    DEFAULT_LOCALE,
+  );
 }
 
 export const config = {

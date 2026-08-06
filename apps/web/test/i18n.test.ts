@@ -10,6 +10,7 @@
 import { describe, expect, it } from 'vitest';
 import { en } from '../messages/en';
 import { es } from '../messages/es';
+import type { Locale } from '../lib/i18n';
 import {
   DEFAULT_LOCALE,
   LOCALES,
@@ -141,5 +142,73 @@ describe('locale guards', () => {
   it('recognises only the languages we serve', () => {
     for (const locale of LOCALES) expect(isLocale(locale)).toBe(true);
     for (const other of ['fr', 'pt', '', 'EN', null, 7]) expect(isLocale(other)).toBe(false);
+  });
+});
+
+/**
+ * The rule the language switcher depends on.
+ *
+ * These describe the middleware's DECISION rather than calling it — the real
+ * function needs a NextRequest and the Next runtime, and what broke was never
+ * the plumbing. It was the policy: a remembered language was allowed to
+ * redirect a URL somebody had explicitly asked for, so clicking "English" on a
+ * Spanish page bounced straight back and the switcher looked dead while working
+ * perfectly.
+ */
+type Decision =
+  | { kind: 'serve'; locale: Locale }
+  | { kind: 'redirect'; to: Locale };
+
+/** The middleware's policy, in one readable function. */
+function decide(input: {
+  path: string;
+  cookie?: string | undefined;
+  acceptLanguage?: string | undefined;
+}): Decision {
+  const prefix = input.path.split('/')[1];
+  if (isLocale(prefix)) return { kind: 'serve', locale: prefix };
+
+  if (!isLocale(input.cookie)) {
+    const guessed = localeFromAcceptLanguage(input.acceptLanguage);
+    if (guessed !== DEFAULT_LOCALE) return { kind: 'redirect', to: guessed };
+  }
+  return { kind: 'serve', locale: DEFAULT_LOCALE };
+}
+
+describe('which language a URL gets', () => {
+  it('sends a first-time Spanish browser to the Spanish URL', () => {
+    expect(decide({ path: '/discover', acceptLanguage: 'es-CR,es;q=0.9' })).toEqual({
+      kind: 'redirect',
+      to: 'es',
+    });
+  });
+
+  it('NEVER redirects a URL somebody asked for, whatever they read last', () => {
+    // The switcher bug, pinned. Clicking English requests `/discover`; a stored
+    // `es` must not undo that.
+    expect(decide({ path: '/discover', cookie: 'es', acceptLanguage: 'es-CR' })).toEqual({
+      kind: 'serve',
+      locale: 'en',
+    });
+    // And the same in reverse: an English reader following a shared Spanish
+    // link gets Spanish, not their own preference.
+    expect(decide({ path: '/es/discover', cookie: 'en' })).toEqual({
+      kind: 'serve',
+      locale: 'es',
+    });
+  });
+
+  it('only guesses once — a returning English reader is left alone', () => {
+    expect(decide({ path: '/discover', cookie: 'en', acceptLanguage: 'es-CR' })).toEqual({
+      kind: 'serve',
+      locale: 'en',
+    });
+  });
+
+  it('serves English to a first-time visitor whose language we do not have', () => {
+    expect(decide({ path: '/discover', acceptLanguage: 'pt-BR,pt;q=0.9' })).toEqual({
+      kind: 'serve',
+      locale: 'en',
+    });
   });
 });
