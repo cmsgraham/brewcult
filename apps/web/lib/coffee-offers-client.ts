@@ -34,6 +34,10 @@ export interface CoffeeOffer {
   price_usd: number | null;
   price_crc_per_kg: number | null;
   price_usd_per_kg: number | null;
+  /** The other currency, approximated at read time. Rendered with a ≈, never bare. */
+  price_usd_approx: number | null;
+  price_crc_approx: number | null;
+  fx_crc_per_usd: number | null;
   url: string | null;
   in_stock: boolean;
   /** The date this price was true. A price without one is a rumour. */
@@ -81,6 +85,27 @@ export async function addOffer(
     body: input,
   });
   return body?.items ?? [];
+}
+
+/**
+ * "8.500", "8,500", "₡8500" are all eight and a half thousand colones. Costa
+ * Rica writes thousands with a dot, and there are no céntimos in practice, so
+ * EVERY separator is a thousands separator here. Parsing this like a dollar
+ * amount reads 8.500 as eight-and-a-half — which saves without an error and is
+ * wrong by three orders of magnitude.
+ */
+export function parseColones(raw: string): number | undefined {
+  const digits = raw.replace(/[^\d]/g, '');
+  if (digits === '') return undefined;
+  return Number(digits);
+}
+
+/** Dollars: dot is the decimal, commas are thousands, everything else noise. */
+export function parseDollars(raw: string): number | undefined {
+  const cleaned = raw.replace(/[^\d.]/g, '');
+  if (cleaned === '' || cleaned === '.') return undefined;
+  const value = Number(cleaned);
+  return Number.isFinite(value) ? value : undefined;
 }
 
 /** ₡8 500 — no decimals, because nobody prices coffee in céntimos. */

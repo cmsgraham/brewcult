@@ -7,6 +7,8 @@ import {
   fetchOffers,
   formatColones,
   formatDollars,
+  parseColones,
+  parseDollars,
   type CoffeeOffer,
 } from '../../lib/coffee-offers-client';
 import { Alert } from '../ui/alert';
@@ -14,12 +16,12 @@ import { Alert } from '../ui/alert';
 /**
  * Where to buy it, and what it costs.
  *
- * ── TWO CURRENCIES, NEITHER CONVERTED ───────────────────────────────────────
- * Colones and dollars are shown exactly as the shop quotes them. Nothing here
- * converts one into the other: the rate moves daily, a shop's dollar price does
- * not follow it, and a computed ₡ figure would drift from the number on the
- * shelf while looking authoritative. A vendor quoting one currency shows one
- * price, which is the truth.
+ * ── QUOTED IN BOLD, APPROXIMATED IN ≈ ───────────────────────────────────────
+ * The shop's own number is the bold one, always. When only one currency was
+ * quoted the other renders as a muted ≈ — computed at READ time at a configured
+ * rate, so yesterday's entry converts at today's rate instead of freezing the
+ * rate of the day it was typed. The two must never look alike: our arithmetic
+ * is a convenience, the shop's price is a fact.
  *
  * ── A PRICE IS DATED ────────────────────────────────────────────────────────
  * Every row carries when it was quoted. Without that the oldest number on the
@@ -70,8 +72,11 @@ export function CoffeeOffers({ slug }: { slug: string }) {
 
   async function save(): Promise<void> {
     if (vendorName.trim() === '') return;
-    const priceCrc = crc.trim() === '' ? undefined : Number(crc.replace(/[^\d.]/g, ''));
-    const priceUsd = usd.trim() === '' ? undefined : Number(usd.replace(/[^\d.]/g, ''));
+    // Not one parser for both: "8.500" is eight and a half thousand colones and
+    // eight dollars fifty. The dollar-style parse accepted the colones form and
+    // saved it three orders of magnitude wrong, without an error.
+    const priceCrc = parseColones(crc);
+    const priceUsd = parseDollars(usd);
     if (priceCrc === undefined && priceUsd === undefined) {
       setError('Give a price in colones, in dollars, or both.');
       return;
@@ -146,9 +151,27 @@ export function CoffeeOffers({ slug }: { slug: string }) {
               </span>
 
               <span className="bc-offers__price">
-                {/* Both as quoted. Never one computed from the other. */}
+                {/* Quoted prices in bold; the approximated other currency in
+                    muted text with a ≈ and the rate it used. The eye should
+                    never mistake our arithmetic for the shop's number. */}
                 {offer.price_crc !== null ? <strong>{formatColones(offer.price_crc)}</strong> : null}
                 {offer.price_usd !== null ? <strong>{formatDollars(offer.price_usd)}</strong> : null}
+                {offer.price_usd_approx !== null ? (
+                  <span
+                    className="bc-muted"
+                    title={`Converted at ₡${offer.fx_crc_per_usd}/$ — the shop quotes colones`}
+                  >
+                    ≈ {formatDollars(offer.price_usd_approx)}
+                  </span>
+                ) : null}
+                {offer.price_crc_approx !== null ? (
+                  <span
+                    className="bc-muted"
+                    title={`Converted at ₡${offer.fx_crc_per_usd}/$ — the shop quotes dollars`}
+                  >
+                    ≈ {formatColones(offer.price_crc_approx)}
+                  </span>
+                ) : null}
                 <span className="bc-muted">
                   {offer.price_crc_per_kg !== null
                     ? `${formatColones(offer.price_crc_per_kg)}/kg`
@@ -251,8 +274,8 @@ export function CoffeeOffers({ slug }: { slug: string }) {
             </span>
           </div>
           <p className="bc-muted" style={{ marginTop: 0, fontSize: '0.85rem' }}>
-            Whichever the shop actually quotes. One is enough — we never convert between them,
-            because the rate moves and their price does not.
+            Whichever the shop actually quotes — one is enough. The other currency is shown as
+            an ≈ approximation, so the shop&rsquo;s own number is always the bold one.
           </p>
 
           <details>

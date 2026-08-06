@@ -216,8 +216,11 @@ export function CoffeeNotes({ slug }: { slug: string }) {
             </select>
             {/* The scale is not ours, and saying so is the point of using it. */}
             <span className="bc-muted" style={{ fontSize: '0.85rem' }}>
-              The same scale a cupping table uses. 80+ across the full form is what
-              &ldquo;specialty&rdquo; means.
+              The same scale a cupping table uses — 80+ across the full form is what
+              &ldquo;specialty&rdquo; means.{' '}
+              <a href="/learn/cupping" target="_blank" rel="noreferrer">
+                What each factor means
+              </a>
             </span>
           </span>
 
@@ -231,7 +234,12 @@ export function CoffeeNotes({ slug }: { slug: string }) {
               >
                 Score the full cupping form
               </button>{' '}
-              <span className="bc-muted">— nine more attributes, for a score out of 100.</span>
+              <span className="bc-muted">
+                — nine more attributes, for a score out of 100.{' '}
+                <a href="/learn/cupping" target="_blank" rel="noreferrer">
+                  How to identify each one
+                </a>
+              </span>
             </p>
           ) : (
             <div className="bc-stack">
@@ -239,7 +247,14 @@ export function CoffeeNotes({ slug }: { slug: string }) {
                 {SCA_FORM.map((field) => (
                   <span className="bc-field" key={field.key}>
                     <label className="bc-kit__label" htmlFor={`sca-${field.key}`}>
-                      {field.label}
+                      <a
+                        href={`/learn/cupping#${field.key === 'body_score' ? 'body' : field.key.replace(/_/g, '-')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="bc-quiet-link"
+                      >
+                        {field.label}
+                      </a>
                     </label>
                     <select
                       id={`sca-${field.key}`}

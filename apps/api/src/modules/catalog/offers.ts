@@ -13,6 +13,7 @@
  * date the oldest number on the page looks exactly like the newest, and a
  * catalogue of confidently wrong prices is worse than no prices at all.
  */
+import { getEnv } from '../../lib/env.js';
 import { badRequest } from '../../lib/errors.js';
 import type { CatalogDb } from './repository.js';
 import { slugify } from './text.js';
@@ -46,6 +47,17 @@ export interface CoffeeOffer {
   /** Comparable across sizes. Computed here, never stored — it is arithmetic. */
   price_crc_per_kg: number | null;
   price_usd_per_kg: number | null;
+  /**
+   * The OTHER currency, approximated — filled only when the vendor quoted one.
+   * By product decision: a page mixing ₡-only and $-only rows was unreadable.
+   * The approximation is never stored, renders with a ≈, and carries the rate
+   * it used so the reader can judge its staleness. The quoted price remains
+   * the only authority.
+   */
+  price_usd_approx: number | null;
+  price_crc_approx: number | null;
+  /** The rate behind the approximation, ₡ per $. Null when nothing was approximated. */
+  fx_crc_per_usd: number | null;
   url: string | null;
   in_stock: boolean;
   quoted_on: string;
@@ -277,12 +289,22 @@ export async function listOffers(
     [coffeeProductId],
   );
 
+  const rate = getEnv().CRC_PER_USD;
   return rows.map((row) => {
     const crc = row.price_crc === null ? null : Number(row.price_crc);
     const usd = row.price_usd === null ? null : Number(row.price_usd);
     const perKg = (value: number | null): number | null =>
       value === null ? null : Math.round((value / row.size_grams) * 1000 * 100) / 100;
+    // One currency quoted → approximate the other, at today's configured rate.
+    // Computed at read time so yesterday's entry converts at today's rate — the
+    // opposite of storing it, which would freeze the rate of the day it was
+    // typed and drift forever.
+    const usdApprox = usd === null && crc !== null ? Math.round((crc / rate) * 100) / 100 : null;
+    const crcApprox = crc === null && usd !== null ? Math.round(usd * rate) : null;
     return {
+      price_usd_approx: usdApprox,
+      price_crc_approx: crcApprox,
+      fx_crc_per_usd: usdApprox !== null || crcApprox !== null ? rate : null,
       id: row.id,
       vendor: row.vendor,
       size_grams: row.size_grams,

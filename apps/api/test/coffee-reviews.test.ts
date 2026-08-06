@@ -403,7 +403,7 @@ describe('where to buy it', () => {
     expect(offer?.price_crc_per_kg).toBe(25000);
   });
 
-  it('takes one currency on its own', async () => {
+  it('takes one currency on its own, and approximates the other at read time', async () => {
     const vendor = await upsertVendor(db, { name: 'Solo Colones' });
     await upsertOffer(db, {
       coffeeProductId: coffeeId,
@@ -412,8 +412,30 @@ describe('where to buy it', () => {
       priceCrc: 6000,
     });
     const [offer] = await listOffers(db, coffeeId);
+    // The QUOTED dollar price stays null — nothing is stored in a currency the
+    // shop never quoted. The approximation is a separate field, computed at
+    // read time (₡510/$ default), so it always reflects the current rate
+    // rather than the rate of the day the offer was typed.
     expect(offer?.price_usd).toBeNull();
     expect(offer?.price_usd_per_kg).toBeNull();
+    expect(offer?.price_usd_approx).toBeCloseTo(6000 / 510, 2);
+    expect(offer?.fx_crc_per_usd).toBe(510);
+  });
+
+  it('approximates nothing when both currencies were quoted', async () => {
+    const vendor = await upsertVendor(db, { name: 'Both Currencies' });
+    await upsertOffer(db, {
+      coffeeProductId: coffeeId,
+      vendorId: vendor.id,
+      sizeGrams: 340,
+      priceCrc: 8500,
+      priceUsd: 16.5,
+    });
+    const [offer] = await listOffers(db, coffeeId);
+    // Two real numbers need no third opinion.
+    expect(offer?.price_usd_approx).toBeNull();
+    expect(offer?.price_crc_approx).toBeNull();
+    expect(offer?.fx_crc_per_usd).toBeNull();
   });
 
   it('refuses an offer with no price at all', async () => {

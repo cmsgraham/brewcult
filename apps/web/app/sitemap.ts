@@ -31,6 +31,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: { path: string; priority: number; changeFrequency: 'daily' | 'monthly' }[] = [
     { path: '/', priority: 1, changeFrequency: 'daily' },
     { path: '/discover', priority: 0.9, changeFrequency: 'daily' },
+    // The teaching page behind every score — evergreen, and exactly the query
+    // ("what does acidity mean in coffee") a search engine should send here.
+    { path: '/learn/cupping', priority: 0.6, changeFrequency: 'monthly' },
     { path: '/privacy', priority: 0.3, changeFrequency: 'monthly' },
     { path: '/terms', priority: 0.3, changeFrequency: 'monthly' },
   ];

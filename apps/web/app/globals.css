@@ -968,3 +968,33 @@ svg {
   flex-wrap: wrap;
   font-size: 0.85rem;
 }
+
+/* Long-form teaching pages (/learn). */
+.bc-prose {
+  max-width: 46rem;
+}
+.bc-prose h3 {
+  margin-bottom: 0;
+}
+.bc-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.95rem;
+}
+.bc-table th,
+.bc-table td {
+  text-align: left;
+  padding: 0.5rem 0.75rem 0.5rem 0;
+  border-bottom: 1px solid var(--bc-line);
+  vertical-align: top;
+}
+/* A label that is secretly a link: underlined only on hover, so a form does
+   not read as a wall of links, but the answer is one tap away. */
+.bc-quiet-link {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dotted var(--bc-ink-muted);
+}
+.bc-quiet-link:hover {
+  border-bottom-style: solid;
+}

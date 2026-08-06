@@ -32,6 +32,15 @@ const schema = z.object({
    */
   AUTH_COOKIE_PATH: z.string().default('/api/v1/auth'),
 
+  /**
+   * Colones per dollar, used ONLY to caption an approximate figure next to a
+   * price quoted in a single currency (0018). The quoted price stays the
+   * authority; the approximation renders with a ≈ and the rate it used.
+   * Update in .env.prod when the rate drifts — it does not need to be exact,
+   * it needs to be roughly honest.
+   */
+  CRC_PER_USD: z.coerce.number().positive().default(510),
+
   DATABASE_URL: z.string().default('postgres://brewcult:brewcult@localhost:5433/brewcult'),
   REDIS_URL: z.string().default('redis://localhost:6379'),
 
