@@ -1,4 +1,5 @@
 import { LocaleLink as Link } from '../../components/locale-link';
+import { localeParam, translator } from '../../lib/locale-server';
 import { EntityImage } from '../media/entity-image';
 import type { CoffeeSummary, EquipmentSummary, RecipeView, RoasterSummary } from './catalog-api';
 import { catalogCopy, grindCategoryLabel, originLabel, processLabel, roastLevelLabel } from './copy';
@@ -31,6 +32,7 @@ export function CoffeeCard({
   /** Which language the process and roast labels are written in. */
   locale?: string;
 }) {
+  const t = translator(localeParam(locale));
   const meta = [
     originLabel(coffee.origin),
     processLabel(coffee.process, locale),
@@ -52,16 +54,25 @@ export function CoffeeCard({
       ) : null}
       {meta ? <p className="bc-card__meta">{meta}</p> : null}
       {coffee.tasting_notes?.length ? (
-        <p className="bc-card__meta">Tastes like: {coffee.tasting_notes.join(', ')}</p>
+        <p className="bc-card__meta">
+          {t('catalog.cards.tastesLike', { notes: coffee.tasting_notes.join(', ') })}
+        </p>
       ) : null}
       {coffee.status === 'discontinued' ? (
-        <p className="bc-card__meta">No longer roasted — kept for the recipes attached to it.</p>
+        <p className="bc-card__meta">{t('catalog.cards.discontinued')}</p>
       ) : null}
     </li>
   );
 }
 
-export function RoasterCard({ roaster }: { roaster: RoasterSummary }) {
+export function RoasterCard({
+  roaster,
+  locale = 'en',
+}: {
+  roaster: RoasterSummary;
+  locale?: string;
+}) {
+  const t = translator(localeParam(locale));
   return (
     <li className="bc-card">
       <EntityImage entity={roaster} alt={roaster.name} prefer="thumbnail" shape="square" />
@@ -70,8 +81,9 @@ export function RoasterCard({ roaster }: { roaster: RoasterSummary }) {
       </h3>
       {roaster.location ? <p className="bc-card__meta">{roaster.location}</p> : null}
       <p className="bc-card__meta">
-        {roaster.coffee_count === 1 ? '1 coffee' : `${roaster.coffee_count} coffees`} in the
-        catalogue
+        {roaster.coffee_count === 1
+          ? t('catalog.cards.coffeeCountOne')
+          : t('catalog.cards.coffeeCountOther', { count: roaster.coffee_count })}
       </p>
     </li>
   );
@@ -81,6 +93,7 @@ export function EquipmentCard({ equipment,
   locale = 'en',
 }: { equipment: EquipmentSummary; locale?: string }) {
   const copy = catalogCopy(locale);
+  const t = translator(localeParam(locale));
   return (
     <li className="bc-card">
       <EntityImage
@@ -97,7 +110,9 @@ export function EquipmentCard({ equipment,
         {copy.EQUIPMENT_CATEGORY_LABEL[equipment.category] ?? equipment.category}
       </p>
       {equipment.grind_scale_type ? (
-        <p className="bc-card__meta">{equipment.grind_scale_type} adjustment</p>
+        <p className="bc-card__meta">
+          {t('catalog.cards.adjustment', { scale: equipment.grind_scale_type })}
+        </p>
       ) : null}
     </li>
   );
@@ -107,6 +122,7 @@ export function RecipeCard({ recipe,
   locale = 'en',
 }: { recipe: RecipeView; locale?: string }) {
   const copy = catalogCopy(locale);
+  const t = translator(localeParam(locale));
   const params = recipe.params;
   const ratio =
     params && typeof params.ratio === 'number' ? `1:${Math.round(params.ratio * 10) / 10}` : null;
@@ -123,13 +139,16 @@ export function RecipeCard({ recipe,
       <p className="bc-card__meta">{meta}</p>
       {recipe.brewer ? (
         <p className="bc-card__meta">
-          On the <Link href={`/equipment/${recipe.brewer.slug}`}>{recipe.brewer.name}</Link>
+          {t('catalog.cards.onThe')}
+          <Link href={`/equipment/${recipe.brewer.slug}`}>{recipe.brewer.name}</Link>
         </p>
       ) : null}
       <p className="bc-card__meta">
         {recipe.is_official
-          ? 'Published by the roaster'
-          : `By ${authorName(recipe.author) ?? 'a community member'}`}
+          ? t('catalog.cards.byRoaster')
+          : t('catalog.cards.byAuthor', {
+              author: authorName(recipe.author) ?? t('catalog.cards.communityMember'),
+            })}
       </p>
     </li>
   );

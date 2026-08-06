@@ -1,10 +1,11 @@
 import { type Metadata } from 'next';
-import { localeParam } from '../../../../lib/locale-server';
+import { localeParam, translator } from '../../../../lib/locale-server';
+import type { Locale, Translator } from '../../../../lib/i18n';
 import { LocaleLink as Link } from '../../../../components/locale-link';
 import { Breadcrumbs } from '../../../../components/catalog/breadcrumbs';
 import { loadRecipe, type RecipeView } from '../../../../components/catalog/catalog-api';
 import styles from '../../../../components/catalog/catalog.module.css';
-import { catalogCopy, duration, grindCategoryLabel } from '../../../../components/catalog/copy';
+import { catalogCopy, duration, grindCategoryInline } from '../../../../components/catalog/copy';
 import { authorName } from '../../../../components/catalog/entity-cards';
 import { JsonLd, readCspNonce } from '../../../../components/catalog/json-ld';
 import {
@@ -47,9 +48,10 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const locale = localeParam((await params).locale);
   const copy = catalogCopy(locale);
+  const t = translator(locale);
   const { id } = await params;
   const result = await loadRecipe(id);
-  if (result.status !== 'ok') return notFoundMetadata('Recipe');
+  if (result.status !== 'ok') return notFoundMetadata(t('catalog.crumbs.recipes'));
 
   const recipe = result.data;
   return recipeMetadata({
@@ -62,73 +64,107 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   });
 }
 
-/** schema.org `recipeIngredient` lines, built only from recorded numbers. */
-function ingredientLines(recipe: RecipeView): string[] {
+/**
+ * schema.org `recipeIngredient` lines, built only from recorded numbers.
+ *
+ * These are translated for the same reason the visible copy is: structured data
+ * in English on a Spanish page tells a search engine something the page does
+ * not say, and it is what gets lifted into a rich result.
+ */
+function ingredientLines(recipe: RecipeView, locale: Locale, t: Translator): string[] {
   const params = recipe.params;
   if (params === null) return [];
   const lines: string[] = [];
 
   if (isFilter(params)) {
-    lines.push(`${params.dose_g} g coffee`);
-    lines.push(`${params.water_g} g water`);
+    lines.push(t('catalog.recipeJsonLd.coffeeGrams', { grams: params.dose_g }));
+    lines.push(t('catalog.recipeJsonLd.waterGrams', { grams: params.water_g }));
     if (typeof params.temperature_c === 'number') {
-      lines.push(`Water at ${params.temperature_c} °C`);
+      lines.push(t('catalog.recipeJsonLd.waterAt', { temp: params.temperature_c }));
     }
-    if (params.filter_type) lines.push(`${params.filter_type} filter`);
+    if (params.filter_type) {
+      lines.push(t('catalog.recipeJsonLd.filterType', { type: params.filter_type }));
+    }
   } else if (isEspresso(params)) {
-    lines.push(`${params.dose_in_g} g coffee`);
-    lines.push(`${params.yield_out_g} g espresso out`);
+    lines.push(t('catalog.recipeJsonLd.coffeeGrams', { grams: params.dose_in_g }));
+    lines.push(t('catalog.recipeJsonLd.espressoOut', { grams: params.yield_out_g }));
     if (typeof params.temperature_c === 'number') {
-      lines.push(`Brew temperature ${params.temperature_c} °C`);
+      lines.push(t('catalog.recipeJsonLd.brewTemperature', { temp: params.temperature_c }));
     }
   }
 
-  const category = grindCategoryLabel(recipe.grind?.category);
-  if (category) lines.push(`Ground ${category.toLowerCase()}`);
+  const category = grindCategoryInline(recipe.grind?.category, locale);
+  if (category) lines.push(t('catalog.recipeJsonLd.groundAs', { category }));
   return lines;
 }
 
 /** `recipeInstructions` — the pour schedule when there is one, otherwise the
  *  single honest step the recipe actually describes. */
-function instructionSteps(recipe: RecipeView): { name?: string | null; text: string }[] {
+function instructionSteps(
+  recipe: RecipeView,
+  t: Translator,
+): { name?: string | null; text: string }[] {
   const params = recipe.params;
   if (isFilter(params) && params.pours && params.pours.length > 0) {
     return params.pours.map((pour, index) => ({
-      name: index === 0 ? 'Bloom' : `Pour ${index + 1}`,
-      text: `At ${duration(pour.at_s) ?? `${pour.at_s}s`}, pour up to ${pour.to_g} g total.${
-        pour.note ? ` ${pour.note}` : ''
-      }`,
+      name:
+        index === 0
+          ? t('catalog.recipeJsonLd.bloom')
+          : t('catalog.recipeJsonLd.pourN', { n: index + 1 }),
+      text:
+        t('catalog.recipeJsonLd.pourStep', {
+          at: duration(pour.at_s) ?? `${pour.at_s}s`,
+          to: pour.to_g,
+        }) + (pour.note ? ` ${pour.note}` : ''),
     }));
   }
   if (isEspresso(params)) {
     return [
       {
-        name: 'Pull the shot',
-        text: `Dose ${params.dose_in_g} g, target ${params.yield_out_g} g out${
-          typeof params.shot_time_s === 'number' ? ` in about ${params.shot_time_s} seconds` : ''
-        }.`,
+        name: t('catalog.recipeJsonLd.pullShot'),
+        text:
+          typeof params.shot_time_s === 'number'
+            ? t('catalog.recipeJsonLd.pullShotStepTimed', {
+                dose: params.dose_in_g,
+                yield: params.yield_out_g,
+                seconds: params.shot_time_s,
+              })
+            : t('catalog.recipeJsonLd.pullShotStep', {
+                dose: params.dose_in_g,
+                yield: params.yield_out_g,
+              }),
       },
     ];
   }
   if (isFilter(params)) {
     return [
       {
-        name: 'Brew',
-        text: `Brew ${params.dose_g} g of coffee with ${params.water_g} g of water${
+        name: t('catalog.recipeJsonLd.brew'),
+        text:
           typeof params.brew_time_s === 'number'
-            ? `, aiming for a total time of about ${duration(params.brew_time_s)}`
-            : ''
-        }.`,
+            ? t('catalog.recipeJsonLd.brewStepTimed', {
+                dose: params.dose_g,
+                water: params.water_g,
+                time: duration(params.brew_time_s) ?? `${params.brew_time_s}s`,
+              })
+            : t('catalog.recipeJsonLd.brewStep', {
+                dose: params.dose_g,
+                water: params.water_g,
+              }),
       },
     ];
   }
   return [];
 }
 
-function yieldText(recipe: RecipeView): string | null {
+function yieldText(recipe: RecipeView, t: Translator): string | null {
   const params = recipe.params;
-  if (isEspresso(params)) return `${params.yield_out_g} g espresso`;
-  if (isFilter(params)) return `${params.water_g} g brewed coffee`;
+  if (isEspresso(params)) {
+    return t('catalog.recipeJsonLd.yieldEspresso', { grams: params.yield_out_g });
+  }
+  if (isFilter(params)) {
+    return t('catalog.recipeJsonLd.yieldFilter', { grams: params.water_g });
+  }
   return null;
 }
 
@@ -142,6 +178,7 @@ function totalSeconds(recipe: RecipeView): number | null {
 export default async function RecipeDetailPage({ params }: PageProps) {
   const locale = localeParam((await params).locale);
   const copy = catalogCopy(locale);
+  const t = translator(locale);
   const { id } = await params;
   const [result, nonce] = await Promise.all([loadRecipe(id), readCspNonce()]);
 
@@ -150,21 +187,25 @@ export default async function RecipeDetailPage({ params }: PageProps) {
     // noindex via `generateMetadata`, so neither can be indexed as thin content.
     return (
       <div className="bc-stack">
-        <h1>{result.status === 'missing' ? 'Recipes are not switched on yet' : 'We could not load this recipe'}</h1>
+        <h1>
+          {result.status === 'missing'
+            ? t('catalog.recipeDetail.notReadyTitle')
+            : t('catalog.recipeDetail.loadErrorTitle')}
+        </h1>
         <p className="bc-lede">
           {result.status === 'missing'
-            ? 'Recipe pages are being built right now. If someone shared this link with you, it will start working shortly — the link itself is fine.'
-            : 'That is on us, not on you. Try again in a moment.'}
+            ? t('catalog.recipeDetail.notReadyBody')
+            : t('catalog.recipeDetail.loadErrorBody')}
         </p>
         <ul className={styles.related}>
           <li>
-            <Link href="/recipes">All recipes</Link>
+            <Link href="/recipes">{t('catalog.recipeDetail.allRecipes')}</Link>
           </li>
           <li>
-            <Link href="/coffee">Browse coffees</Link>
+            <Link href="/coffee">{t('catalog.recipeDetail.browseCoffees')}</Link>
           </li>
           <li>
-            <Link href="/equipment">Browse equipment</Link>
+            <Link href="/equipment">{t('catalog.recipeDetail.browseEquipment')}</Link>
           </li>
         </ul>
       </div>
@@ -177,8 +218,8 @@ export default async function RecipeDetailPage({ params }: PageProps) {
   const total = totalSeconds(recipe);
 
   const breadcrumbs = [
-    { name: 'Home', path: '/' },
-    { name: 'Recipes', path: '/recipes' },
+    { name: t('catalog.crumbs.home'), path: '/' },
+    { name: t('catalog.crumbs.recipes'), path: '/recipes' },
     { name: recipe.title, path: `/recipes/${recipe.id}` },
   ];
 
@@ -190,14 +231,14 @@ export default async function RecipeDetailPage({ params }: PageProps) {
           recipeJsonLd({
             id: recipe.id,
             name: recipe.title,
-            description: recipeSummaryLine(recipe),
+            description: recipeSummaryLine(recipe, locale),
             authorName: author,
             datePublished: recipe.created_at,
             method,
-            ingredients: ingredientLines(recipe),
-            steps: instructionSteps(recipe),
+            ingredients: ingredientLines(recipe, locale, t),
+            steps: instructionSteps(recipe, t),
             totalTimeSeconds: total,
-            yieldText: yieldText(recipe),
+            yieldText: yieldText(recipe, t),
             tools: [recipe.brewer?.name, recipe.grinder?.name].filter(
               (name): name is string => Boolean(name),
             ),
@@ -209,16 +250,20 @@ export default async function RecipeDetailPage({ params }: PageProps) {
         ]}
       />
 
-      <Breadcrumbs entries={breadcrumbs} />
+      <Breadcrumbs entries={breadcrumbs} locale={locale} />
 
       <header className={styles.header}>
-        <p className={styles.eyebrow}>{method} recipe</p>
+        <p className={styles.eyebrow}>{t('catalog.recipeDetail.eyebrow', { method })}</p>
         <h1>{recipe.title}</h1>
         <p className={styles.byline}>
-          {recipe.is_official ? 'Published by the roaster' : author ? `By ${author}` : 'By a community member'}
+          {recipe.is_official
+            ? t('catalog.recipeDetail.byRoaster')
+            : author
+              ? t('catalog.recipeDetail.byAuthor', { author })
+              : t('catalog.recipeDetail.byCommunity')}
           {recipe.coffee ? (
             <>
-              {' · for '}
+              {t('catalog.recipeDetail.forCoffee')}
               {recipe.coffee.slug ? (
                 <Link href={`/coffee/${recipe.coffee.slug}`}>{recipe.coffee.name}</Link>
               ) : (
@@ -228,7 +273,7 @@ export default async function RecipeDetailPage({ params }: PageProps) {
           ) : null}
           {recipe.brewer ? (
             <>
-              {' · on the '}
+              {t('catalog.recipeDetail.onBrewer')}
               <Link href={`/equipment/${recipe.brewer.slug}`}>{recipe.brewer.name}</Link>
             </>
           ) : null}
@@ -236,31 +281,29 @@ export default async function RecipeDetailPage({ params }: PageProps) {
 
         <Explainer>
           <p>
-            <strong>This is a starting point, not a rule.</strong> {copy.RECIPE_STARTING_POINT_COPY}
+            <strong>{t('catalog.recipeDetail.startingPoint')}</strong>{' '}
+            {copy.RECIPE_STARTING_POINT_COPY}
           </p>
         </Explainer>
 
-        <RecipeLineage recipe={recipe} />
+        <RecipeLineage recipe={recipe} locale={locale} />
       </header>
 
       <section aria-labelledby="parameters">
-        <h2 id="parameters">The numbers</h2>
-        <RecipeParams recipe={recipe} />
+        <h2 id="parameters">{t('catalog.recipeDetail.numbersHeading')}</h2>
+        <RecipeParams recipe={recipe} locale={locale} />
         {ratioText(recipe.params) ? (
-          <p className="bc-muted">
-            The ratio is the part worth keeping when you scale up or down — the absolute
-            numbers matter less than their relationship.
-          </p>
+          <p className="bc-muted">{t('catalog.recipeDetail.ratioNote')}</p>
         ) : null}
       </section>
 
       <section className={styles.section} aria-labelledby="grind">
-        <h2 id="grind">Grind</h2>
-        <RecipeGrind recipe={recipe} />
+        <h2 id="grind">{t('catalog.recipeDetail.grindHeading')}</h2>
+        <RecipeGrind recipe={recipe} locale={locale} />
         {recipe.grinder ? (
           <p>
             <Link href={`/equipment/${recipe.grinder.slug}`}>
-              See grind conversions for the {recipe.grinder.name} →
+              {t('catalog.recipeDetail.grindConversionsLink', { name: recipe.grinder.name })}
             </Link>
           </p>
         ) : null}
@@ -268,56 +311,49 @@ export default async function RecipeDetailPage({ params }: PageProps) {
 
       {isFilter(recipe.params) && recipe.params.pours && recipe.params.pours.length > 0 ? (
         <section className={styles.section} aria-labelledby="pours">
-          <h2 id="pours">Pour schedule</h2>
-          <p className="bc-muted">
-            Times are from the moment water first hits the coffee. Weights are cumulative — the
-            number on the scale, not the amount for that pour.
-          </p>
-          <RecipePours recipe={recipe} />
+          <h2 id="pours">{t('catalog.recipeDetail.poursHeading')}</h2>
+          <p className="bc-muted">{t('catalog.recipeDetail.poursNote')}</p>
+          <RecipePours recipe={recipe} locale={locale} />
         </section>
       ) : null}
 
       {isEspresso(recipe.params) && recipe.params.puck_prep?.length ? (
         <section className={styles.section} aria-labelledby="puck-prep">
-          <h2 id="puck-prep">Puck preparation</h2>
-          <RecipePuckPrep recipe={recipe} />
+          <h2 id="puck-prep">{t('catalog.recipeDetail.puckPrepHeading')}</h2>
+          <RecipePuckPrep recipe={recipe} locale={locale} />
         </section>
       ) : null}
 
       <section className={styles.section} aria-labelledby="if-it-tastes-off">
-        <h2 id="if-it-tastes-off">If it does not taste right</h2>
-        <p>
-          Change one thing at a time — that is the whole technique. If it is sour, thin or
-          weak, the coffee is probably under-extracted: grind finer, or use hotter water, or
-          give it longer. If it is bitter, harsh or drying, it is probably over-extracted:
-          grind coarser, or cool the water slightly, or cut the brew short.
-        </p>
-        <p className="bc-muted">
-          A cup that misses on the first go is the normal outcome, not a verdict on your gear
-          or on you.
-        </p>
+        <h2 id="if-it-tastes-off">{t('catalog.recipeDetail.tastesOffHeading')}</h2>
+        <p>{t('catalog.recipeDetail.tastesOffBody')}</p>
+        <p className="bc-muted">{t('catalog.recipeDetail.tastesOffNote')}</p>
       </section>
 
       <section className={styles.section} aria-labelledby="keep-looking">
-        <h2 id="keep-looking">Keep looking</h2>
+        <h2 id="keep-looking">{t('catalog.keepLooking')}</h2>
         <ul className={styles.related}>
           {recipe.coffee?.slug ? (
             <li>
-              <Link href={`/coffee/${recipe.coffee.slug}`}>About {recipe.coffee.name}</Link>
+              <Link href={`/coffee/${recipe.coffee.slug}`}>
+                {t('catalog.recipeDetail.aboutCoffee', { name: recipe.coffee.name })}
+              </Link>
             </li>
           ) : null}
           {recipe.brewer ? (
             <li>
               <Link href={`/recipes?brewer=${recipe.brewer.slug}`}>
-                More {recipe.brewer.name} recipes
+                {t('catalog.recipeDetail.moreBrewerRecipes', { name: recipe.brewer.name })}
               </Link>
             </li>
           ) : null}
           <li>
-            <Link href={`/recipes?method=${recipe.method}`}>More {method.toLowerCase()} recipes</Link>
+            <Link href={`/recipes?method=${recipe.method}`}>
+              {t('catalog.recipeDetail.moreMethodRecipes', { method: method.toLowerCase() })}
+            </Link>
           </li>
           <li>
-            <Link href="/recipes">All recipes</Link>
+            <Link href="/recipes">{t('catalog.recipeDetail.allRecipes')}</Link>
           </li>
         </ul>
       </section>

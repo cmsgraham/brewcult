@@ -1,53 +1,51 @@
 import { type Metadata } from 'next';
 import { LocaleLink as Link } from '../../../components/locale-link';
+import { localeAlternates } from '../../../lib/seo';
+import { localeParam, translator } from '../../../lib/locale-server';
 
-export const metadata: Metadata = {
-  title: 'Terms',
-  description: 'The rules of BrewCult, in plain language.',
-  alternates: { canonical: '/terms' },
-};
+interface PageProps {
+  params: Promise<{ locale: string }>;
+}
 
-export default function TermsPage() {
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const locale = localeParam((await params).locale);
+  const t = translator(locale);
+  return {
+    title: t('termsPage.title'),
+    description: t('termsPage.metaDescription'),
+    alternates: localeAlternates('/terms', locale),
+  };
+}
+
+export default async function TermsPage({ params }: PageProps) {
+  const t = translator(localeParam((await params).locale));
+
   return (
     <div className="bc-stack">
-      <h1>Terms</h1>
-      <p className="bc-lede">
-        The rules, in plain language. The reviewed legal text lands before public launch;
-        nothing there will contradict what is on this page.
+      <h1>{t('termsPage.title')}</h1>
+      <p className="bc-lede">{t('termsPage.lede')}</p>
+
+      <h2>{t('termsPage.whoHeading')}</h2>
+      <p>{t('termsPage.whoBody')}</p>
+
+      <h2>{t('termsPage.behaviourHeading')}</h2>
+      <p>{t('termsPage.behaviourBody')}</p>
+
+      <h2>{t('termsPage.contentHeading')}</h2>
+      <p>{t('termsPage.contentBody')}</p>
+
+      <h2>{t('termsPage.ourSideHeading')}</h2>
+      <p>
+        {t('termsPage.ourSideBefore')}
+        <Link href="/privacy">{t('termsPage.ourSideLink')}</Link>
+        {t('termsPage.ourSideAfter')}
       </p>
 
-      <h2>Who can join</h2>
-      <p>You need to be 16 or older to hold a BrewCult account.</p>
-
-      <h2>How we expect people to behave</h2>
+      <h2>{t('termsPage.endingHeading')}</h2>
       <p>
-        Beginner questions are welcome, always. Gear-shaming, budget-shaming and
-        &ldquo;just buy a better grinder&rdquo; answers are not what this place is for. There
-        are no public downvotes here by design — quality rises through usefulness, saves and
-        forks. Explaining patiently is what earns standing.
-      </p>
-
-      <h2>Your content</h2>
-      <p>
-        Your recipes, brews and posts stay yours. You give us permission to show them on the
-        platform and let other members fork recipes with attribution. Delete your account and
-        your personal data goes; public recipes others have built on stay up with your name
-        removed, so their work does not break.
-      </p>
-
-      <h2>Our side of it</h2>
-      <p>
-        We keep the service running, we tell you what we do with your data (see{' '}
-        <Link href="/privacy">Privacy</Link>), and we do not let paid placement change what
-        the AI recommends. Suggestions are suggestions — brewing advice is not a guarantee
-        about a cup of coffee.
-      </p>
-
-      <h2>Ending things</h2>
-      <p>
-        You can delete your account any time from <Link href="/profile">your profile</Link>.
-        We may suspend accounts that break the behaviour rules above, and we will say which
-        rule and why.
+        {t('termsPage.endingBefore')}
+        <Link href="/profile">{t('termsPage.endingLink')}</Link>
+        {t('termsPage.endingAfter')}
       </p>
     </div>
   );

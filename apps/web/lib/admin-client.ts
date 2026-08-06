@@ -36,6 +36,7 @@ import {
   type Paginated,
 } from './api';
 import type { EquipmentRequest } from './equipment-client';
+import type { MessageKey, Translator } from './i18n';
 
 /* ------------------------------------------------------------------ *
  * Roles, statuses and the words we use for them
@@ -50,6 +51,13 @@ export const STAFF_ROLES: readonly AdminRole[] = ['moderator', 'editor', 'admin'
 export const USER_STATUSES = ['active', 'suspended', 'deactivated', 'deleted'] as const;
 export type AdminUserStatus = (typeof USER_STATUSES)[number];
 
+/**
+ * Role names for the operator console, which is English-only and staff-only.
+ *
+ * The member-facing surfaces (the security page) use `roleLabel` instead — a
+ * member with a staff role reads the site in their own language, and telling
+ * them they hold the "Moderator" role mid-Spanish-sentence is a seam.
+ */
 export const ROLE_LABEL: Record<AdminRole, string> = {
   user: 'Member',
   moderator: 'Moderator',
@@ -57,6 +65,11 @@ export const ROLE_LABEL: Record<AdminRole, string> = {
   seller_owner: 'Seller owner',
   admin: 'Admin',
 };
+
+/** The same names, in the reader's language. */
+export function roleLabel(role: AdminRole, t: Translator): string {
+  return t(`security.roles.${role}` as MessageKey);
+}
 
 /** Plain-language consequence, shown in the change-role confirmation. */
 export const ROLE_CONSEQUENCE: Record<AdminRole, string> = {

@@ -1,4 +1,5 @@
 import { type Metadata } from 'next';
+import { localeParam, translator } from '../../../../lib/locale-server';
 import { LocaleLink as Link } from '../../../../components/locale-link';
 import { notFound } from 'next/navigation';
 import { Breadcrumbs } from '../../../../components/catalog/breadcrumbs';
@@ -21,13 +22,14 @@ import { breadcrumbJsonLd, roasterOrganizationJsonLd } from '../../../../lib/str
 export const revalidate = 300;
 
 interface PageProps {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ slug: string; locale: string }>;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug, locale: rawLocale } = await params;
+  const t = translator(localeParam(rawLocale));
   const result = await loadRoaster(slug);
-  if (result.status !== 'ok') return notFoundMetadata('Roaster');
+  if (result.status !== 'ok') return notFoundMetadata(t('catalog.roasterDetail.eyebrow'));
 
   const roaster = result.data;
   return roasterMetadata({
@@ -39,17 +41,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function RoasterDetailPage({ params }: PageProps) {
-  const { slug } = await params;
+  const { slug, locale: rawLocale } = await params;
+  const locale = localeParam(rawLocale);
+  const t = translator(locale);
   const [result, nonce] = await Promise.all([loadRoaster(slug), readCspNonce()]);
 
   if (result.status === 'missing') notFound();
   if (result.status === 'error') {
     return (
       <div className="bc-stack">
-        <h1>We could not load this roaster</h1>
+        <h1>{t('catalog.roasterDetail.loadErrorTitle')}</h1>
         <p className="bc-lede">
-          That is on us, not on you. Try again shortly, or{' '}
-          <Link href="/roaster">browse the other roasters</Link>.
+          {t('catalog.roasterDetail.loadErrorBody')}
+          <Link href="/roaster">{t('catalog.roasterDetail.loadErrorLink')}</Link>.
         </p>
       </div>
     );
@@ -69,10 +73,24 @@ export default async function RoasterDetailPage({ params }: PageProps) {
   ].sort();
 
   const breadcrumbs = [
-    { name: 'Home', path: '/' },
-    { name: 'Roasters', path: '/roaster' },
+    { name: t('catalog.crumbs.home'), path: '/' },
+    { name: t('catalog.crumbs.roasters'), path: '/roaster' },
     { name: roaster.name, path: `/roaster/${roaster.slug}` },
   ];
+
+  // Only used when the roaster has written no description of their own. Their
+  // words are never replaced by ours.
+  const where = roaster.location
+    ? t('catalog.roasterDetail.ledeWhere', { location: roaster.location })
+    : '';
+  const fallbackLede =
+    coffees.length === 1
+      ? t('catalog.roasterDetail.ledeOne', { name: roaster.name, where })
+      : t('catalog.roasterDetail.ledeOther', {
+          name: roaster.name,
+          count: coffees.length,
+          where,
+        });
 
   return (
     <div className="bc-stack">
@@ -90,40 +108,35 @@ export default async function RoasterDetailPage({ params }: PageProps) {
         ]}
       />
 
-      <Breadcrumbs entries={breadcrumbs} />
+      <Breadcrumbs entries={breadcrumbs} locale={locale} />
 
       <header className={styles.header}>
-        <p className={styles.eyebrow}>Roaster</p>
+        <p className={styles.eyebrow}>{t('catalog.roasterDetail.eyebrow')}</p>
         <h1>{roaster.name}</h1>
-        <p className="bc-lede">
-          {roaster.description ??
-            `${roaster.name} has ${coffees.length === 1 ? 'one coffee' : `${coffees.length} coffees`} in the BrewCult catalogue${
-              roaster.location ? `, roasted in ${roaster.location}` : ''
-            }. Each one carries its origin, process and roast level, plus whatever the community has worked out about brewing it.`}
-        </p>
+        <p className="bc-lede">{roaster.description ?? fallbackLede}</p>
       </header>
 
       <section aria-labelledby="profile">
-        <h2 id="profile">Profile</h2>
+        <h2 id="profile">{t('catalog.roasterDetail.profile')}</h2>
         <SpecList
           rows={[
-            { label: 'Location', value: roaster.location ?? null },
+            { label: t('catalog.roasterDetail.location'), value: roaster.location ?? null },
             {
-              label: 'Coffees listed',
+              label: t('catalog.roasterDetail.coffeesListed'),
               value: coffees.length > 0 ? String(coffees.length) : null,
             },
             {
-              label: 'Origins they buy from',
+              label: t('catalog.roasterDetail.originsBought'),
               value: origins.length > 0 ? origins.join(', ') : null,
             },
             {
-              label: 'Verified',
+              label: t('catalog.roasterDetail.verified'),
               value: roaster.verified
-                ? 'Claimed and verified by the roaster'
-                : 'Not claimed yet — this profile is maintained editorially',
+                ? t('catalog.roasterDetail.verifiedYes')
+                : t('catalog.roasterDetail.verifiedNo'),
             },
             {
-              label: 'Website',
+              label: t('catalog.roasterDetail.website'),
               value: roaster.website_url ?? null,
               ...(roaster.website_url ? { href: roaster.website_url } : {}),
             },
@@ -132,16 +145,15 @@ export default async function RoasterDetailPage({ params }: PageProps) {
       </section>
 
       <section className={styles.section} aria-labelledby="coffees">
-        <h2 id="coffees">Their coffees</h2>
+        <h2 id="coffees">{t('catalog.roasterDetail.theirCoffees')}</h2>
         {active.length === 0 && retired.length === 0 ? (
           <p className="bc-muted">
-            No coffees listed for {roaster.name} yet. If you have a bag from them, the catalogue
-            is exactly where it belongs.
+            {t('catalog.roasterDetail.noCoffees', { name: roaster.name })}
           </p>
         ) : (
           <ul className="bc-card-grid">
             {active.map((coffee) => (
-              <CoffeeCard key={coffee.id} coffee={coffee} />
+              <CoffeeCard key={coffee.id} coffee={coffee} locale={locale} />
             ))}
           </ul>
         )}
@@ -149,14 +161,11 @@ export default async function RoasterDetailPage({ params }: PageProps) {
 
       {retired.length > 0 ? (
         <section className={styles.section} aria-labelledby="past-coffees">
-          <h2 id="past-coffees">No longer roasted</h2>
-          <p className="bc-muted">
-            Lots rotate with the harvest. These pages stay up because the recipes and notes
-            attached to them are still useful — and because a similar lot often comes back.
-          </p>
+          <h2 id="past-coffees">{t('catalog.roasterDetail.retiredHeading')}</h2>
+          <p className="bc-muted">{t('catalog.roasterDetail.retiredBody')}</p>
           <ul className="bc-card-grid">
             {retired.map((coffee) => (
-              <CoffeeCard key={coffee.id} coffee={coffee} />
+              <CoffeeCard key={coffee.id} coffee={coffee} locale={locale} />
             ))}
           </ul>
         </section>
@@ -164,12 +173,12 @@ export default async function RoasterDetailPage({ params }: PageProps) {
 
       {origins.length > 0 ? (
         <section className={styles.section} aria-labelledby="their-origins">
-          <h2 id="their-origins">Origins they work with</h2>
+          <h2 id="their-origins">{t('catalog.roasterDetail.originsHeading')}</h2>
           <ul className={styles.related}>
             {origins.map((country) => (
               <li key={country}>
                 <Link href={`/coffee?origin=${encodeURIComponent(country)}`}>
-                  All {country} coffees
+                  {t('catalog.roasterDetail.allCountryCoffees', { country })}
                 </Link>
               </li>
             ))}
@@ -178,18 +187,18 @@ export default async function RoasterDetailPage({ params }: PageProps) {
       ) : null}
 
       <section className={styles.section} aria-labelledby="keep-looking">
-        <h2 id="keep-looking">Keep looking</h2>
+        <h2 id="keep-looking">{t('catalog.keepLooking')}</h2>
         <ul className={styles.related}>
           <li>
             <Link href={`/coffee?roaster=${roaster.slug}`}>
-              Filter the catalogue to {roaster.name}
+              {t('catalog.roasterDetail.filterToRoaster', { name: roaster.name })}
             </Link>
           </li>
           <li>
-            <Link href="/roaster">All roasters</Link>
+            <Link href="/roaster">{t('catalog.roasterDetail.allRoasters')}</Link>
           </li>
           <li>
-            <Link href="/recipes">Brewing recipes</Link>
+            <Link href="/recipes">{t('catalog.elsewhere.recipes')}</Link>
           </li>
         </ul>
       </section>

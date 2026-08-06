@@ -1,11 +1,11 @@
 'use client';
 
 import { LocaleLink as Link } from '../../components/locale-link';
-import { useLocale } from '../locale-provider';
+import { useLocale, useTranslate } from '../locale-provider';
 import { localePath, type Locale } from '../../lib/i18n';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { ROLE_LABEL, isStaffRole, type AdminRole } from '../../lib/admin-client';
+import { isStaffRole, roleLabel, type AdminRole } from '../../lib/admin-client';
 import {
   describeMfaError,
   signOut,
@@ -68,6 +68,7 @@ function signInAgain(locale: Locale): string {
  */
 export function SecurityPanel({ handle, role, enrolled, sessionVerified }: SecurityPanelProps) {
   const { locale } = useLocale();
+  const t = useTranslate();
   const router = useRouter();
   const [view, setView] = useState<View>({ kind: 'overview' });
   const [isOn, setIsOn] = useState(enrolled);
@@ -143,9 +144,9 @@ export function SecurityPanel({ handle, role, enrolled, sessionVerified }: Secur
             // says mfa=false. Saying "you're all set" here would be a lie the
             // operator console would immediately contradict.
             setNeedsFreshSignIn(true);
-            setNotice('Two-factor is on for your account.');
+            setNotice(t('security.mfa.noticeOn'));
           } else {
-            setNotice('Your recovery codes have been replaced.');
+            setNotice(t('security.mfa.noticeCodesReplaced'));
           }
           setView({ kind: 'overview' });
           router.refresh();
@@ -162,7 +163,7 @@ export function SecurityPanel({ handle, role, enrolled, sessionVerified }: Secur
         ref={overviewHeading}
         tabIndex={-1}
       >
-        Two-factor authentication
+        {t('security.mfa.panelHeading')}
       </h2>
 
       <div className={styles.statusRow}>
@@ -170,15 +171,15 @@ export function SecurityPanel({ handle, role, enrolled, sessionVerified }: Secur
           className={`${styles.pill} ${isOn ? styles.pillOn : ''}`}
           data-testid="mfa-status-pill"
         >
-          {isOn ? 'On' : 'Off'}
+          {isOn ? t('security.mfa.on') : t('security.mfa.off')}
         </span>
         {isOn && needsFreshSignIn ? (
           <span className={`${styles.pill} ${styles.pillAttention}`}>
-            This sign-in did not use it
+            {t('security.mfa.sessionDidNotUseIt')}
           </span>
         ) : null}
         <span className="bc-muted" style={{ fontSize: '0.9rem' }}>
-          @{handle} · {ROLE_LABEL[role]}
+          @{handle} · {roleLabel(role, t)}
         </span>
       </div>
 
@@ -190,16 +191,9 @@ export function SecurityPanel({ handle, role, enrolled, sessionVerified }: Secur
 
       {isOn && needsFreshSignIn ? (
         <div className="bc-panel bc-stack">
-          <h3 style={{ marginTop: 0 }}>One more step to use staff areas</h3>
-          <p>
-            Two-factor is on your account, but the sign-in you are currently using happened
-            without it — so this session still counts as password-only. That is why the operator
-            console turns you away even though everything looks switched on.
-          </p>
-          <p style={{ marginBottom: 0 }}>
-            Signing out and back in, with a code from your app, fixes it. Nothing about your
-            account changes and you will not need to set anything up again.
-          </p>
+          <h3 style={{ marginTop: 0 }}>{t('security.mfa.freshSignInHeading')}</h3>
+          <p>{t('security.mfa.freshSignInOne')}</p>
+          <p style={{ marginBottom: 0 }}>{t('security.mfa.freshSignInTwo')}</p>
           <div className={styles.inlineActions}>
             <button
               type="button"
@@ -207,11 +201,11 @@ export function SecurityPanel({ handle, role, enrolled, sessionVerified }: Secur
               onClick={() => void endSession()}
               disabled={signingOut}
             >
-              {signingOut ? 'Signing out…' : 'Sign out and sign back in'}
+              {signingOut ? t('security.mfa.signingOut') : t('security.mfa.signOutAndBack')}
             </button>
             {/* Already prefixed; LocaleLink's own prefixing is idempotent. */}
             <Link className="bc-button bc-button--quiet" href={signInAgain(locale)}>
-              Go to sign-in
+              {t('security.mfa.goToSignIn')}
             </Link>
           </div>
         </div>
@@ -220,10 +214,7 @@ export function SecurityPanel({ handle, role, enrolled, sessionVerified }: Secur
       {isOn ? (
         <>
           {!needsFreshSignIn ? (
-            <p className="bc-muted">
-              Sign-ins ask for a code from your authenticator app. This session used one, so
-              staff areas are open to you.
-            </p>
+            <p className="bc-muted">{t('security.mfa.verifiedNote')}</p>
           ) : null}
           <ManageMfa
             staffRole={staff}
@@ -231,26 +222,20 @@ export function SecurityPanel({ handle, role, enrolled, sessionVerified }: Secur
             onDisabled={() => {
               setIsOn(false);
               setNeedsFreshSignIn(false);
-              setNotice(
-                'Two-factor is off. Your account is back to password-only, and any recovery codes you had no longer work.',
-              );
+              setNotice(t('security.mfa.noticeOff'));
               router.refresh();
             }}
           />
         </>
       ) : (
         <div className="bc-stack">
-          <p>
-            Right now your password is the only thing between someone and your account.
-            Two-factor adds a second, short-lived code from an app on your phone, so a leaked or
-            reused password is not enough on its own. It takes about two minutes to set up.
-          </p>
+          <p>{t('security.mfa.offPitch')}</p>
           {staff ? (
-            <Alert tone="info" title={`You hold the ${ROLE_LABEL[role]} role.`}>
-              Staff areas need it. Suspending an account, changing a role or resolving a report
-              is written to an append-only audit log with your name on it, and that signature is
-              only worth something if nobody else can produce it. The operator console will not
-              open until this is on and you have signed in with it.
+            <Alert
+              tone="info"
+              title={t('security.mfa.staffAlertTitle', { role: roleLabel(role, t) })}
+            >
+              {t('security.mfa.staffAlertBody')}
             </Alert>
           ) : null}
           <div className={styles.inlineActions}>
@@ -260,10 +245,10 @@ export function SecurityPanel({ handle, role, enrolled, sessionVerified }: Secur
               onClick={() => void beginEnrolment()}
               disabled={starting}
             >
-              {starting ? 'Getting things ready…' : 'Turn on two-factor'}
+              {starting ? t('security.mfa.gettingReady') : t('security.mfa.turnOn')}
             </button>
             <Link className="bc-button bc-button--quiet" href="/profile">
-              Back to your profile
+              {t('security.mfa.backToProfile')}
             </Link>
           </div>
         </div>

@@ -1,12 +1,20 @@
 import { type Metadata } from 'next';
 import { LocaleLink as Link } from '../../../components/locale-link';
 import { UnsubscribeConfirm } from '../../../components/profile/unsubscribe-confirm';
+import { localeParam, translator } from '../../../lib/locale-server';
 
-export const metadata: Metadata = {
-  title: 'Unsubscribed',
-  description: 'You will not get that kind of email from BrewCult again.',
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const t = translator(localeParam((await params).locale));
+  return {
+    title: t('unsubscribePage.metaTitle'),
+    description: t('unsubscribePage.metaDescription'),
+    robots: { index: false, follow: false },
+  };
+}
 
 /**
  * Where the link in an email lands.
@@ -24,21 +32,25 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function UnsubscribePage({
+  params,
   searchParams,
 }: {
+  params: Promise<{ locale: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const params = await searchParams;
-  const raw = params['token'];
+  const t = translator(localeParam((await params).locale));
+  const search = await searchParams;
+  const raw = search['token'];
   const token = Array.isArray(raw) ? raw[0] : raw;
 
   return (
     <div className="bc-auth bc-stack">
-      <h1>Email settings</h1>
+      <h1>{t('unsubscribePage.title')}</h1>
       <UnsubscribeConfirm token={token ?? null} />
       <p className="bc-muted">
-        Changed your mind, or want finer control? <Link href="/profile/notifications">Your
-        email settings</Link> has a switch for each kind.
+        {t('unsubscribePage.noteBefore')}
+        <Link href="/profile/notifications">{t('unsubscribePage.noteLink')}</Link>
+        {t('unsubscribePage.noteAfter')}
       </p>
     </div>
   );

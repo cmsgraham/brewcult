@@ -1,4 +1,6 @@
 import { LocaleLink as Link } from '../../components/locale-link';
+import type { Translator } from '../../lib/i18n';
+import { localeParam, translator } from '../../lib/locale-server';
 import type { GrindConversion } from './catalog-api';
 import styles from './catalog.module.css';
 import { catalogCopy } from './copy';
@@ -36,12 +38,19 @@ export interface GrindConversionSectionProps {
   unavailable?: boolean;
 }
 
-function bandLabel(band: 'low' | 'medium' | 'high'): string {
-  return `${band.charAt(0).toUpperCase()}${band.slice(1)} confidence`;
+/**
+ * Named per band rather than capitalising the band token: "Low confidence"
+ * happens to be `Low` + ` confidence` in English and is "Confianza baja" — two
+ * words in the other order — in Spanish.
+ */
+function bandLabel(band: 'low' | 'medium' | 'high', t: Translator): string {
+  if (band === 'low') return t('catalog.grindConversion.bandLow');
+  if (band === 'high') return t('catalog.grindConversion.bandHigh');
+  return t('catalog.grindConversion.bandMedium');
 }
 
-function percent(confidence: number): string {
-  if (!Number.isFinite(confidence)) return 'unknown';
+function percent(confidence: number, t: Translator): string {
+  if (!Number.isFinite(confidence)) return t('catalog.grindConversion.unknownPercent');
   const clamped = Math.max(0, Math.min(1, confidence));
   return `${Math.round(clamped * 100)}%`;
 }
@@ -55,33 +64,26 @@ export function GrindConversionSection({
   locale = 'en',
 }: GrindConversionSectionProps) {
   const copy = catalogCopy(locale);
+  const t = translator(localeParam(locale));
   const scaleCopy = grindScaleType ? copy.GRIND_SCALE_COPY[grindScaleType] : null;
 
   return (
     <section className={styles.section} aria-labelledby="grind-conversions">
-      <h2 id="grind-conversions">Grind settings on other grinders</h2>
+      <h2 id="grind-conversions">{t('catalog.grindConversion.heading')}</h2>
 
-      <p>
-        A number on a grinder dial only means something on that grinder — even two
-        units of the same model differ. So instead of pretending &ldquo;18&rdquo; travels,
-        BrewCult records what people actually landed on after switching, and shows you
-        the spread.
-      </p>
+      <p>{t('catalog.grindConversion.intro')}</p>
       {scaleCopy ? <p className="bc-muted">{scaleCopy}</p> : null}
 
       {conversions.length > 0 ? (
         <div className={styles.tableWrap}>
           <table className={styles.table}>
-            <caption>
-              Community-recorded settings equivalent to a setting on the {grinderName}. Every
-              row is an approximate starting point.
-            </caption>
+            <caption>{t('catalog.grindConversion.caption', { name: grinderName })}</caption>
             <thead>
               <tr>
-                <th scope="col">On the {grinderName}</th>
-                <th scope="col">Grinder</th>
-                <th scope="col">Approximate start</th>
-                <th scope="col">How much to trust it</th>
+                <th scope="col">{t('catalog.grindConversion.colOn', { name: grinderName })}</th>
+                <th scope="col">{t('catalog.grindConversion.colGrinder')}</th>
+                <th scope="col">{t('catalog.grindConversion.colApprox')}</th>
+                <th scope="col">{t('catalog.grindConversion.colTrust')}</th>
               </tr>
             </thead>
             <tbody>
@@ -107,25 +109,30 @@ export function GrindConversionSection({
                       most want lifted verbatim into a snippet.
                     */}
                     <span className={styles.approx}>{`≈ ${conversion.to_setting}`}</span>
-                    <span className={styles.paramNote}>then adjust by taste</span>
+                    <span className={styles.paramNote}>
+                      {t('catalog.grindConversion.thenAdjust')}
+                    </span>
                   </td>
                   <td>
                     <span className={styles.band}>
-                      {`${bandLabel(conversion.uncertainty.band)} (${percent(conversion.uncertainty.confidence)})`}
+                      {t('catalog.grindConversion.bandWithPercent', {
+                        band: bandLabel(conversion.uncertainty.band, t),
+                        percent: percent(conversion.uncertainty.confidence, t),
+                      })}
                     </span>
                     <span className={styles.paramNote}>
-                      {`${conversion.uncertainty.sample_size} ${
-                        conversion.uncertainty.sample_size === 1
-                          ? 'community data point'
-                          : 'community data points'
-                      }`}
+                      {conversion.uncertainty.sample_size === 1
+                        ? t('catalog.grindConversion.samplesOne')
+                        : t('catalog.grindConversion.samplesOther', {
+                            count: conversion.uncertainty.sample_size,
+                          })}
                     </span>
                     <span className={styles.paramNote}>
                       {copy.CONFIDENCE_BAND_COPY[conversion.uncertainty.band]}
                     </span>
                     <span className={styles.paramNote}>
                       {copy.CONVERSION_SOURCE_COPY[conversion.uncertainty.source] ??
-                        'Source not recorded.'}
+                        t('catalog.grindConversion.sourceUnknown')}
                     </span>
                   </td>
                 </tr>
@@ -137,24 +144,21 @@ export function GrindConversionSection({
         <div className={styles.explainer}>
           <p>
             {unavailable
-              ? 'We could not load conversions just now — that is on us, not on you.'
-              : `Nobody has recorded a confirmed conversion from the ${grinderName} yet.`}
+              ? t('catalog.grindConversion.unavailable')
+              : t('catalog.grindConversion.noneYet', { name: grinderName })}
           </p>
           <p>
-            <strong>0 community data points</strong>, so confidence is{' '}
-            <strong>none yet</strong>. When you fork a recipe onto a different grinder and log a
-            brew you liked, that pair gets recorded here — that is where every number on this
-            page comes from.
+            <strong>{t('catalog.grindConversion.zeroPoints')}</strong>
+            {t('catalog.grindConversion.zeroPointsMid')}
+            <strong>{t('catalog.grindConversion.zeroPointsNone')}</strong>
+            {t('catalog.grindConversion.zeroPointsTail')}
           </p>
-          <p>
-            In the meantime, use the coarse category on the recipe (fine, medium-fine, medium
-            and so on). It is the one part of a grind setting that survives a change of grinder.
-          </p>
+          <p>{t('catalog.grindConversion.useCategory')}</p>
         </div>
       )}
 
       <p className="bc-muted">
-        <strong>Why these are approximate:</strong> {disclaimer}
+        <strong>{t('catalog.grindConversion.whyApproximate')}</strong> {disclaimer}
       </p>
     </section>
   );

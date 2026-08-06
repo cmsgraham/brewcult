@@ -8,6 +8,7 @@ import {
   normalizeCodeInput,
   regenerateRecoveryCodes,
 } from '../../lib/mfa-client';
+import { useTranslate } from '../locale-provider';
 import { Alert } from '../ui/alert';
 import { Field } from '../ui/field';
 import styles from './security.module.css';
@@ -28,6 +29,7 @@ export interface ManageMfaProps {
  * is stated in the confirmation *before* the destructive button, not after it.
  */
 export function ManageMfa({ staffRole, onRegenerated, onDisabled }: ManageMfaProps) {
+  const t = useTranslate();
   const [regenCode, setRegenCode] = useState('');
   const [regenError, setRegenError] = useState<string | null>(null);
   const [regenPending, setRegenPending] = useState(false);
@@ -48,7 +50,7 @@ export function ManageMfa({ staffRole, onRegenerated, onDisabled }: ManageMfaPro
       setRegenCode('');
       onRegenerated(codes);
     } catch (failure) {
-      setRegenError(describeMfaError(failure));
+      setRegenError(describeMfaError(failure, t('errors.server')));
     } finally {
       setRegenPending(false);
     }
@@ -66,7 +68,7 @@ export function ManageMfa({ staffRole, onRegenerated, onDisabled }: ManageMfaPro
       setConfirmingOff(false);
       onDisabled();
     } catch (failure) {
-      setDisableError(describeMfaError(failure));
+      setDisableError(describeMfaError(failure, t('errors.server')));
     } finally {
       setDisablePending(false);
     }
@@ -75,15 +77,12 @@ export function ManageMfa({ staffRole, onRegenerated, onDisabled }: ManageMfaPro
   return (
     <div className={styles.manageGrid}>
       <section aria-labelledby="mfa-regen-heading" className={styles.manageCard}>
-        <h3 id="mfa-regen-heading">New recovery codes</h3>
-        <p>
-          Makes a fresh set of ten and retires the old ones. Worth doing if you have used a few,
-          or if you are not sure where the last set ended up.
-        </p>
+        <h3 id="mfa-regen-heading">{t('security.manage.regenHeading')}</h3>
+        <p>{t('security.manage.regenBody')}</p>
         <form className="bc-form" onSubmit={onRegenerate} noValidate>
           {regenError ? <Alert tone="error">{regenError}</Alert> : null}
           <div className="bc-field">
-            <label htmlFor="mfa-regen-code">Code from your app</label>
+            <label htmlFor="mfa-regen-code">{t('security.manage.codeLabel')}</label>
             <input
               id="mfa-regen-code"
               className={`bc-input ${styles.codeInput}`}
@@ -104,16 +103,14 @@ export function ManageMfa({ staffRole, onRegenerated, onDisabled }: ManageMfaPro
             type="submit"
             disabled={!isCompleteCode(regenCode) || regenPending}
           >
-            {regenPending ? 'Generating…' : 'Generate new codes'}
+            {regenPending ? t('security.manage.generating') : t('security.manage.generate')}
           </button>
         </form>
       </section>
 
       <section aria-labelledby="mfa-disable-heading" className={styles.manageCard}>
-        <h3 id="mfa-disable-heading">Turn two-factor off</h3>
-        <p>
-          Your account goes back to password-only. You can turn it on again whenever you like.
-        </p>
+        <h3 id="mfa-disable-heading">{t('security.manage.disableHeading')}</h3>
+        <p>{t('security.manage.disableBody')}</p>
 
         {!confirmingOff ? (
           <div className={styles.inlineActions}>
@@ -122,21 +119,21 @@ export function ManageMfa({ staffRole, onRegenerated, onDisabled }: ManageMfaPro
               className={`bc-button ${styles.destructive}`}
               onClick={() => setConfirmingOff(true)}
             >
-              Turn off two-factor
+              {t('security.manage.disableStart')}
             </button>
           </div>
         ) : (
           <form className="bc-form" onSubmit={onDisable} noValidate>
             <p className={styles.consequence}>
               {staffRole
-                ? 'You will lose access to staff areas. The operator console checks for an MFA-backed session before it opens, so /admin will stop working for you until you turn two-factor back on and sign in again.'
-                : 'Your recovery codes stop working too, and a stolen password would be enough to get into your account on its own. If you ever take a staff role, you will need two-factor back before the operator console will open.'}
+                ? t('security.manage.consequenceStaff')
+                : t('security.manage.consequenceMember')}
             </p>
             {disableError ? <Alert tone="error">{disableError}</Alert> : null}
             <Field
               id="mfa-disable-password"
               name="password"
-              label="Your password"
+              label={t('security.manage.passwordLabel')}
               type="password"
               autoComplete="current-password"
               required
@@ -147,10 +144,9 @@ export function ManageMfa({ staffRole, onRegenerated, onDisabled }: ManageMfaPro
               {/* Distinct from the regenerate field's label on purpose: two
                   controls with the same accessible name on one page is
                   ambiguous in a screen reader's form list. */}
-              <label htmlFor="mfa-disable-code">Current code from your app</label>
+              <label htmlFor="mfa-disable-code">{t('security.manage.disableCodeLabel')}</label>
               <span className="bc-field__hint" id="mfa-disable-code-hint">
-                Both are needed, so that someone who only has your password — or only has your
-                open laptop — cannot switch this off.
+                {t('security.manage.disableCodeHint')}
               </span>
               <input
                 id="mfa-disable-code"
@@ -174,7 +170,7 @@ export function ManageMfa({ staffRole, onRegenerated, onDisabled }: ManageMfaPro
                 type="submit"
                 disabled={password === '' || !isCompleteCode(disableCode) || disablePending}
               >
-                {disablePending ? 'Turning off…' : 'Yes, turn it off'}
+                {disablePending ? t('security.manage.turningOff') : t('security.manage.confirmOff')}
               </button>
               <button
                 className="bc-button bc-button--quiet"
@@ -187,7 +183,7 @@ export function ManageMfa({ staffRole, onRegenerated, onDisabled }: ManageMfaPro
                 }}
                 disabled={disablePending}
               >
-                Keep two-factor on
+                {t('security.manage.keepOn')}
               </button>
             </div>
           </form>

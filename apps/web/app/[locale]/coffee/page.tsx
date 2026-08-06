@@ -1,5 +1,6 @@
 import { type Metadata } from 'next';
-import { localeParam } from '../../../lib/locale-server';
+import { localeParam, translator } from '../../../lib/locale-server';
+import { type Locale } from '../../../lib/i18n';
 import { LocaleLink as Link } from '../../../components/locale-link';
 import { Breadcrumbs } from '../../../components/catalog/breadcrumbs';
 import {
@@ -64,26 +65,51 @@ function readFilters(searchParams: Record<string, string | string[] | undefined>
   };
 }
 
-/** "Washed Ethiopian coffee" — a real title for a real query, built from the
- *  active facets rather than a generic "Coffee (filtered)". */
+/**
+ * "Washed Ethiopian coffee" — a real title for a real query, built from the
+ * active facets rather than a generic "Coffee (filtered)".
+ *
+ * The qualifiers are ordered by the catalogue rather than by this function:
+ * English stacks them before the noun ("light washed coffee"), Spanish puts
+ * them after it and in the other order ("café lavado claro"). Reading the order
+ * out of `catalog.coffeeHub.qualifierOrder` keeps that a fact about the
+ * language rather than a `locale === 'es'` buried in a page.
+ */
 function titleFor(
   filters: ReturnType<typeof readFilters>,
-  locale: string,
+  locale: Locale,
 ): { title: string; description: string } {
   const copy = catalogCopy(locale);
-  const parts: string[] = [];
-  if (filters.roast_level) parts.push(copy.ROAST_LEVEL_LABEL[filters.roast_level].toLowerCase());
-  if (filters.process) parts.push(copy.PROCESS_LABEL[filters.process].toLowerCase());
-  const noun = parts.length > 0 ? `${parts.join(' ')} coffee` : 'coffee';
-  const where = filters.origin ? ` from ${filters.origin}` : '';
+  const t = translator(locale);
+
+  const byKind: Record<string, string | undefined> = {
+    roast: filters.roast_level
+      ? copy.ROAST_LEVEL_LABEL[filters.roast_level].toLowerCase()
+      : undefined,
+    process: filters.process ? copy.PROCESS_LABEL[filters.process].toLowerCase() : undefined,
+  };
+  const qualifiers = t('catalog.coffeeHub.qualifierOrder')
+    .split(' ')
+    .map((kind) => byKind[kind])
+    .filter((part): part is string => Boolean(part))
+    .join(' ');
+
+  const noun = qualifiers
+    ? t('catalog.coffeeHub.qualifiedNoun', { qualifiers })
+    : t('catalog.coffeeHub.noun');
+  const where = filters.origin
+    ? t('catalog.coffeeHub.fromOrigin', { origin: filters.origin })
+    : '';
   const use = filters.intended_use
-    ? ` for ${copy.INTENDED_USE_LABEL[filters.intended_use].toLowerCase()}`
+    ? t('catalog.coffeeHub.forUse', {
+        use: copy.INTENDED_USE_LABEL[filters.intended_use].toLowerCase(),
+      })
     : '';
 
-  const headline = `${noun.charAt(0).toUpperCase()}${noun.slice(1)}${where}${use}`;
+  const phrase = `${noun}${where}${use}`;
   return {
-    title: headline,
-    description: `Browse ${noun}${where}${use} — origin, farm, process, varietal, altitude and roast level for every bag, with the roaster behind it and community brewing recipes.`,
+    title: `${phrase.charAt(0).toUpperCase()}${phrase.slice(1)}`,
+    description: t('catalog.coffeeHub.metaDescription', { noun: phrase }),
   };
 }
 
@@ -105,6 +131,7 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
 export default async function CoffeeHubPage({ params, searchParams }: PageProps) {
   const locale = localeParam((await params).locale);
   const copy = catalogCopy(locale);
+  const t = translator(locale);
   const search = await searchParams;
   const filters = readFilters(search);
   const cursor = one(search['cursor']);
@@ -121,8 +148,8 @@ export default async function CoffeeHubPage({ params, searchParams }: PageProps)
   const hasActiveFilters = Object.values(filters).some((value) => value !== undefined);
 
   const breadcrumbs = [
-    { name: 'Home', path: '/' },
-    { name: 'Coffee', path: '/coffee' },
+    { name: t('catalog.crumbs.home'), path: '/' },
+    { name: t('catalog.crumbs.coffee'), path: '/coffee' },
   ];
 
   // Countries, de-duplicated: the API matches `origin` on country name, so
@@ -142,31 +169,28 @@ export default async function CoffeeHubPage({ params, searchParams }: PageProps)
         ]}
       />
 
-      <Breadcrumbs entries={breadcrumbs} />
+      <Breadcrumbs entries={breadcrumbs} locale={locale} />
 
       <h1>{title}</h1>
-      <p className="bc-lede">
-        Every coffee here carries where it grew, how it was processed and how far it was
-        roasted — in plain language, because none of that is obvious and pretending otherwise
-        helps nobody.
-      </p>
+      <p className="bc-lede">{t('catalog.coffeeHub.lede')}</p>
 
       <FilterBar
         action="/coffee"
-        legend="Filter coffees"
+        locale={locale}
+        legend={t('catalog.filters.coffeeLegend')}
         hasActiveFilters={hasActiveFilters}
         selects={[
           {
             name: 'origin',
-            label: 'Origin',
-            anyLabel: 'Anywhere',
+            label: t('catalog.filters.origin'),
+            anyLabel: t('catalog.filters.anyOrigin'),
             selected: filters.origin,
             options: countries.map((country) => ({ value: country, label: country })),
           },
           {
             name: 'process',
-            label: 'Process',
-            anyLabel: 'Any process',
+            label: t('catalog.filters.process'),
+            anyLabel: t('catalog.filters.anyProcess'),
             selected: filters.process,
             options: LOT_PROCESSES.map((process) => ({
               value: process,
@@ -175,8 +199,8 @@ export default async function CoffeeHubPage({ params, searchParams }: PageProps)
           },
           {
             name: 'roast_level',
-            label: 'Roast level',
-            anyLabel: 'Any roast',
+            label: t('catalog.filters.roastLevel'),
+            anyLabel: t('catalog.filters.anyRoast'),
             selected: filters.roast_level,
             options: ROAST_LEVELS.map((level) => ({
               value: level,
@@ -185,8 +209,8 @@ export default async function CoffeeHubPage({ params, searchParams }: PageProps)
           },
           {
             name: 'intended_use',
-            label: 'Brewed as',
-            anyLabel: 'Either',
+            label: t('catalog.filters.brewedAs'),
+            anyLabel: t('catalog.filters.anyUse'),
             selected: filters.intended_use,
             options: INTENDED_USES.map((use) => ({ value: use, label: copy.INTENDED_USE_LABEL[use] })),
           },
@@ -195,24 +219,18 @@ export default async function CoffeeHubPage({ params, searchParams }: PageProps)
 
       <section aria-labelledby="results">
         <h2 id="results" className="bc-visually-hidden">
-          Results
+          {t('catalog.results')}
         </h2>
 
         {result.status === 'error' ? (
-          <p className="bc-muted">
-            We could not load the catalogue just now — that is on us, not on you. Refresh in a
-            moment.
-          </p>
+          <p className="bc-muted">{t('catalog.coffeeHub.loadError')}</p>
         ) : coffees.length === 0 ? (
           <div className={styles.explainer}>
+            <p>{t('catalog.coffeeHub.emptyBody')}</p>
             <p>
-              Nothing matches those filters yet. The catalogue is still growing, so an empty
-              result usually means &ldquo;not indexed yet&rdquo; rather than &ldquo;does not
-              exist&rdquo;.
-            </p>
-            <p>
-              <Link href="/coffee">Clear the filters</Link> or{' '}
-              <Link href="/roaster">start from a roaster</Link> instead.
+              <Link href="/coffee">{t('catalog.coffeeHub.emptyClear')}</Link>
+              {t('catalog.coffeeHub.emptyOr')}
+              <Link href="/roaster">{t('catalog.coffeeHub.emptyRoaster')}</Link>.
             </p>
           </div>
         ) : (
@@ -225,6 +243,7 @@ export default async function CoffeeHubPage({ params, searchParams }: PageProps)
 
         <Pagination
           basePath="/coffee"
+          locale={locale}
           filters={filters}
           nextCursor={nextCursor}
           itemCount={coffees.length}
@@ -233,16 +252,16 @@ export default async function CoffeeHubPage({ params, searchParams }: PageProps)
       </section>
 
       <section className={styles.section} aria-labelledby="elsewhere">
-        <h2 id="elsewhere">Elsewhere in the catalogue</h2>
+        <h2 id="elsewhere">{t('catalog.elsewhere.heading')}</h2>
         <ul className={styles.related}>
           <li>
-            <Link href="/roaster">Roasters</Link>
+            <Link href="/roaster">{t('catalog.elsewhere.roasters')}</Link>
           </li>
           <li>
-            <Link href="/equipment">Brewers and grinders</Link>
+            <Link href="/equipment">{t('catalog.elsewhere.equipment')}</Link>
           </li>
           <li>
-            <Link href="/recipes">Brewing recipes</Link>
+            <Link href="/recipes">{t('catalog.elsewhere.recipes')}</Link>
           </li>
         </ul>
       </section>

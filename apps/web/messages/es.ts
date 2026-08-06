@@ -404,6 +404,17 @@ export const es: Messages = {
     offline:
       'Estás sin conexión, así que la foto queda esperando en este dispositivo. Se sube cuando tengás señal.',
     uploadFailed: 'Esa subida no pasó. Probá de nuevo en un momento.',
+
+    avatarLabel: 'Foto de perfil',
+    avatarHint: 'Una cara, una taza, una bolsa: lo que querás que la gente vea junto a tu nombre.',
+    avatarCta: 'Agregar una foto de perfil',
+    avatarSet: 'Esa es tu foto de perfil ahora.',
+    avatarRemoved: 'Foto quitada. Volvieron tus iniciales.',
+    avatarNotSwitchedOn:
+      'Las fotos de perfil todavía no están encendidas. Nada más en esta página se ve afectado.',
+    avatarAltNamed: 'Foto de perfil de {name}',
+    avatarAlt: 'Foto de perfil',
+    avatarNoPhoto: 'Todavía sin foto',
   },
 
   coffeePage: {
@@ -546,6 +557,119 @@ export const es: Messages = {
       'Si tenés un rol de staff te lo exigimos, y la razón es concreta: todo lo que se hace en la consola de operación queda escrito en una bitácora que solo crece, con un nombre al lado. Ese registro sirve de algo únicamente si la persona nombrada es la única que pudo haberlo hecho.',
     honestThree:
       'Nunca vemos tus códigos y no los podemos generar. Si perdés el teléfono, los códigos de recuperación son la forma de volver a entrar; por eso la configuración insiste tanto en que los guardés.',
+
+    roles: {
+      user: 'Miembro',
+      moderator: 'Moderador',
+      editor: 'Editor',
+      seller_owner: 'Dueño de tienda',
+      admin: 'Admin',
+    },
+
+    mfa: {
+      panelHeading: 'Autenticación de dos factores',
+      on: 'Activada',
+      off: 'Desactivada',
+      sessionDidNotUseIt: 'Este inicio de sesión no la usó',
+      freshSignInHeading: 'Un paso más para entrar a las áreas de staff',
+      freshSignInOne:
+        'Los dos factores están activados en tu cuenta, pero el inicio de sesión que estás usando ahora se hizo sin ellos, así que esta sesión sigue contando como de solo contraseña. Por eso la consola de operación te rechaza aunque todo se vea encendido.',
+      freshSignInTwo:
+        'Salir y volver a entrar, con un código de tu app, lo arregla. Nada cambia en tu cuenta y no vas a tener que configurar nada de nuevo.',
+      signingOut: 'Cerrando sesión…',
+      signOutAndBack: 'Cerrar sesión y volver a entrar',
+      goToSignIn: 'Ir a iniciar sesión',
+      verifiedNote:
+        'Los inicios de sesión piden un código de tu app de autenticación. Esta sesión usó uno, así que las áreas de staff están abiertas para vos.',
+      offPitch:
+        'Ahora mismo tu contraseña es lo único que hay entre alguien y tu cuenta. Los dos factores agregan un segundo código, de vida corta, desde una app en tu teléfono, así que una contraseña filtrada o reciclada no alcanza por sí sola. Configurarlo toma unos dos minutos.',
+      staffAlertTitle: 'Tenés el rol de {role}.',
+      staffAlertBody:
+        'Las áreas de staff lo necesitan. Suspender una cuenta, cambiar un rol o resolver un reporte queda escrito en una bitácora que solo crece, con tu nombre al lado, y esa firma vale algo únicamente si nadie más la puede producir. La consola de operación no se va a abrir hasta que esto esté activado y hayás iniciado sesión con ello.',
+      gettingReady: 'Preparando todo…',
+      turnOn: 'Activar los dos factores',
+      backToProfile: 'Volver a tu perfil',
+      noticeOn: 'Los dos factores están activados en tu cuenta.',
+      noticeCodesReplaced: 'Tus códigos de recuperación fueron reemplazados.',
+      noticeOff:
+        'Los dos factores están desactivados. Tu cuenta volvió a ser de solo contraseña, y los códigos de recuperación que tenías ya no funcionan.',
+    },
+
+    enrol: {
+      heading: 'Emparejá tu app de autenticación',
+      intro:
+        'Sirve cualquier app de autenticación: 1Password, Bitwarden, Authy, Google Authenticator, la que ya trae tu teléfono. Escaneá el código, o escribí la clave a mano si te resulta más fácil.',
+      qrLabel:
+        'Código QR de configuración para la autenticación de dos factores de BrewCult. Si no lo podés escanear, usá la clave de configuración que aparece al lado.',
+      meta: 'Códigos de {digits} dígitos, que se renuevan cada {seconds} segundos.',
+      cantScanHeading: '¿No lo podés escanear?',
+      cantScanBody:
+        'Elegí «ingresar una clave de configuración» en tu app y escribí esto. Los espacios están para que se lea mejor; las apps los ignoran.',
+      copyKey: 'Copiar la clave',
+      codeLabel: 'Código de seis dígitos de tu app',
+      codeHint:
+        'Esto comprueba que el emparejamiento funcionó. Si dice que el código no es válido, esperá el siguiente y probá otra vez: no se pierde nada.',
+      checking: 'Revisando…',
+      submit: 'Activar los dos factores',
+      cancel: 'Ahora no',
+    },
+
+    manage: {
+      regenHeading: 'Códigos de recuperación nuevos',
+      regenBody:
+        'Hace un juego nuevo de diez y retira los viejos. Vale la pena si ya usaste varios, o si no estás seguro de dónde quedó el juego anterior.',
+      codeLabel: 'Código de tu app',
+      generating: 'Generando…',
+      generate: 'Generar códigos nuevos',
+      disableHeading: 'Desactivar los dos factores',
+      disableBody:
+        'Tu cuenta vuelve a ser de solo contraseña. La podés volver a activar cuando querás.',
+      disableStart: 'Desactivar los dos factores',
+      consequenceStaff:
+        'Vas a perder el acceso a las áreas de staff. La consola de operación revisa que la sesión tenga dos factores antes de abrirse, así que /admin va a dejar de funcionarte hasta que los volvás a activar e inicies sesión de nuevo.',
+      consequenceMember:
+        'Tus códigos de recuperación también dejan de funcionar, y una contraseña robada bastaría para entrar a tu cuenta por sí sola. Si alguna vez tomás un rol de staff, vas a necesitar los dos factores de vuelta antes de que la consola de operación se abra.',
+      passwordLabel: 'Tu contraseña',
+      disableCodeLabel: 'Código actual de tu app',
+      disableCodeHint:
+        'Se necesitan los dos, para que alguien que solo tenga tu contraseña, o que solo tenga tu computadora abierta, no pueda apagar esto.',
+      turningOff: 'Desactivando…',
+      confirmOff: 'Sí, desactivalo',
+      keepOn: 'Mejor dejalos activados',
+    },
+
+    codes: {
+      headingEnrolled:
+        'Los dos factores están activados. Guardá estos códigos de recuperación.',
+      headingRegenerated: 'Aquí está tu juego nuevo de códigos de recuperación.',
+      warnTitle: 'No los vas a volver a ver.',
+      warnBody:
+        'Los guardamos revueltos, así que de verdad no te los podemos mostrar una segunda vez. Si perdés tanto tu app de autenticación como estos códigos, volver a entrar implica demostrarle a una persona quién sos, y eso toma días.',
+      regeneratedNote:
+        'Tus códigos viejos dejaron de funcionar en el momento en que se hicieron estos. Si los tenías anotados en algún lado, reemplazalos ya.',
+      listLabel: 'Tus códigos de recuperación',
+      keepNote:
+        'Cada uno funciona una sola vez, en lugar de un código de tu app. Guardalos en un lugar que no sea el teléfono donde vive tu app de autenticación: un gestor de contraseñas, o papel en una gaveta.',
+      copyAll: 'Copiar todos los códigos',
+      download: 'Descargar como archivo de texto',
+      downloadBlocked:
+        'Tu navegador bloqueó la descarga. Mejor copiá los códigos de arriba, o anotalos: están en pantalla y esta es la única vez que te los podemos mostrar.',
+      ack: 'Ya guardé mis códigos de recuperación en un lugar seguro.',
+      done: 'Listo',
+      fileTitle: 'Códigos de recuperación de BrewCult',
+      fileAccount: 'Cuenta: @{handle}',
+      fileOnce: 'Cada código funciona una sola vez, en lugar de tu app de autenticación.',
+      fileWhere:
+        'Guardalos en un lugar que no sea el aparato donde tenés tu app de autenticación.',
+      fileReplace: 'Generar un juego nuevo reemplaza todos los códigos de abajo.',
+    },
+
+    copy: {
+      copied: 'Copiado',
+      copiedAnnounce: '{label}: ya está en tu portapapeles.',
+      failed:
+        'Tu navegador no nos dejó llegar al portapapeles. Seleccioná el texto de arriba y copialo a mano.',
+    },
   },
 
   kit: {
@@ -767,5 +891,451 @@ export const es: Messages = {
     form: 'Algo en el formulario necesita un ajuste.',
     tooLong: 'Eso tardó demasiado. ¿Probamos de nuevo?',
     busy: 'BrewCult está tomando aire. Probá de nuevo en un momento.',
+  },
+
+  catalog: {
+    breadcrumbLabel: 'Ruta de navegación',
+    results: 'Resultados',
+    keepLooking: 'Seguí buscando',
+
+    crumbs: {
+      home: 'Inicio',
+      coffee: 'Café',
+      roasters: 'Tostadores',
+      equipment: 'Equipo',
+      recipes: 'Recetas',
+    },
+
+    elsewhere: {
+      heading: 'En otras partes del catálogo',
+      coffees: 'Cafés',
+      roasters: 'Tostadores',
+      equipment: 'Cafeteras y molinos',
+      recipes: 'Recetas de preparación',
+    },
+
+    filters: {
+      apply: 'Aplicar filtros',
+      clear: 'Limpiar',
+      coffeeLegend: 'Filtrar cafés',
+      equipmentLegend: 'Filtrar equipo',
+      recipeLegend: 'Filtrar recetas',
+      origin: 'Origen',
+      anyOrigin: 'De cualquier lado',
+      process: 'Proceso',
+      anyProcess: 'Cualquier proceso',
+      roastLevel: 'Nivel de tueste',
+      anyRoast: 'Cualquier tueste',
+      brewedAs: 'Preparado como',
+      anyUse: 'Cualquiera',
+      category: 'Categoría',
+      anyCategory: 'Todo',
+      brand: 'Marca',
+      anyBrand: 'Cualquier marca',
+      method: 'Método',
+      anyMethod: 'Cualquier método',
+    },
+
+    pagination: {
+      label: 'Paginación',
+      back: '← Volver al inicio',
+      next: 'Página siguiente →',
+      countOne: '1 resultado en esta página',
+      countOther: '{count} resultados en esta página',
+    },
+
+    cards: {
+      tastesLike: 'Sabe a: {notes}',
+      discontinued: 'Ya no se tuesta: lo mantenemos por las recetas que tiene asociadas.',
+      coffeeCountOne: '1 café en el catálogo',
+      coffeeCountOther: '{count} cafés en el catálogo',
+      adjustment: 'ajuste {scale}',
+      onThe: 'En ',
+      byRoaster: 'Publicada por el tostador',
+      byAuthor: 'Por {author}',
+      communityMember: 'alguien de la comunidad',
+    },
+
+    coffeeHub: {
+      /**
+       * En español los calificativos van DESPUÉS del sustantivo y en el otro
+       * orden: «café lavado claro», no «claro lavado café». De ahí
+       * `qualifierOrder`.
+       */
+      noun: 'café',
+      qualifiedNoun: 'café {qualifiers}',
+      qualifierOrder: 'process roast',
+      fromOrigin: ' de {origin}',
+      forUse: ' para {use}',
+      metaDescription:
+        'Explorá {noun}: origen, finca, proceso, variedad, altura y nivel de tueste de cada bolsa, con el tostador detrás y recetas de preparación de la comunidad.',
+      lede: 'Cada café aquí dice dónde creció, cómo se procesó y qué tan lejos se tostó, en palabras normales, porque nada de eso es obvio y fingir lo contrario no le sirve a nadie.',
+      loadError:
+        'No pudimos cargar el catálogo en este momento: eso es culpa nuestra, no tuya. Recargá en un momento.',
+      emptyBody:
+        'Nada coincide con esos filtros todavía. El catálogo sigue creciendo, así que un resultado vacío casi siempre significa «aún no está en el índice» y no «no existe».',
+      emptyClear: 'Limpiá los filtros',
+      emptyOr: ' o ',
+      emptyRoaster: 'empezá por un tostador',
+    },
+
+    roasterHub: {
+      title: 'Tostadores de café',
+      metaDescription:
+        'Tostadores de café de especialidad y los cafés que tuestan: orígenes, procesos, notas de cata y las recetas de la comunidad para prepararlos.',
+      lede: 'La gente que decide a qué sabe un café verde para cuando te llega. Cada perfil lista sus cafés con toda su procedencia, y las preparaciones que la comunidad ha anotado con ellos.',
+      sectionHeading: 'Tostadores',
+      loadError:
+        'No pudimos cargar la lista de tostadores en este momento: eso es culpa nuestra, no tuya. Probá de nuevo en un momento.',
+      emptyBody:
+        'Todavía no hay tostadores en la lista. Seguimos llenando los estantes, y preferimos mostrarte una página vacía con honestidad antes que rellenarla.',
+      emptyLink: 'Mejor explorá los cafés',
+    },
+
+    roasterDetail: {
+      eyebrow: 'Tostador',
+      loadErrorTitle: 'No pudimos cargar este tostador',
+      loadErrorBody: 'Eso es culpa nuestra, no tuya. Probá de nuevo en un rato, o ',
+      loadErrorLink: 'explorá los otros tostadores',
+      ledeOne:
+        '{name} tiene un café en el catálogo de BrewCult{where}. Trae su origen, su proceso y su nivel de tueste, más todo lo que la comunidad ha ido descubriendo sobre cómo prepararlo.',
+      ledeOther:
+        '{name} tiene {count} cafés en el catálogo de BrewCult{where}. Cada uno trae su origen, su proceso y su nivel de tueste, más todo lo que la comunidad ha ido descubriendo sobre cómo prepararlos.',
+      ledeWhere: ', tostado en {location}',
+      profile: 'Perfil',
+      location: 'Ubicación',
+      coffeesListed: 'Cafés en la lista',
+      originsBought: 'Orígenes que compran',
+      verified: 'Verificado',
+      verifiedYes: 'Reclamado y verificado por el tostador',
+      verifiedNo: 'Todavía sin reclamar: este perfil lo mantiene la redacción',
+      website: 'Sitio web',
+      theirCoffees: 'Sus cafés',
+      noCoffees:
+        'Todavía no hay cafés de {name} en la lista. Si tenés una bolsa de ellos, el catálogo es justo donde va.',
+      retiredHeading: 'Ya no se tuestan',
+      retiredBody:
+        'Los lotes rotan con la cosecha. Estas páginas siguen aquí porque las recetas y las notas que tienen asociadas siguen sirviendo, y porque un lote parecido suele volver.',
+      originsHeading: 'Orígenes con los que trabajan',
+      allCountryCoffees: 'Todos los cafés de {country}',
+      filterToRoaster: 'Filtrar el catálogo a {name}',
+      allRoasters: 'Todos los tostadores',
+    },
+
+    equipmentHub: {
+      noun: 'equipo de café',
+      fromBrand: ' de {brand}',
+      metaDescription:
+        'Especificaciones, recetas de preparación y datos de molienda de la comunidad para {noun}. Cada página de molino trae conversiones de ajuste hechas por la comunidad, con su confianza y su tamaño de muestra a la vista.',
+      title: 'Cafeteras, molinos y equipo',
+      brandTitle: 'Equipo de {brand}',
+      lede: 'Las páginas de equipo existen para responder una sola pregunta con honestidad: ¿qué cambia esto de verdad en la taza? Sin rankings de marcas, sin «necesitás mejorar tu equipo»: especificaciones, recetas y lo que la comunidad ha medido.',
+      loadError:
+        'No pudimos cargar la lista de equipo en este momento: eso es culpa nuestra, no tuya. Probá de nuevo en un rato.',
+      emptyBody:
+        'Nada coincide con esos filtros todavía. Si tu molino o tu cafetera no aparece, eso es un hueco en nuestro catálogo, no una señal de que sea el equipo equivocado.',
+      emptyClear: 'Limpiá los filtros',
+      byCategory: 'Explorá por categoría',
+      byCategoryNote:
+        'Las páginas de molinos traen conversiones de ajuste de molienda hechas por la comunidad: lo más cercano que existe a una respuesta directa a «¿qué número uso en el mío?», con la incertidumbre dicha en voz alta en vez de escondida.',
+    },
+
+    equipmentDetail: {
+      loadErrorTitle: 'No pudimos cargar este equipo',
+      loadErrorBody: 'Eso es culpa nuestra, no tuya. Probá de nuevo en un momento, o ',
+      loadErrorLink: 'explorá el resto del equipo',
+      madeBy: 'Hecho por ',
+      specifications: 'Especificaciones',
+      category: 'Categoría',
+      brand: 'Marca',
+      grindAdjustment: 'Ajuste de molienda',
+      yes: 'Sí',
+      no: 'No',
+      noSpecs:
+        'Todavía no tenemos especificaciones detalladas de este modelo. Las recetas y los datos de molienda de abajo no dependen de eso: vienen de la gente que lo usa, no de una ficha técnica.',
+      recipesHeading: 'Recetas para {name}',
+      recipesSubject: '{name}',
+      allOfCategory: '{category} en el catálogo',
+      moreFromBrand: 'Más de {brand}',
+      coffeeToBrew: 'Café para preparar en él',
+      allRecipes: 'Todas las recetas de preparación',
+    },
+
+    recipeHub: {
+      title: 'Recetas de preparación',
+      metaTitleMethod: 'Recetas de preparación en {method}',
+      metaDescription:
+        'Recetas de la comunidad y de tostadores con dosis, agua, proporción, temperatura, molienda y el esquema completo de vertidos: cada una es un punto de partida para calibrar, no una regla.',
+      headingMethod: 'Recetas de {method}',
+      headingForCoffee: 'para {coffee}',
+      headingOnBrewer: 'en {brewer}',
+      sectionHeading: 'Recetas',
+      lede: 'Cada receta aquí trae su dosis, su agua, su proporción, su temperatura y su molienda, y además una categoría gruesa de molienda, porque el número del dial del molino de otra persona no se traslada al tuyo. Tomá una como punto de partida y cambiá una sola cosa a la vez.',
+      unknownCoffee: 'No encontramos un café con el slug «{slug}», así que ese filtro se ignoró.',
+      unknownBrewer: 'No encontramos equipo con el slug «{slug}», así que ese filtro se ignoró.',
+      notReadyBody:
+        'Las recetas todavía no están encendidas: la API de preparación se está construyendo justo ahora. Cuando llegue, esta página se va a llenar de recetas de la comunidad y de tostadores, cada una ligada al café y al equipo con el que se escribió.',
+      notReadyMeanwhile: 'Mientras tanto, ',
+      notReadyCatalogue: 'el catálogo de cafés',
+      notReadyAnd: ' y ',
+      notReadyEquipment: 'las páginas de equipo',
+      notReadyTail:
+        ' ya están en vivo, incluidas las conversiones de molienda de la comunidad para molinos.',
+      loadError:
+        'No pudimos cargar las recetas en este momento: eso es culpa nuestra, no tuya. Probá de nuevo en un momento.',
+      emptyBody:
+        'Todavía no hay recetas que coincidan con eso. Vacío es una respuesta real aquí: preferimos no mostrarte nada antes que rellenar la página con recetas de otro café.',
+      emptyClear: 'Limpiá los filtros',
+      emptyStart: 'Mejor empezá por un café',
+      howToReadHeading: 'Cómo leer una receta aquí',
+      howToReadRatio: 'La proporción',
+      howToReadRatioBody:
+        ' es la parte que viaja: 1:16 significa un gramo de café por dieciséis de agua, sin importar cuánto prepares. ',
+      howToReadGrind: 'La categoría de molienda',
+      howToReadGrindBody:
+        ' (fina, medio-fina, media…) es la única información de molienda que sobrevive a un cambio de molino; un número de dial siempre se muestra pegado al molino del que salió.',
+      howToReadNote:
+        'A nadie le sabe igual el primer intento de la receta de otra persona. Eso es el agua, los granos y las muelas, no vos.',
+    },
+
+    recipeDetail: {
+      notReadyTitle: 'Las recetas todavía no están encendidas',
+      notReadyBody:
+        'Las páginas de recetas se están construyendo justo ahora. Si alguien te compartió este enlace, va a empezar a funcionar en breve: el enlace en sí está bien.',
+      loadErrorTitle: 'No pudimos cargar esta receta',
+      loadErrorBody: 'Eso es culpa nuestra, no tuya. Probá de nuevo en un momento.',
+      allRecipes: 'Todas las recetas',
+      browseCoffees: 'Explorar cafés',
+      browseEquipment: 'Explorar equipo',
+      eyebrow: 'Receta de {method}',
+      byRoaster: 'Publicada por el tostador',
+      byAuthor: 'Por {author}',
+      byCommunity: 'Por alguien de la comunidad',
+      forCoffee: ' · para ',
+      onBrewer: ' · en ',
+      startingPoint: 'Esto es un punto de partida, no una regla.',
+      numbersHeading: 'Los números',
+      ratioNote:
+        'La proporción es la parte que vale la pena conservar cuando subís o bajás la cantidad: los números absolutos importan menos que la relación entre ellos.',
+      grindHeading: 'Molienda',
+      grindConversionsLink: 'Ver conversiones de molienda para {name} →',
+      poursHeading: 'Esquema de vertidos',
+      poursNote:
+        'Los tiempos cuentan desde que el agua toca el café por primera vez. Los pesos son acumulados: el número en la balanza, no la cantidad de ese vertido.',
+      puckPrepHeading: 'Preparación del pastel',
+      tastesOffHeading: 'Si no te sabe bien',
+      tastesOffBody:
+        'Cambiá una sola cosa a la vez: esa es toda la técnica. Si sale ácido, aguado o flojo, lo más probable es que esté subextraído: molé más fino, o usá agua más caliente, o dale más tiempo. Si sale amargo, áspero o seca la boca, seguramente está sobreextraído: molé más grueso, o bajale un poco a la temperatura, o cortá la preparación antes.',
+      tastesOffNote:
+        'Que la primera taza no dé en el clavo es el resultado normal, no un veredicto sobre tu equipo ni sobre vos.',
+      aboutCoffee: 'Sobre {name}',
+      moreBrewerRecipes: 'Más recetas de {name}',
+      moreMethodRecipes: 'Más recetas de {method}',
+    },
+
+    recipeJsonLd: {
+      coffeeGrams: '{grams} g de café',
+      waterGrams: '{grams} g de agua',
+      waterAt: 'Agua a {temp} °C',
+      filterType: 'Filtro {type}',
+      espressoOut: '{grams} g de espresso de salida',
+      brewTemperature: 'Temperatura de preparación {temp} °C',
+      groundAs: 'Molido {category}',
+      bloom: 'Floración',
+      pourN: 'Vertido {n}',
+      pourStep: 'A los {at}, verté hasta {to} g en total.',
+      pullShot: 'Sacá el shot',
+      pullShotStep: 'Dosis de {dose} g, apuntá a {yield} g de salida.',
+      pullShotStepTimed: 'Dosis de {dose} g, apuntá a {yield} g de salida en unos {seconds} segundos.',
+      brew: 'Preparar',
+      brewStep: 'Prepará {dose} g de café con {water} g de agua.',
+      brewStepTimed:
+        'Prepará {dose} g de café con {water} g de agua, apuntando a un tiempo total de unos {time}.',
+      yieldEspresso: '{grams} g de espresso',
+      yieldFilter: '{grams} g de café preparado',
+    },
+
+    freshness: {
+      heading: 'Fecha de tueste y frescura',
+      batchesIntro: 'Lotes de tueste que conocemos de este café:',
+      today: 'Hoy',
+      dayOne: '1 día',
+      dayOther: '{count} días',
+      ageNote:
+        'Los días se cuentan desde hoy, así que se mueven conforme la página envejece: de eso se trata.',
+      future: 'Tostado en el futuro, aparentemente. Eso es un problema de datos, no de café.',
+      veryFreshEspresso:
+        'Muy fresco y todavía desgasificando. Un espresso de esto seguramente se va a correr y a saber filoso: dale una semana.',
+      veryFreshFilter:
+        'Muy fresco y todavía desgasificando. Esperá una floración grande y un drenado más lento; por lo general se pone más fácil como al quinto día.',
+      restingEspresso:
+        'Acercándose a su ventana para espresso: los últimos días de reposo suelen asentar el shot.',
+      inWindow: 'En la ventana que la mayoría encuentra mejor para filtrado.',
+      pastPeak:
+        'Ya pasó su punto más brillante, pero está lejos de estar malo: esperá algo más dulce, más redondo, menos aromático. Probá una molienda un poco más fina o agua más caliente.',
+      wellPast:
+        'Bastante pasado de su punto. Todavía se toma, y honestamente sigue siendo mejor que la mayoría del café: solo no juzgués el lote por esta bolsa.',
+    },
+
+    grindConversion: {
+      heading: 'Ajustes de molienda en otros molinos',
+      intro:
+        'Un número en el dial de un molino solo significa algo en ese molino: hasta dos unidades del mismo modelo son distintas. Así que en vez de fingir que «18» viaja, BrewCult anota en qué terminó cayendo la gente después de cambiarse, y te muestra la dispersión.',
+      caption:
+        'Ajustes anotados por la comunidad, equivalentes a un ajuste en {name}. Cada fila es un punto de partida aproximado.',
+      colOn: 'En {name}',
+      colGrinder: 'Molino',
+      colApprox: 'Punto de partida aproximado',
+      colTrust: 'Cuánto confiar',
+      thenAdjust: 'después ajustá al gusto',
+      bandLow: 'Confianza baja',
+      bandMedium: 'Confianza media',
+      bandHigh: 'Confianza alta',
+      bandWithPercent: '{band} ({percent})',
+      unknownPercent: 'desconocida',
+      samplesOne: '1 dato de la comunidad',
+      samplesOther: '{count} datos de la comunidad',
+      sourceUnknown: 'Fuente no registrada.',
+      unavailable:
+        'No pudimos cargar las conversiones en este momento: eso es culpa nuestra, no tuya.',
+      noneYet: 'Nadie ha registrado todavía una conversión confirmada desde {name}.',
+      zeroPoints: '0 datos de la comunidad',
+      zeroPointsMid: ', así que la confianza es ',
+      zeroPointsNone: 'ninguna por ahora',
+      zeroPointsTail:
+        '. Cuando bifurqués una receta a otro molino y anotés una preparación que te gustó, ese par queda registrado aquí: de ahí sale cada número de esta página.',
+      useCategory:
+        'Mientras tanto, usá la categoría gruesa de la receta (fina, medio-fina, media y así). Es la única parte de un ajuste de molienda que sobrevive a un cambio de molino.',
+      whyApproximate: 'Por qué son aproximados:',
+    },
+
+    recipesSection: {
+      startingPoints:
+        'Las recetas de la comunidad son puntos de partida, no veredictos. Prepará una tal como está escrita y después cambiá una sola cosa.',
+      browseAll: 'Ver todas las recetas para {subject} →',
+      loadError:
+        'No pudimos cargar las recetas en este momento: eso es culpa nuestra, no tuya. Todo lo demás en esta página sigue siendo correcto.',
+      notReady:
+        'Las recetas todavía no están encendidas. Ya vienen, y cuando lleguen vas a encontrar aquí mismo las preparaciones de la comunidad para {subject}.',
+      empty:
+        'Todavía no hay recetas para {subject}, lo que significa que quien escriba la primera marca el tono. Si ya lo preparaste, hasta un punto de partida rústico le sirve a la siguiente persona más de lo que creerías.',
+    },
+
+    recipeBody: {
+      noNumbers:
+        'Esta receta todavía no anotó sus números. El método y la molienda de abajo siguen sirviendo: el resto queda a tu criterio.',
+      doseIn: 'Dosis de entrada',
+      yieldOut: 'Salida',
+      ratio: 'Proporción',
+      ratioEspressoNote: 'dosis a salida',
+      ratioFilterNote: 'café a agua',
+      shotTime: 'Tiempo del shot',
+      temperature: 'Temperatura',
+      preInfusion: 'Preinfusión',
+      basket: 'Canasta',
+      coffee: 'Café',
+      water: 'Agua',
+      totalTime: 'Tiempo total',
+      grind: 'Molienda',
+      notRecorded: 'Sin registrar',
+      dialSetting: 'Ajuste del dial',
+      onGrinder: 'en {name}',
+      onAuthorsGrinder: 'en el molino de quien la escribió',
+      dialAppliesTo: 'Ese número del dial solo aplica a ',
+      authorsGrinder: 'el molino de quien la escribió',
+      dialAdviceBefore: '. En el tuyo, arrancá desde la categoría ',
+      dialAdviceAfter:
+        ' y ajustá al gusto: la molienda es el ajuste que más vale la pena cambiar primero.',
+      noDial:
+        'No se registró ningún número de dial, y está bien: la categoría es la parte que se traslada entre molinos de todos modos.',
+      upTo: 'hasta {grams} g',
+      bloomNote: 'Floración: mojá la cama de café parejo y esperá.',
+      puckPrepLabel: 'Preparación del pastel',
+      forkedFrom: 'Bifurcada de ',
+      forkedBy: ' por {author}',
+      changeOne: ' — 1 cambio: {fields}.',
+      changeOther: ' — {count} cambios: {fields}.',
+      grindSummary: 'molienda {category}',
+    },
+  },
+
+  footer: {
+    tagline: 'BrewCult: todo gran preparador empezó con café amargo.',
+    privacy: 'Privacidad',
+    terms: 'Términos',
+    discover: 'Descubrir',
+  },
+
+  notFoundPage: {
+    metaTitle: 'No encontrado',
+    title: 'Esa página no está aquí',
+    lede: 'Enlace equivocado, o algo que movimos. En cualquier caso, no es culpa tuya.',
+    discover: 'Descubrir café',
+    home: 'Volver al inicio',
+  },
+
+  privacyPage: {
+    title: 'Privacidad',
+    metaDescription:
+      'Qué recoge BrewCult, para qué, cuánto lo guardamos y cómo recuperarlo.',
+    lede: 'La versión corta: recogemos lo que hace que tu café sea mejor, te decimos para qué es, y podés llevártelo todo o borrarlo cuando querás.',
+    whatHeading: 'Qué recogemos',
+    whatBody:
+      'Los datos de tu cuenta (correo, usuario, nombre visible), las preparaciones y recetas que anotás, el equipo que nos contás, lo que publicás y, si más adelante comprás algo, los registros de pedido que la ley tributaria nos obliga a guardar. La analítica es propia y agregada.',
+    whyHeading: 'Para qué',
+    whyBody:
+      'Las bitácoras de preparación construyen un perfil de gusto, y ese perfil impulsa las sugerencias de café y los consejos de calibración. Ese es el producto. Los correos nos sirven para mandarte actualizaciones de pedidos y restablecimientos de contraseña. El correo de marketing es opcional; el resumen semanal se detiene con un clic.',
+    howLongHeading: 'Cuánto tiempo',
+    howLongBody:
+      'Los datos de la cuenta viven mientras viva la cuenta. Borrar tu cuenta elimina de forma definitiva los datos personales en un plazo de 30 días. Las recetas públicas que otra gente ha bifurcado se anonimizan en vez de destruirse, para que su trabajo no se rompa; te lo decimos claro en el momento de borrar, no después.',
+    controlsHeading: 'Tus controles',
+    controlsBefore: 'La exportación y el borrado se hacen por tu cuenta desde ',
+    controlsLink: 'tu perfil',
+    controlsAfter:
+      '. La personalización tiene un interruptor para apagarla; apagarla vuelve las sugerencias más sosas y no te bloquea nada. Las cuentas son para mayores de 16 años.',
+    whoHeading: 'Quién más lo ve',
+    whoBody:
+      'Solo los procesadores que necesitamos para operar el servicio: hospedaje, correo, pagos (más adelante) y el proveedor de IA para los consejos de preparación, con cargas de datos mínimas. Cada uno está listado en nuestro inventario de procesadores, con qué guarda y por cuánto tiempo.',
+    note: 'Este es el resumen en lenguaje claro. La política completa y revisada se publica antes del lanzamiento público; nada en ella va a contradecir esta página.',
+  },
+
+  termsPage: {
+    title: 'Términos',
+    metaDescription: 'Las reglas de BrewCult, en lenguaje claro.',
+    lede: 'Las reglas, en lenguaje claro. El texto legal revisado llega antes del lanzamiento público; nada de ahí va a contradecir lo que está en esta página.',
+    whoHeading: 'Quién puede entrar',
+    whoBody: 'Necesitás tener 16 años o más para tener una cuenta de BrewCult.',
+    behaviourHeading: 'Cómo esperamos que la gente se trate',
+    behaviourBody:
+      'Las preguntas de principiante son bienvenidas, siempre. Avergonzar a alguien por su equipo o por su presupuesto, y las respuestas de «solo comprate un molino mejor», no son para lo que existe este lugar. Aquí no hay votos negativos públicos, y es a propósito: la calidad sube por utilidad, por guardados y por bifurcaciones. Explicar con paciencia es lo que da estatura.',
+    contentHeading: 'Tu contenido',
+    contentBody:
+      'Tus recetas, tus preparaciones y tus publicaciones siguen siendo tuyas. Nos das permiso para mostrarlas en la plataforma y para que otros miembros bifurquen recetas con atribución. Si borrás tu cuenta, tus datos personales se van; las recetas públicas sobre las que otros construyeron se quedan, con tu nombre quitado, para que su trabajo no se rompa.',
+    ourSideHeading: 'Nuestra parte',
+    ourSideBefore: 'Mantenemos el servicio funcionando, te decimos qué hacemos con tus datos (ver ',
+    ourSideLink: 'Privacidad',
+    ourSideAfter:
+      '), y no dejamos que un pago cambie lo que la IA recomienda. Las sugerencias son sugerencias: un consejo de preparación no es una garantía sobre una taza de café.',
+    endingHeading: 'Terminar las cosas',
+    endingBefore: 'Podés borrar tu cuenta cuando querás desde ',
+    endingLink: 'tu perfil',
+    endingAfter:
+      '. Podemos suspender cuentas que rompan las reglas de conducta de arriba, y vamos a decir cuál regla y por qué.',
+  },
+
+  unsubscribePage: {
+    metaTitle: 'Suscripción cancelada',
+    metaDescription: 'No vas a volver a recibir ese tipo de correo de BrewCult.',
+    title: 'Ajustes de correo',
+    noteBefore: '¿Cambiaste de opinión, o querés un control más fino? ',
+    noteLink: 'Tus ajustes de correo',
+    noteAfter: ' tienen un interruptor para cada tipo.',
+    noTokenTitle: 'Nada que cambiar.',
+    noTokenBody:
+      'A ese enlace le falta su código. Abrí tus ajustes de correo para elegir qué mensajes recibís.',
+    working: 'Actualizando tus ajustes…',
+    doneTitle: 'Listo: cancelaste la suscripción.',
+    doneBody:
+      'No vas a volver a recibir ese tipo de correo de nuestra parte. Los correos de seguridad, como los códigos de inicio de sesión y los cambios de contraseña, sí siguen llegando: así es como te enterás si alguien más está usando tu cuenta.',
   },
 };

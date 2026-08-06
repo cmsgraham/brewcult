@@ -1,5 +1,5 @@
 import { type Metadata } from 'next';
-import { localeParam } from '../../../lib/locale-server';
+import { localeParam, translator } from '../../../lib/locale-server';
 import { LocaleLink as Link } from '../../../components/locale-link';
 import { Breadcrumbs } from '../../../components/catalog/breadcrumbs';
 import {
@@ -50,17 +50,19 @@ function readFilters(searchParams: Record<string, string | string[] | undefined>
 export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
   const locale = localeParam((await params).locale);
   const copy = catalogCopy(locale);
+  const t = translator(locale);
   const search = await searchParams;
   const filters = readFilters(search);
 
   const noun = filters.category
     ? copy.EQUIPMENT_CATEGORY_PLURAL[filters.category].toLowerCase()
-    : 'coffee equipment';
-  const brand = filters.brand ? ` from ${filters.brand}` : '';
+    : t('catalog.equipmentHub.noun');
+  const brand = filters.brand ? t('catalog.equipmentHub.fromBrand', { brand: filters.brand }) : '';
+  const phrase = `${noun}${brand}`;
 
   return hubMetadata({
-    title: `${noun.charAt(0).toUpperCase()}${noun.slice(1)}${brand}`,
-    description: `Specifications, brewing recipes and community grind data for ${noun}${brand}. Every grinder page carries crowd-sourced setting conversions with the confidence and sample size shown.`,
+    title: `${phrase.charAt(0).toUpperCase()}${phrase.slice(1)}`,
+    description: t('catalog.equipmentHub.metaDescription', { noun: phrase }),
     basePath: '/equipment',
     filters,
     cursor: one(search['cursor']),
@@ -70,6 +72,7 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
 export default async function EquipmentHubPage({ params, searchParams }: PageProps) {
   const locale = localeParam((await params).locale);
   const copy = catalogCopy(locale);
+  const t = translator(locale);
   const search = await searchParams;
   const filters = readFilters(search);
   const cursor = one(search['cursor']);
@@ -85,14 +88,16 @@ export default async function EquipmentHubPage({ params, searchParams }: PagePro
   const hasActiveFilters = Object.values(filters).some((value) => value !== undefined);
 
   const heading = filters.category
-    ? `${copy.EQUIPMENT_CATEGORY_PLURAL[filters.category]}${filters.brand ? ` from ${filters.brand}` : ''}`
+    ? `${copy.EQUIPMENT_CATEGORY_PLURAL[filters.category]}${
+        filters.brand ? t('catalog.equipmentHub.fromBrand', { brand: filters.brand }) : ''
+      }`
     : filters.brand
-      ? `Equipment from ${filters.brand}`
-      : 'Brewers, grinders and gear';
+      ? t('catalog.equipmentHub.brandTitle', { brand: filters.brand })
+      : t('catalog.equipmentHub.title');
 
   const breadcrumbs = [
-    { name: 'Home', path: '/' },
-    { name: 'Equipment', path: '/equipment' },
+    { name: t('catalog.crumbs.home'), path: '/' },
+    { name: t('catalog.crumbs.equipment'), path: '/equipment' },
   ];
 
   return (
@@ -111,24 +116,25 @@ export default async function EquipmentHubPage({ params, searchParams }: PagePro
         ]}
       />
 
-      <Breadcrumbs entries={breadcrumbs} />
+      <Breadcrumbs entries={breadcrumbs} locale={locale} />
 
       <h1>{heading}</h1>
       <p className="bc-lede">
         {filters.category
           ? copy.EQUIPMENT_CATEGORY_COPY[filters.category]
-          : 'Gear pages exist to answer one question honestly: what does this thing actually change in the cup? No brand rankings, no "you need to upgrade" — specs, recipes and what the community has measured.'}
+          : t('catalog.equipmentHub.lede')}
       </p>
 
       <FilterBar
         action="/equipment"
-        legend="Filter equipment"
+        locale={locale}
+        legend={t('catalog.filters.equipmentLegend')}
         hasActiveFilters={hasActiveFilters}
         selects={[
           {
             name: 'category',
-            label: 'Category',
-            anyLabel: 'Everything',
+            label: t('catalog.filters.category'),
+            anyLabel: t('catalog.filters.anyCategory'),
             selected: filters.category,
             options: EQUIPMENT_CATEGORIES.map((category) => ({
               value: category,
@@ -137,8 +143,8 @@ export default async function EquipmentHubPage({ params, searchParams }: PagePro
           },
           {
             name: 'brand',
-            label: 'Brand',
-            anyLabel: 'Any brand',
+            label: t('catalog.filters.brand'),
+            anyLabel: t('catalog.filters.anyBrand'),
             selected: filters.brand,
             options: brands.map((brand) => ({ value: brand.name, label: brand.name })),
           },
@@ -147,22 +153,16 @@ export default async function EquipmentHubPage({ params, searchParams }: PagePro
 
       <section aria-labelledby="results">
         <h2 id="results" className="bc-visually-hidden">
-          Results
+          {t('catalog.results')}
         </h2>
 
         {result.status === 'error' ? (
-          <p className="bc-muted">
-            We could not load the equipment list just now — that is on us, not on you. Try
-            again shortly.
-          </p>
+          <p className="bc-muted">{t('catalog.equipmentHub.loadError')}</p>
         ) : equipment.length === 0 ? (
           <div className={styles.explainer}>
+            <p>{t('catalog.equipmentHub.emptyBody')}</p>
             <p>
-              Nothing matches those filters yet. If your grinder or brewer is missing, that is
-              a gap in our catalogue — not a sign it is the wrong gear.
-            </p>
-            <p>
-              <Link href="/equipment">Clear the filters</Link>.
+              <Link href="/equipment">{t('catalog.equipmentHub.emptyClear')}</Link>.
             </p>
           </div>
         ) : (
@@ -175,6 +175,7 @@ export default async function EquipmentHubPage({ params, searchParams }: PagePro
 
         <Pagination
           basePath="/equipment"
+          locale={locale}
           filters={filters}
           nextCursor={nextCursor}
           itemCount={equipment.length}
@@ -183,7 +184,7 @@ export default async function EquipmentHubPage({ params, searchParams }: PagePro
       </section>
 
       <section className={styles.section} aria-labelledby="by-category">
-        <h2 id="by-category">Browse by category</h2>
+        <h2 id="by-category">{t('catalog.equipmentHub.byCategory')}</h2>
         <ul className={styles.related}>
           {EQUIPMENT_CATEGORIES.map((category) => (
             <li key={category}>
@@ -193,24 +194,20 @@ export default async function EquipmentHubPage({ params, searchParams }: PagePro
             </li>
           ))}
         </ul>
-        <p className="bc-muted">
-          Grinder pages carry community grind-setting conversions — the closest thing there is
-          to a straight answer to &ldquo;what number do I use on mine?&rdquo;, with the
-          uncertainty stated rather than hidden.
-        </p>
+        <p className="bc-muted">{t('catalog.equipmentHub.byCategoryNote')}</p>
       </section>
 
       <section className={styles.section} aria-labelledby="elsewhere">
-        <h2 id="elsewhere">Elsewhere in the catalogue</h2>
+        <h2 id="elsewhere">{t('catalog.elsewhere.heading')}</h2>
         <ul className={styles.related}>
           <li>
-            <Link href="/coffee">Coffees</Link>
+            <Link href="/coffee">{t('catalog.elsewhere.coffees')}</Link>
           </li>
           <li>
-            <Link href="/roaster">Roasters</Link>
+            <Link href="/roaster">{t('catalog.elsewhere.roasters')}</Link>
           </li>
           <li>
-            <Link href="/recipes">Brewing recipes</Link>
+            <Link href="/recipes">{t('catalog.elsewhere.recipes')}</Link>
           </li>
         </ul>
       </section>

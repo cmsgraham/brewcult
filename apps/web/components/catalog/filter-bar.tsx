@@ -1,4 +1,5 @@
 import { LocaleLink as Link } from '../../components/locale-link';
+import { localeParam, translator } from '../../lib/locale-server';
 import styles from './catalog.module.css';
 
 /**
@@ -38,9 +39,19 @@ export interface FilterBarProps {
   /** True when at least one filter is active, so we can offer a reset. */
   hasActiveFilters: boolean;
   legend: string;
+  /** Which language the buttons are written in. Option labels arrive translated. */
+  locale?: string;
 }
 
-export function FilterBar({ action, selects, hasActiveFilters, legend }: FilterBarProps) {
+export function FilterBar({
+  action,
+  selects,
+  hasActiveFilters,
+  legend,
+  locale = 'en',
+}: FilterBarProps) {
+  const t = translator(localeParam(locale));
+
   return (
     // `aria-label` on the form rather than a `<fieldset>`: a fieldset here would
     // need `display: contents` to stay out of the flex layout, and that is
@@ -65,9 +76,9 @@ export function FilterBar({ action, selects, hasActiveFilters, legend }: FilterB
       ))}
       <div className={styles.filterActions}>
         <button className="bc-button" type="submit">
-          Apply filters
+          {t('catalog.filters.apply')}
         </button>
-        {hasActiveFilters ? <Link href={action}>Clear</Link> : null}
+        {hasActiveFilters ? <Link href={action}>{t('catalog.filters.clear')}</Link> : null}
       </div>
     </form>
   );
@@ -87,13 +98,16 @@ export function Pagination({
   nextCursor,
   itemCount,
   isCursorPage,
+  locale = 'en',
 }: {
   basePath: string;
   filters: Record<string, string | undefined>;
   nextCursor: string | null;
   itemCount: number;
   isCursorPage: boolean;
+  locale?: string;
 }) {
+  const t = translator(localeParam(locale));
   const withParams = (extra: Record<string, string> = {}): string => {
     const search = new URLSearchParams();
     for (const key of Object.keys(filters).sort()) {
@@ -108,14 +122,16 @@ export function Pagination({
   if (nextCursor === null && !isCursorPage) return null;
 
   return (
-    <nav className={styles.pagination} aria-label="Pagination">
-      {isCursorPage ? <Link href={withParams()}>← Back to the start</Link> : null}
+    <nav className={styles.pagination} aria-label={t('catalog.pagination.label')}>
+      {isCursorPage ? <Link href={withParams()}>{t('catalog.pagination.back')}</Link> : null}
       <span className={styles.count}>
-        {itemCount === 1 ? '1 result on this page' : `${itemCount} results on this page`}
+        {itemCount === 1
+          ? t('catalog.pagination.countOne')
+          : t('catalog.pagination.countOther', { count: itemCount })}
       </span>
       {nextCursor !== null ? (
         <Link href={withParams({ cursor: nextCursor })} rel="next">
-          Next page →
+          {t('catalog.pagination.next')}
         </Link>
       ) : null}
     </nav>

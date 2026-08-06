@@ -1,4 +1,5 @@
 import { LocaleLink as Link } from '../../components/locale-link';
+import { localeParam, translator } from '../../lib/locale-server';
 import type { LoadResult, Page, RecipeView } from './catalog-api';
 import styles from './catalog.module.css';
 import { RecipeCard } from './entity-cards';
@@ -29,6 +30,8 @@ export interface RecipesSectionProps {
   subject: string;
   /** Link to the filtered recipe hub, when one makes sense. */
   browseHref?: string;
+  /** `heading` and `subject` arrive translated; this is for everything else. */
+  locale?: string;
 }
 
 export function RecipesSection({
@@ -37,44 +40,34 @@ export function RecipesSection({
   headingId,
   subject,
   browseHref,
+  locale = 'en',
 }: RecipesSectionProps) {
+  const t = translator(localeParam(locale));
+
   return (
     <section className={styles.section} aria-labelledby={headingId}>
       <h2 id={headingId}>{heading}</h2>
 
       {result.status === 'ok' && result.data.items.length > 0 ? (
         <>
-          <p className="bc-muted">
-            Community recipes are starting points, not verdicts. Brew one as written, then
-            change one thing.
-          </p>
+          <p className="bc-muted">{t('catalog.recipesSection.startingPoints')}</p>
           <ul className="bc-card-grid">
             {result.data.items.map((recipe) => (
-              <RecipeCard key={recipe.id} recipe={recipe} />
+              <RecipeCard key={recipe.id} recipe={recipe} locale={locale} />
             ))}
           </ul>
           {browseHref ? (
             <p>
-              <Link href={browseHref}>Browse all recipes for {subject} →</Link>
+              <Link href={browseHref}>{t('catalog.recipesSection.browseAll', { subject })}</Link>
             </p>
           ) : null}
         </>
       ) : result.status === 'error' ? (
-        <p className="bc-muted">
-          We could not load recipes just now — that is on us, not on you. Everything else on
-          this page is still accurate.
-        </p>
+        <p className="bc-muted">{t('catalog.recipesSection.loadError')}</p>
       ) : result.status === 'missing' ? (
-        <p className="bc-muted">
-          Recipes are not switched on yet. They are coming, and when they are you will find
-          the community&rsquo;s brews for {subject} right here.
-        </p>
+        <p className="bc-muted">{t('catalog.recipesSection.notReady', { subject })}</p>
       ) : (
-        <p className="bc-muted">
-          No recipes for {subject} yet — which means whoever writes the first one gets to set
-          the tone. If you have brewed it, even a rough starting point helps the next person
-          more than you would think.
-        </p>
+        <p className="bc-muted">{t('catalog.recipesSection.empty', { subject })}</p>
       )}
     </section>
   );

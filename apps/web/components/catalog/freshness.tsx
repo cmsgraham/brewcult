@@ -1,3 +1,5 @@
+import type { Translator } from '../../lib/i18n';
+import { localeParam, translator } from '../../lib/locale-server';
 import type { CoffeeDetail } from './catalog-api';
 import styles from './catalog.module.css';
 import { catalogCopy, daysSince, formatDate } from './copy';
@@ -16,22 +18,24 @@ import { catalogCopy, daysSince, formatDate } from './copy';
  * are deterministic and the server does not disagree with a stale cache.
  */
 
-function restingAdvice(days: number, intendedUse: CoffeeDetail['intended_use']): string {
-  if (days < 0) return 'Roasted in the future, apparently — that is a data problem, not a coffee one.';
+function restingAdvice(
+  days: number,
+  intendedUse: CoffeeDetail['intended_use'],
+  t: Translator,
+): string {
+  if (days < 0) return t('catalog.freshness.future');
   if (days <= 3) {
     return intendedUse === 'espresso'
-      ? 'Very fresh and still degassing. Espresso from this will likely gush and taste sharp — give it a week.'
-      : 'Very fresh and still degassing. Expect a big bloom and a slower drawdown; it often gets easier around day 5.';
+      ? t('catalog.freshness.veryFreshEspresso')
+      : t('catalog.freshness.veryFreshFilter');
   }
   if (days <= 21) {
     return intendedUse === 'espresso' && days < 7
-      ? 'Approaching its window for espresso — the last few days of rest usually settle the shot down.'
-      : 'In the window most people find best for filter brewing.';
+      ? t('catalog.freshness.restingEspresso')
+      : t('catalog.freshness.inWindow');
   }
-  if (days <= 45) {
-    return 'Past its brightest, but far from bad — expect sweeter, rounder, less aromatic. Try a slightly finer grind or hotter water.';
-  }
-  return 'Well past its peak. Still drinkable, and honestly still better than most coffee — just do not judge the lot by this bag.';
+  if (days <= 45) return t('catalog.freshness.pastPeak');
+  return t('catalog.freshness.wellPast');
 }
 
 export function FreshnessSection({
@@ -45,13 +49,14 @@ export function FreshnessSection({
   locale?: string;
 }) {
   const copy = catalogCopy(locale);
+  const t = translator(localeParam(locale));
   const batches = (coffee.roast_batches ?? [])
     .filter((batch) => typeof batch?.roast_date === 'string')
     .slice(0, 5);
 
   return (
     <section className={styles.section} aria-labelledby="freshness">
-      <h2 id="freshness">Roast date and freshness</h2>
+      <h2 id="freshness">{t('catalog.freshness.heading')}</h2>
       <p>{copy.FRESHNESS_EXPLAINER}</p>
 
       {batches.length === 0 ? (
@@ -60,26 +65,30 @@ export function FreshnessSection({
         </div>
       ) : (
         <>
-          <p className="bc-muted">Roast batches we know about for this coffee:</p>
+          <p className="bc-muted">{t('catalog.freshness.batchesIntro')}</p>
           <ul className={styles.pours}>
             {batches.map((batch) => {
               const days = daysSince(batch.roast_date, now);
               return (
                 <li className={styles.pour} key={batch.id}>
                   <span className={styles.pourTime}>
-                    {days === null ? '—' : days === 0 ? 'Today' : days === 1 ? '1 day' : `${days} days`}
+                    {days === null
+                      ? '—'
+                      : days === 0
+                        ? t('catalog.freshness.today')
+                        : days === 1
+                          ? t('catalog.freshness.dayOne')
+                          : t('catalog.freshness.dayOther', { count: days })}
                   </span>
                   <span>{formatDate(batch.roast_date) ?? batch.roast_date}</span>
                   <span className="bc-muted">
-                    {days === null ? '' : restingAdvice(days, coffee.intended_use)}
+                    {days === null ? '' : restingAdvice(days, coffee.intended_use, t)}
                   </span>
                 </li>
               );
             })}
           </ul>
-          <p className="bc-muted">
-            Day counts are from today, so they move as the page ages — that is the point.
-          </p>
+          <p className="bc-muted">{t('catalog.freshness.ageNote')}</p>
         </>
       )}
     </section>

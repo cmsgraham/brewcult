@@ -1,5 +1,6 @@
 import { LocaleLink as Link } from '../../components/locale-link';
 import type { BreadcrumbEntry } from '../../lib/structured-data';
+import { localeParam, translator } from '../../lib/locale-server';
 import styles from './catalog.module.css';
 
 /**
@@ -10,11 +11,19 @@ import styles from './catalog.module.css';
  * The current page is the last crumb and is not a link (nothing to navigate to)
  * but is still announced via `aria-current`.
  */
-export function Breadcrumbs({ entries }: { entries: BreadcrumbEntry[] }) {
+export function Breadcrumbs({
+  entries,
+  locale = 'en',
+}: {
+  entries: BreadcrumbEntry[];
+  /** Only the landmark label is translated — crumb names arrive translated. */
+  locale?: string;
+}) {
   if (entries.length === 0) return null;
+  const t = translator(localeParam(locale));
 
   return (
-    <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
+    <nav className={styles.breadcrumbs} aria-label={t('catalog.breadcrumbLabel')}>
       <ol>
         {entries.map((entry, index) => {
           const isLast = index === entries.length - 1;

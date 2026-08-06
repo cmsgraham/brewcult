@@ -156,7 +156,7 @@ export default async function RootLayout({
           <main id="main" className="bc-main bc-shell" tabIndex={-1}>
             {children}
           </main>
-          <SiteFooter />
+          <SiteFooter locale={locale} />
           {/*
           TODO(Wave 3 — offline brew logger): register the service worker here.
           Planned shape: a client-only <ServiceWorkerRegistrar /> that calls

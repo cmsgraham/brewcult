@@ -1,5 +1,6 @@
 import { type Metadata } from 'next';
-import { localeParam } from '../../../../lib/locale-server';
+import { localeParam, translator } from '../../../../lib/locale-server';
+import type { Translator } from '../../../../lib/i18n';
 import { LocaleLink as Link } from '../../../../components/locale-link';
 import { notFound } from 'next/navigation';
 import { Breadcrumbs } from '../../../../components/catalog/breadcrumbs';
@@ -38,9 +39,10 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const locale = localeParam((await params).locale);
   const copy = catalogCopy(locale);
+  const t = translator(locale);
   const { slug } = await params;
   const result = await loadEquipment(slug);
-  if (result.status !== 'ok') return notFoundMetadata('Equipment');
+  if (result.status !== 'ok') return notFoundMetadata(t('catalog.crumbs.equipment'));
 
   const equipment = result.data;
   return equipmentMetadata({
@@ -54,18 +56,20 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 /** Spec rows from the API's free-form `specs` object. Scalars only — a nested
  *  object would render as "[object Object]", which is worse than omitting it. */
-function specRows(specs: EquipmentDetail['specs']): SpecRow[] {
+function specRows(specs: EquipmentDetail['specs'], t: Translator): SpecRow[] {
   return Object.entries(specs ?? {})
     .filter(([, value]) => typeof value !== 'object' || value === null)
     .map(([key, value]) => ({
+      // The KEY is the manufacturer's own field name and stays as it is; only
+      // the boolean rendering is ours to translate.
       label: humanize(key),
       value:
         value === null || value === undefined
           ? null
           : typeof value === 'boolean'
             ? value
-              ? 'Yes'
-              : 'No'
+              ? t('catalog.equipmentDetail.yes')
+              : t('catalog.equipmentDetail.no')
             : String(value),
     }));
 }
@@ -73,6 +77,7 @@ function specRows(specs: EquipmentDetail['specs']): SpecRow[] {
 export default async function EquipmentDetailPage({ params }: PageProps) {
   const locale = localeParam((await params).locale);
   const copy = catalogCopy(locale);
+  const t = translator(locale);
   const { slug } = await params;
   const result = await loadEquipment(slug);
 
@@ -80,10 +85,10 @@ export default async function EquipmentDetailPage({ params }: PageProps) {
   if (result.status === 'error') {
     return (
       <div className="bc-stack">
-        <h1>We could not load this equipment</h1>
+        <h1>{t('catalog.equipmentDetail.loadErrorTitle')}</h1>
         <p className="bc-lede">
-          That is on us, not on you. Try again in a moment, or{' '}
-          <Link href="/equipment">browse the rest of the gear</Link>.
+          {t('catalog.equipmentDetail.loadErrorBody')}
+          <Link href="/equipment">{t('catalog.equipmentDetail.loadErrorLink')}</Link>.
         </p>
       </div>
     );
@@ -108,8 +113,8 @@ export default async function EquipmentDetailPage({ params }: PageProps) {
 
   const categoryLabel = copy.EQUIPMENT_CATEGORY_LABEL[equipment.category] ?? equipment.category;
   const breadcrumbs = [
-    { name: 'Home', path: '/' },
-    { name: 'Equipment', path: '/equipment' },
+    { name: t('catalog.crumbs.home'), path: '/' },
+    { name: t('catalog.crumbs.equipment'), path: '/equipment' },
     { name: fullName, path: `/equipment/${equipment.slug}` },
   ];
 
@@ -135,14 +140,14 @@ export default async function EquipmentDetailPage({ params }: PageProps) {
         ]}
       />
 
-      <Breadcrumbs entries={breadcrumbs} />
+      <Breadcrumbs entries={breadcrumbs} locale={locale} />
 
       <header className={styles.header}>
         <p className={styles.eyebrow}>{categoryLabel}</p>
         <h1>{fullName}</h1>
         {equipment.brand ? (
           <p className={styles.byline}>
-            Made by{' '}
+            {t('catalog.equipmentDetail.madeBy')}
             <Link href={`/equipment?brand=${encodeURIComponent(equipment.brand.name)}`}>
               {equipment.brand.name}
             </Link>
@@ -152,32 +157,34 @@ export default async function EquipmentDetailPage({ params }: PageProps) {
       </header>
 
       <section aria-labelledby="specs">
-        <h2 id="specs">Specifications</h2>
+        <h2 id="specs">{t('catalog.equipmentDetail.specifications')}</h2>
         <SpecList
           rows={[
             {
-              label: 'Category',
+              label: t('catalog.equipmentDetail.category'),
               value: categoryLabel,
               href: `/equipment?category=${equipment.category}`,
             },
             {
-              label: 'Brand',
+              label: t('catalog.equipmentDetail.brand'),
               value: equipment.brand?.name ?? null,
               ...(equipment.brand
                 ? { href: `/equipment?brand=${encodeURIComponent(equipment.brand.name)}` }
                 : {}),
             },
             ...(equipment.grind_scale_type
-              ? [{ label: 'Grind adjustment', value: humanize(equipment.grind_scale_type) }]
+              ? [
+                  {
+                    label: t('catalog.equipmentDetail.grindAdjustment'),
+                    value: humanize(equipment.grind_scale_type),
+                  },
+                ]
               : []),
-            ...specRows(equipment.specs),
+            ...specRows(equipment.specs, t),
           ]}
         />
         {Object.keys(equipment.specs ?? {}).length === 0 ? (
-          <p className="bc-muted">
-            We do not have detailed specs for this model yet. The recipes and grind data below
-            are unaffected — they come from people using it, not from a spec sheet.
-          </p>
+          <p className="bc-muted">{t('catalog.equipmentDetail.noSpecs')}</p>
         ) : null}
         {equipment.grind_scale_type ? (
           <p className="bc-muted">{copy.GRIND_SCALE_COPY[equipment.grind_scale_type]}</p>
@@ -198,33 +205,38 @@ export default async function EquipmentDetailPage({ params }: PageProps) {
       {isBrewer ? (
         <RecipesSection
           result={recipes}
-          heading={`Recipes for the ${fullName}`}
+          locale={locale}
+          heading={t('catalog.equipmentDetail.recipesHeading', { name: fullName })}
           headingId="recipes"
-          subject={`the ${fullName}`}
+          subject={t('catalog.equipmentDetail.recipesSubject', { name: fullName })}
           browseHref={`/recipes?brewer=${equipment.slug}`}
         />
       ) : null}
 
       <section className={styles.section} aria-labelledby="keep-looking">
-        <h2 id="keep-looking">Keep looking</h2>
+        <h2 id="keep-looking">{t('catalog.keepLooking')}</h2>
         <ul className={styles.related}>
           <li>
+            {/* The PLURAL label, not an English "s" bolted onto the singular —
+                "grinders" pluralises that way, "cafeteras" does not. */}
             <Link href={`/equipment?category=${equipment.category}`}>
-              All {categoryLabel.toLowerCase()}s
+              {t('catalog.equipmentDetail.allOfCategory', {
+                category: copy.EQUIPMENT_CATEGORY_PLURAL[equipment.category] ?? equipment.category,
+              })}
             </Link>
           </li>
           {equipment.brand ? (
             <li>
               <Link href={`/equipment?brand=${encodeURIComponent(equipment.brand.name)}`}>
-                More from {equipment.brand.name}
+                {t('catalog.equipmentDetail.moreFromBrand', { brand: equipment.brand.name })}
               </Link>
             </li>
           ) : null}
           <li>
-            <Link href="/coffee">Coffee to brew on it</Link>
+            <Link href="/coffee">{t('catalog.equipmentDetail.coffeeToBrew')}</Link>
           </li>
           <li>
-            <Link href="/recipes">All brewing recipes</Link>
+            <Link href="/recipes">{t('catalog.equipmentDetail.allRecipes')}</Link>
           </li>
         </ul>
       </section>

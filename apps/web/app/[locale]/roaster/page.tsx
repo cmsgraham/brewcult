@@ -1,4 +1,5 @@
 import { type Metadata } from 'next';
+import { localeParam, translator } from '../../../lib/locale-server';
 import { LocaleLink as Link } from '../../../components/locale-link';
 import { Breadcrumbs } from '../../../components/catalog/breadcrumbs';
 import { loadRoasters, type RoasterSummary } from '../../../components/catalog/catalog-api';
@@ -22,6 +23,7 @@ export const revalidate = 300;
 const PAGE_SIZE = 36;
 
 interface PageProps {
+  params: Promise<{ locale: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
@@ -30,20 +32,23 @@ function one(value: string | string[] | undefined): string | undefined {
   return value === '' ? undefined : value;
 }
 
-export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
-  const params = await searchParams;
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
+  const locale = localeParam((await params).locale);
+  const t = translator(locale);
+  const search = await searchParams;
   return hubMetadata({
-    title: 'Coffee roasters',
-    description:
-      'Specialty coffee roasters and the coffees they roast — origins, processes, tasting notes and the community recipes for brewing them.',
+    title: t('catalog.roasterHub.title'),
+    description: t('catalog.roasterHub.metaDescription'),
     basePath: '/roaster',
-    cursor: one(params['cursor']),
+    cursor: one(search['cursor']),
   });
 }
 
-export default async function RoasterHubPage({ searchParams }: PageProps) {
-  const params = await searchParams;
-  const cursor = one(params['cursor']);
+export default async function RoasterHubPage({ params, searchParams }: PageProps) {
+  const locale = localeParam((await params).locale);
+  const t = translator(locale);
+  const search = await searchParams;
+  const cursor = one(search['cursor']);
 
   const [result, nonce] = await Promise.all([
     loadRoasters({ cursor, limit: PAGE_SIZE }),
@@ -54,8 +59,8 @@ export default async function RoasterHubPage({ searchParams }: PageProps) {
   const nextCursor = result.status === 'ok' ? result.data.next_cursor : null;
 
   const breadcrumbs = [
-    { name: 'Home', path: '/' },
-    { name: 'Roasters', path: '/roaster' },
+    { name: t('catalog.crumbs.home'), path: '/' },
+    { name: t('catalog.crumbs.roasters'), path: '/roaster' },
   ];
 
   return (
@@ -65,7 +70,7 @@ export default async function RoasterHubPage({ searchParams }: PageProps) {
         documents={[
           breadcrumbJsonLd(breadcrumbs),
           itemListJsonLd(
-            'Coffee roasters',
+            t('catalog.roasterHub.title'),
             roasters.map((roaster) => ({
               name: roaster.name,
               path: `/roaster/${roaster.slug}`,
@@ -74,45 +79,36 @@ export default async function RoasterHubPage({ searchParams }: PageProps) {
         ]}
       />
 
-      <Breadcrumbs entries={breadcrumbs} />
+      <Breadcrumbs entries={breadcrumbs} locale={locale} />
 
-      <h1>Coffee roasters</h1>
-      <p className="bc-lede">
-        The people who decide how a green coffee tastes by the time it reaches you. Every
-        profile lists their coffees with full provenance — and the brews the community has
-        logged on them.
-      </p>
+      <h1>{t('catalog.roasterHub.title')}</h1>
+      <p className="bc-lede">{t('catalog.roasterHub.lede')}</p>
 
       <section aria-labelledby="results">
         <h2 id="results" className="bc-visually-hidden">
-          Roasters
+          {t('catalog.roasterHub.sectionHeading')}
         </h2>
 
         {result.status === 'error' ? (
-          <p className="bc-muted">
-            We could not load the roaster list just now — that is on us, not on you. Try again
-            in a moment.
-          </p>
+          <p className="bc-muted">{t('catalog.roasterHub.loadError')}</p>
         ) : roasters.length === 0 ? (
           <div className={styles.explainer}>
+            <p>{t('catalog.roasterHub.emptyBody')}</p>
             <p>
-              No roasters listed yet. We are still filling the shelves — and we would rather
-              show you an empty page honestly than pad it out.
-            </p>
-            <p>
-              <Link href="/coffee">Browse coffees instead</Link>.
+              <Link href="/coffee">{t('catalog.roasterHub.emptyLink')}</Link>.
             </p>
           </div>
         ) : (
           <ul className="bc-card-grid">
             {roasters.map((roaster) => (
-              <RoasterCard key={roaster.id} roaster={roaster} />
+              <RoasterCard key={roaster.id} roaster={roaster} locale={locale} />
             ))}
           </ul>
         )}
 
         <Pagination
           basePath="/roaster"
+          locale={locale}
           filters={{}}
           nextCursor={nextCursor}
           itemCount={roasters.length}
@@ -121,16 +117,16 @@ export default async function RoasterHubPage({ searchParams }: PageProps) {
       </section>
 
       <section className={styles.section} aria-labelledby="elsewhere">
-        <h2 id="elsewhere">Elsewhere in the catalogue</h2>
+        <h2 id="elsewhere">{t('catalog.elsewhere.heading')}</h2>
         <ul className={styles.related}>
           <li>
-            <Link href="/coffee">Coffees</Link>
+            <Link href="/coffee">{t('catalog.elsewhere.coffees')}</Link>
           </li>
           <li>
-            <Link href="/equipment">Brewers and grinders</Link>
+            <Link href="/equipment">{t('catalog.elsewhere.equipment')}</Link>
           </li>
           <li>
-            <Link href="/recipes">Brewing recipes</Link>
+            <Link href="/recipes">{t('catalog.elsewhere.recipes')}</Link>
           </li>
         </ul>
       </section>

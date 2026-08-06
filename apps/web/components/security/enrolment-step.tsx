@@ -9,6 +9,7 @@ import {
   normalizeCodeInput,
   type MfaEnrolment,
 } from '../../lib/mfa-client';
+import { useTranslate } from '../locale-provider';
 import { Alert } from '../ui/alert';
 import { CopyButton } from './copy-button';
 import { QrCode } from './qr-code';
@@ -35,6 +36,7 @@ export interface EnrolmentStepProps {
  * working camera, which is an assumption and not a fact.
  */
 export function EnrolmentStep({ enrolment, onConfirmed, onCancel }: EnrolmentStepProps) {
+  const t = useTranslate();
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -62,7 +64,7 @@ export function EnrolmentStep({ enrolment, onConfirmed, onCancel }: EnrolmentSte
       const codes = await confirmEnrolment(code);
       onConfirmed(codes);
     } catch (failure) {
-      setError(describeMfaError(failure));
+      setError(describeMfaError(failure, t('errors.server')));
       // Keep the typed code: it is almost always a timing miss, and retyping
       // six digits to try the next window is pure friction.
       codeField.current?.focus();
@@ -75,37 +77,36 @@ export function EnrolmentStep({ enrolment, onConfirmed, onCancel }: EnrolmentSte
   return (
     <section aria-labelledby="mfa-enrol-heading" className="bc-stack">
       <h2 className={styles.stepHeading} id="mfa-enrol-heading" ref={heading} tabIndex={-1}>
-        Pair your authenticator app
+        {t('security.enrol.heading')}
       </h2>
 
-      <p className="bc-muted">
-        Any authenticator works — 1Password, Bitwarden, Authy, Google Authenticator, your
-        phone&rsquo;s built-in one. Scan the code, or type the key in by hand if that is easier.
-      </p>
+      <p className="bc-muted">{t('security.enrol.intro')}</p>
 
       <div className={styles.enrolGrid}>
         <div className="bc-stack">
           <div className={styles.qrFrame}>
             <QrCode
               value={enrolment.otpauthUrl}
-              label="Setup QR code for BrewCult two-factor authentication. If you cannot scan it, use the setup key shown next to it."
+              label={t('security.enrol.qrLabel')}
             />
           </div>
           <p className={styles.meta}>
-            {enrolment.digits}-digit codes, refreshing every {enrolment.periodSeconds} seconds.
+            {t('security.enrol.meta', {
+              digits: enrolment.digits,
+              seconds: enrolment.periodSeconds,
+            })}
           </p>
         </div>
 
         <div className="bc-stack">
-          <h3 style={{ marginBottom: 0 }}>Can&rsquo;t scan it?</h3>
+          <h3 style={{ marginBottom: 0 }}>{t('security.enrol.cantScanHeading')}</h3>
           <p className="bc-muted" style={{ marginBottom: 0 }}>
-            Choose &ldquo;enter a setup key&rdquo; in your app and type this. The spaces are
-            there to make it readable — apps ignore them.
+            {t('security.enrol.cantScanBody')}
           </p>
           <code className={styles.secret} data-testid="mfa-secret">
             {grouped}
           </code>
-          <CopyButton value={enrolment.secret} label="Copy setup key" />
+          <CopyButton value={enrolment.secret} label={t('security.enrol.copyKey')} />
         </div>
       </div>
 
@@ -113,10 +114,9 @@ export function EnrolmentStep({ enrolment, onConfirmed, onCancel }: EnrolmentSte
         {error ? <Alert tone="error">{error}</Alert> : null}
 
         <div className="bc-field">
-          <label htmlFor="mfa-confirm-code">Six-digit code from your app</label>
+          <label htmlFor="mfa-confirm-code">{t('security.enrol.codeLabel')}</label>
           <span className="bc-field__hint" id="mfa-confirm-code-hint">
-            This proves the pairing worked. If it says the code is not valid, wait for the next
-            one and try again — nothing is lost.
+            {t('security.enrol.codeHint')}
           </span>
           <input
             id="mfa-confirm-code"
@@ -138,7 +138,7 @@ export function EnrolmentStep({ enrolment, onConfirmed, onCancel }: EnrolmentSte
 
         <div className={styles.inlineActions}>
           <button className="bc-button" type="submit" disabled={!ready || pending}>
-            {pending ? 'Checking…' : 'Turn on two-factor'}
+            {pending ? t('security.enrol.checking') : t('security.enrol.submit')}
           </button>
           <button
             className="bc-button bc-button--quiet"
@@ -146,7 +146,7 @@ export function EnrolmentStep({ enrolment, onConfirmed, onCancel }: EnrolmentSte
             onClick={onCancel}
             disabled={pending}
           >
-            Not right now
+            {t('security.enrol.cancel')}
           </button>
         </div>
       </form>

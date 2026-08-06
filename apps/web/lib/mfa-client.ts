@@ -39,6 +39,7 @@ import {
   type ApiRequestOptions,
 } from './api';
 import { normalizeActor, type AdminActor } from './admin-client';
+import type { Translator } from './i18n';
 
 const AUTH_BASE = '/api/v1/auth';
 
@@ -318,15 +319,25 @@ export function isCompleteCode(value: string): boolean {
   return /^\d{6}$/.test(value);
 }
 
-/** The plain-text file offered on the recovery-codes step. */
-export function recoveryCodesFile(codes: readonly string[], handle: string): string {
+/**
+ * The plain-text file offered on the recovery-codes step.
+ *
+ * Translated like everything else: this file is read months later, on a day when
+ * somebody has lost their phone, and that is the worst possible moment to hand
+ * them instructions in a language they do not read.
+ */
+export function recoveryCodesFile(
+  codes: readonly string[],
+  handle: string,
+  t: Translator,
+): string {
   return [
-    'BrewCult recovery codes',
-    `Account: @${handle}`,
+    t('security.codes.fileTitle'),
+    t('security.codes.fileAccount', { handle }),
     '',
-    'Each code works once, in place of your authenticator app.',
-    'Keep them somewhere that is not the device with your authenticator on it.',
-    'Generating a new set replaces every code below.',
+    t('security.codes.fileOnce'),
+    t('security.codes.fileWhere'),
+    t('security.codes.fileReplace'),
     '',
     ...codes,
     '',

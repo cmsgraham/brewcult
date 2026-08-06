@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { recoveryCodesFile } from '../../lib/mfa-client';
+import { useTranslate } from '../locale-provider';
 import { Alert } from '../ui/alert';
 import { CopyButton } from './copy-button';
 import styles from './security.module.css';
@@ -36,6 +37,7 @@ export function RecoveryCodesStep({
   origin,
   onAcknowledged,
 }: RecoveryCodesStepProps) {
+  const t = useTranslate();
   const [acknowledged, setAcknowledged] = useState(false);
   const [downloadFailed, setDownloadFailed] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -44,7 +46,7 @@ export function RecoveryCodesStep({
     heading.current?.focus();
   }, []);
 
-  const asText = recoveryCodesFile(codes, handle);
+  const asText = recoveryCodesFile(codes, handle, t);
 
   function download(): void {
     try {
@@ -71,45 +73,39 @@ export function RecoveryCodesStep({
     <section aria-labelledby="mfa-codes-heading" className="bc-stack">
       <h2 className={styles.stepHeading} id="mfa-codes-heading" ref={heading} tabIndex={-1}>
         {origin === 'enrolled'
-          ? 'Two-factor is on. Save these recovery codes.'
-          : 'Here is your new set of recovery codes.'}
+          ? t('security.codes.headingEnrolled')
+          : t('security.codes.headingRegenerated')}
       </h2>
 
-      <Alert tone="error" title="You will not see these again.">
-        We store them scrambled, so we genuinely cannot show them to you a second time. If you
-        lose both your authenticator app and these codes, getting back in means proving who you
-        are to a human, and that takes days.
+      <Alert tone="error" title={t('security.codes.warnTitle')}>
+        {t('security.codes.warnBody')}
       </Alert>
 
       {origin === 'regenerated' ? (
-        <p className="bc-muted">
-          Your old codes stopped working the moment these were made. If you had them written
-          down somewhere, replace them now.
-        </p>
+        <p className="bc-muted">{t('security.codes.regeneratedNote')}</p>
       ) : null}
 
-      <ul className={styles.codeList} aria-label="Your recovery codes" data-testid="recovery-codes">
+      <ul
+        className={styles.codeList}
+        aria-label={t('security.codes.listLabel')}
+        data-testid="recovery-codes"
+      >
         {codes.map((code) => (
           <li key={code}>{code}</li>
         ))}
       </ul>
 
-      <p className="bc-muted">
-        Each one works once, in place of a code from your app. Keep them somewhere that is not
-        the phone your authenticator lives on — a password manager, or paper in a drawer.
-      </p>
+      <p className="bc-muted">{t('security.codes.keepNote')}</p>
 
       <div className={styles.inlineActions}>
-        <CopyButton value={codes.join('\n')} label="Copy all codes" />
+        <CopyButton value={codes.join('\n')} label={t('security.codes.copyAll')} />
         <button type="button" className="bc-button bc-button--quiet" onClick={download}>
-          Download as a text file
+          {t('security.codes.download')}
         </button>
       </div>
 
       <p aria-live="polite" className={styles.meta}>
-        {downloadFailed
-          ? 'Your browser blocked the download. Copy the codes above instead, or write them down — they are on screen and this is the only time we can show them.'
-          : null}
+        {downloadFailed ? t('security.codes.downloadBlocked') : null}
       </p>
 
       <div className="bc-panel bc-stack">
@@ -120,7 +116,7 @@ export function RecoveryCodesStep({
             checked={acknowledged}
             onChange={(event) => setAcknowledged(event.target.checked)}
           />
-          <span>I&rsquo;ve saved my recovery codes somewhere safe.</span>
+          <span>{t('security.codes.ack')}</span>
         </label>
         <button
           type="button"
@@ -128,7 +124,7 @@ export function RecoveryCodesStep({
           disabled={!acknowledged}
           onClick={onAcknowledged}
         >
-          Done
+          {t('security.codes.done')}
         </button>
       </div>
     </section>

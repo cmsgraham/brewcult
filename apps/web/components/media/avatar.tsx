@@ -1,4 +1,7 @@
+'use client';
+
 import { initialsFrom, readAvatarUrl } from '../../lib/media-client';
+import { useTranslate } from '../locale-provider';
 import styles from './media.module.css';
 import { BeanIcon } from '../ui/icon';
 
@@ -45,13 +48,15 @@ export function Avatar({
   alt,
   className,
 }: AvatarProps) {
+  const t = useTranslate();
   const url = src ?? readAvatarUrl(user);
   const name = displayName ?? handle ?? null;
   const initials = initialsFrom(displayName, handle);
 
   // An avatar next to the name it belongs to is decoration; an avatar on its
   // own needs to say whose it is. Callers pass alt="" for the former.
-  const altText = alt ?? (name ? `${name}'s profile photo` : 'Profile photo');
+  const altText =
+    alt ?? (name ? t('media.avatarAltNamed', { name }) : t('media.avatarAlt'));
 
   const boxStyle = {
     width: `${size}px`,
@@ -81,7 +86,7 @@ export function Avatar({
       ) : (
         <BeanIcon />
       )}
-      {url ? null : <span className="bc-visually-hidden">{altText} — no photo yet</span>}
+      {url ? null : <span className="bc-visually-hidden">{`${altText} — ${t('media.avatarNoPhoto').toLowerCase()}`}</span>}
     </span>
   );
 }

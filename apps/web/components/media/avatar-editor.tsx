@@ -9,6 +9,7 @@ import {
   setAvatar,
   type MediaAsset,
 } from '../../lib/media-client';
+import { useTranslate } from '../locale-provider';
 import { Avatar } from './avatar';
 import { ImageUpload } from './image-upload';
 import styles from './media.module.css';
@@ -41,6 +42,7 @@ export function AvatarEditor({
   handle = null,
   fetchImpl,
 }: AvatarEditorProps) {
+  const t = useTranslate();
   const [url, setUrl] = useState<string | null>(initialUrl);
   const [notice, setNotice] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
@@ -54,7 +56,7 @@ export function AvatarEditor({
       try {
         await setAvatar(asset.id, request);
         setUrl(asset.url);
-        setNotice('That is your profile photo now.');
+        setNotice(t('media.avatarSet'));
       } catch (error) {
         if (isMediaUnavailable(error)) setUnavailable(true);
         setFailure(describeMediaError(error));
@@ -66,7 +68,7 @@ export function AvatarEditor({
         }
       }
     },
-    [fetchImpl],
+    [fetchImpl, t],
   );
 
   const onRemove = useCallback(async () => {
@@ -76,12 +78,12 @@ export function AvatarEditor({
     try {
       await setAvatar(null, request);
       setUrl(null);
-      setNotice('Photo removed. Your initials are back.');
+      setNotice(t('media.avatarRemoved'));
     } catch (error) {
       if (isMediaUnavailable(error)) setUnavailable(true);
       setFailure(describeMediaError(error));
     }
-  }, [fetchImpl]);
+  }, [fetchImpl, t]);
 
   return (
     <div className={styles.avatarEditor}>
@@ -90,23 +92,23 @@ export function AvatarEditor({
 
         <div className={styles.avatarEditorControls}>
           <ImageUpload
-            label="Profile photo"
+            label={t('media.avatarLabel')}
             kind="avatar"
-            hint="A face, a cup, a bag — whatever you want people to see next to your name."
+            hint={t('media.avatarHint')}
             currentUrl={url}
             capture
             disabled={unavailable}
             {...(fetchImpl ? { fetchImpl } : {})}
             onUploaded={onUploaded}
             onRemove={onRemove}
-            ctaText="Add a profile photo"
+            ctaText={t('media.avatarCta')}
           />
         </div>
       </div>
 
       {unavailable ? (
         <p className="bc-muted" role="status">
-          Profile photos are not switched on yet. Nothing else on this page is affected.
+          {t('media.avatarNotSwitchedOn')}
         </p>
       ) : null}
 

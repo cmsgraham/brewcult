@@ -373,7 +373,12 @@ describe('/roaster', () => {
   it('lists roasters with their coffee counts', async () => {
     mockApi({ '/api/v1/roasters': { body: page([ROASTER_DETAIL]) } });
 
-    render(await RoasterHubPage({ searchParams: Promise.resolve({}) }));
+    render(
+      await RoasterHubPage({
+        params: Promise.resolve({ locale: 'en' }),
+        searchParams: Promise.resolve({}),
+      }),
+    );
 
     expect(screen.getByRole('heading', { level: 1, name: 'Coffee roasters' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Meridian Coffee Roasters' })).toHaveAttribute(

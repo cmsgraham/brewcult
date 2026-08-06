@@ -1,5 +1,5 @@
 import { type Metadata } from 'next';
-import { localeParam } from '../../../lib/locale-server';
+import { localeParam, translator } from '../../../lib/locale-server';
 import { LocaleLink as Link } from '../../../components/locale-link';
 import { Breadcrumbs } from '../../../components/catalog/breadcrumbs';
 import {
@@ -56,14 +56,16 @@ function readFilters(searchParams: Record<string, string | string[] | undefined>
 export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
   const locale = localeParam((await params).locale);
   const copy = catalogCopy(locale);
+  const t = translator(locale);
   const search = await searchParams;
   const filters = readFilters(search);
   const methodLabel = filters.method ? (copy.METHOD_LABEL[filters.method] ?? filters.method) : null;
 
   return hubMetadata({
-    title: methodLabel ? `${methodLabel} brewing recipes` : 'Brewing recipes',
-    description:
-      'Community and roaster brewing recipes with dose, water, ratio, temperature, grind and full pour schedules — each one a starting point to dial in from, not a rule.',
+    title: methodLabel
+      ? t('catalog.recipeHub.metaTitleMethod', { method: methodLabel })
+      : t('catalog.recipeHub.title'),
+    description: t('catalog.recipeHub.metaDescription'),
     basePath: '/recipes',
     filters,
     cursor: one(search['cursor']),
@@ -73,6 +75,7 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
 export default async function RecipeHubPage({ params, searchParams }: PageProps) {
   const locale = localeParam((await params).locale);
   const copy = catalogCopy(locale);
+  const t = translator(locale);
   const search = await searchParams;
   const filters = readFilters(search);
   const cursor = one(search['cursor']);
@@ -106,16 +109,22 @@ export default async function RecipeHubPage({ params, searchParams }: PageProps)
 
   const methodLabel = filters.method ? (copy.METHOD_LABEL[filters.method] ?? filters.method) : null;
   const heading = [
-    methodLabel ? `${methodLabel} recipes` : 'Brewing recipes',
-    coffee ? `for ${coffee.name}` : null,
-    brewer ? `on the ${brewer.brand?.name ?? ''} ${brewer.name}`.replace(/\s+/g, ' ') : null,
+    methodLabel
+      ? t('catalog.recipeHub.headingMethod', { method: methodLabel })
+      : t('catalog.recipeHub.title'),
+    coffee ? t('catalog.recipeHub.headingForCoffee', { coffee: coffee.name }) : null,
+    brewer
+      ? t('catalog.recipeHub.headingOnBrewer', {
+          brewer: `${brewer.brand?.name ?? ''} ${brewer.name}`.replace(/\s+/g, ' ').trim(),
+        })
+      : null,
   ]
     .filter((part): part is string => Boolean(part))
     .join(' ');
 
   const breadcrumbs = [
-    { name: 'Home', path: '/' },
-    { name: 'Recipes', path: '/recipes' },
+    { name: t('catalog.crumbs.home'), path: '/' },
+    { name: t('catalog.crumbs.recipes'), path: '/recipes' },
   ];
 
   return (
@@ -131,24 +140,21 @@ export default async function RecipeHubPage({ params, searchParams }: PageProps)
         ]}
       />
 
-      <Breadcrumbs entries={breadcrumbs} />
+      <Breadcrumbs entries={breadcrumbs} locale={locale} />
 
       <h1>{heading}</h1>
-      <p className="bc-lede">
-        Every recipe here carries its dose, water, ratio, temperature and grind — and a coarse
-        grind category, because a dial number from someone else&rsquo;s grinder does not
-        transfer to yours. Take one as a starting point and change one thing at a time.
-      </p>
+      <p className="bc-lede">{t('catalog.recipeHub.lede')}</p>
 
       <FilterBar
         action="/recipes"
-        legend="Filter recipes"
+        locale={locale}
+        legend={t('catalog.filters.recipeLegend')}
         hasActiveFilters={hasActiveFilters}
         selects={[
           {
             name: 'method',
-            label: 'Method',
-            anyLabel: 'Any method',
+            label: t('catalog.filters.method'),
+            anyLabel: t('catalog.filters.anyMethod'),
             selected: filters.method,
             options: METHODS.map((method) => ({
               value: method,
@@ -159,53 +165,38 @@ export default async function RecipeHubPage({ params, searchParams }: PageProps)
       />
 
       {filters.coffee && coffee === null ? (
-        <p className="bc-muted">
-          We could not find a coffee with the slug &ldquo;{filters.coffee}&rdquo;, so that
-          filter was ignored.
-        </p>
+        <p className="bc-muted">{t('catalog.recipeHub.unknownCoffee', { slug: filters.coffee })}</p>
       ) : null}
       {filters.brewer && brewer === null ? (
-        <p className="bc-muted">
-          We could not find equipment with the slug &ldquo;{filters.brewer}&rdquo;, so that
-          filter was ignored.
-        </p>
+        <p className="bc-muted">{t('catalog.recipeHub.unknownBrewer', { slug: filters.brewer })}</p>
       ) : null}
 
       <section aria-labelledby="results">
         <h2 id="results" className="bc-visually-hidden">
-          Recipes
+          {t('catalog.recipeHub.sectionHeading')}
         </h2>
 
         {result.status === 'missing' ? (
           <div className={styles.explainer}>
+            <p>{t('catalog.recipeHub.notReadyBody')}</p>
             <p>
-              Recipes are not switched on yet — the brewing API is being built right now.
-              When it lands, this page fills up with community and roaster recipes, each one
-              linked to the coffee and the gear it was written on.
-            </p>
-            <p>
-              In the meantime,{' '}
-              <Link href="/coffee">the coffee catalogue</Link> and{' '}
-              <Link href="/equipment">the equipment pages</Link> are live — including
-              community grind conversions for grinders.
+              {t('catalog.recipeHub.notReadyMeanwhile')}
+              <Link href="/coffee">{t('catalog.recipeHub.notReadyCatalogue')}</Link>
+              {t('catalog.recipeHub.notReadyAnd')}
+              <Link href="/equipment">{t('catalog.recipeHub.notReadyEquipment')}</Link>
+              {t('catalog.recipeHub.notReadyTail')}
             </p>
           </div>
         ) : result.status === 'error' ? (
-          <p className="bc-muted">
-            We could not load recipes just now — that is on us, not on you. Try again in a
-            moment.
-          </p>
+          <p className="bc-muted">{t('catalog.recipeHub.loadError')}</p>
         ) : recipes.length === 0 ? (
           <div className={styles.explainer}>
-            <p>
-              No recipes match that yet. Empty is a real answer here — we would rather show you
-              nothing than pad the page with recipes for a different coffee.
-            </p>
+            <p>{t('catalog.recipeHub.emptyBody')}</p>
             <p>
               {hasActiveFilters ? (
-                <Link href="/recipes">Clear the filters</Link>
+                <Link href="/recipes">{t('catalog.recipeHub.emptyClear')}</Link>
               ) : (
-                <Link href="/coffee">Start from a coffee instead</Link>
+                <Link href="/coffee">{t('catalog.recipeHub.emptyStart')}</Link>
               )}
               .
             </p>
@@ -220,6 +211,7 @@ export default async function RecipeHubPage({ params, searchParams }: PageProps)
 
         <Pagination
           basePath="/recipes"
+          locale={locale}
           filters={filters}
           nextCursor={nextCursor}
           itemCount={recipes.length}
@@ -228,30 +220,27 @@ export default async function RecipeHubPage({ params, searchParams }: PageProps)
       </section>
 
       <section className={styles.section} aria-labelledby="how-to-read">
-        <h2 id="how-to-read">How to read a recipe here</h2>
+        <h2 id="how-to-read">{t('catalog.recipeHub.howToReadHeading')}</h2>
         <p>
-          <strong>Ratio</strong> is the part that travels — 1:16 means one gram of coffee to
-          sixteen of water, whatever size you brew. <strong>Grind category</strong> (fine,
-          medium-fine, medium…) is the only grind information that survives a change of
-          grinder; a dial number is always shown attached to the grinder it came from.
+          <strong>{t('catalog.recipeHub.howToReadRatio')}</strong>
+          {t('catalog.recipeHub.howToReadRatioBody')}
+          <strong>{t('catalog.recipeHub.howToReadGrind')}</strong>
+          {t('catalog.recipeHub.howToReadGrindBody')}
         </p>
-        <p className="bc-muted">
-          Nobody&rsquo;s first attempt at someone else&rsquo;s recipe tastes the same as
-          theirs. That is water, beans and burrs, not you.
-        </p>
+        <p className="bc-muted">{t('catalog.recipeHub.howToReadNote')}</p>
       </section>
 
       <section className={styles.section} aria-labelledby="elsewhere">
-        <h2 id="elsewhere">Elsewhere in the catalogue</h2>
+        <h2 id="elsewhere">{t('catalog.elsewhere.heading')}</h2>
         <ul className={styles.related}>
           <li>
-            <Link href="/coffee">Coffees</Link>
+            <Link href="/coffee">{t('catalog.elsewhere.coffees')}</Link>
           </li>
           <li>
-            <Link href="/roaster">Roasters</Link>
+            <Link href="/roaster">{t('catalog.elsewhere.roasters')}</Link>
           </li>
           <li>
-            <Link href="/equipment">Brewers and grinders</Link>
+            <Link href="/equipment">{t('catalog.elsewhere.equipment')}</Link>
           </li>
         </ul>
       </section>

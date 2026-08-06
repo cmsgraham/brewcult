@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { unsubscribeWithToken } from '../../lib/notifications-client';
+import { useTranslate } from '../locale-provider';
 import { Alert } from '../ui/alert';
 
 type State = 'working' | 'done' | 'no_token';
@@ -20,6 +21,7 @@ type State = 'working' | 'done' | 'no_token';
  * real. Anything genuinely broken shows up in our logs, not in their face.
  */
 export function UnsubscribeConfirm({ token }: { token: string | null }) {
+  const t = useTranslate();
   const [state, setState] = useState<State>(token ? 'working' : 'no_token');
   const fired = useRef(false);
 
@@ -33,9 +35,8 @@ export function UnsubscribeConfirm({ token }: { token: string | null }) {
 
   if (state === 'no_token') {
     return (
-      <Alert tone="info" title="Nothing to change.">
-        That link is missing its code. Open your email settings to choose which messages you
-        get.
+      <Alert tone="info" title={t('unsubscribePage.noTokenTitle')}>
+        {t('unsubscribePage.noTokenBody')}
       </Alert>
     );
   }
@@ -43,16 +44,14 @@ export function UnsubscribeConfirm({ token }: { token: string | null }) {
   if (state === 'working') {
     return (
       <p className="bc-muted" role="status">
-        Updating your settings…
+        {t('unsubscribePage.working')}
       </p>
     );
   }
 
   return (
-    <Alert tone="success" title="Done — you are unsubscribed.">
-      You will not get that kind of email from us again. Security emails, like sign-in codes
-      and password changes, still come through: those are how you find out if someone else is
-      using your account.
+    <Alert tone="success" title={t('unsubscribePage.doneTitle')}>
+      {t('unsubscribePage.doneBody')}
     </Alert>
   );
 }

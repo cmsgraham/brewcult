@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useTranslate } from '../locale-provider';
 
 export interface CopyButtonProps {
   /** The text to place on the clipboard. Never logged, never stored. */
   value: string;
-  /** Button label in the resting state. */
+  /** Button label in the resting state. Arrives translated. */
   label: string;
   /** Confirmation shown for a moment after a successful copy. */
   doneLabel?: string;
@@ -23,7 +24,9 @@ export interface CopyButtonProps {
  * The result is announced in a polite live region: a purely visual "Copied"
  * tells a screen-reader user nothing.
  */
-export function CopyButton({ value, label, doneLabel = 'Copied', className }: CopyButtonProps) {
+export function CopyButton({ value, label, doneLabel, className }: CopyButtonProps) {
+  const t = useTranslate();
+  const done = doneLabel ?? t('security.copy.copied');
   const [state, setState] = useState<'idle' | 'done' | 'failed'>('idle');
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -56,13 +59,11 @@ export function CopyButton({ value, label, doneLabel = 'Copied', className }: Co
         className={className ?? 'bc-button bc-button--quiet'}
         onClick={() => void copy()}
       >
-        {state === 'done' ? doneLabel : label}
+        {state === 'done' ? done : label}
       </button>
       <span aria-live="polite" className="bc-muted" style={{ fontSize: '0.85rem' }}>
-        {state === 'done' ? `${doneLabel} to your clipboard.` : null}
-        {state === 'failed'
-          ? 'Your browser would not let us reach the clipboard — select the text above and copy it by hand.'
-          : null}
+        {state === 'done' ? t('security.copy.copiedAnnounce', { label: done }) : null}
+        {state === 'failed' ? t('security.copy.failed') : null}
       </span>
     </span>
   );
