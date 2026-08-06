@@ -81,7 +81,8 @@ export interface CoffeeRequest {
   id: string;
   requester_handle?: string | null;
   submitted_text: string;
-  image_url: string | null;
+  /** Every side they photographed, in the order sent. */
+  image_urls: string[];
   ai_draft: {
     roaster?: string;
     name?: string;
@@ -109,7 +110,7 @@ export interface CoffeeRequest {
  * the drafting path.
  */
 export async function submitCoffee(
-  input: { description?: string; image_media_id?: string },
+  input: { description?: string; image_media_ids?: string[] },
   options?: ApiRequestOptions,
 ): Promise<CoffeeRequest[]> {
   const body = await apiFetch<{ items?: CoffeeRequest[] }>(COFFEE_REQUESTS_PATH, {

@@ -40,6 +40,26 @@ function fileFromClipboard(blob: Blob): File {
   return new File([blob], `bag-photo.${extension}`, { type: blob.type || 'image/png' });
 }
 
+/**
+ * Two slots, both visible from the start. Revealing the second only after the
+ * first is filled would hide the fact that the back is wanted at all — and the
+ * back is where the roast date lives.
+ */
+const SLOTS = [
+  {
+    id: 'bag-photo-front',
+    label: 'Front of the bag',
+    optional: false,
+    hint: 'The roaster and the name of the coffee.',
+  },
+  {
+    id: 'bag-photo-back',
+    label: 'Back of the bag',
+    optional: true,
+    hint: 'Roast date, process, weight — whatever is printed there.',
+  },
+] as const;
+
 type Outcome =
   | { kind: 'published'; label: string }
   | { kind: 'shelved'; label: string }
@@ -51,8 +71,14 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
   const [description, setDescription] = useState('');
   const [roaster, setRoaster] = useState('');
   const [name, setName] = useState('');
-  const [photo, setPhoto] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  /**
+   * The sides of one bag. The front carries the roaster and the coffee; the
+   * back carries the roast date, the process and the weight — which is why one
+   * photo was the wrong number, and why both slots are shown from the start
+   * rather than revealed after the first is filled.
+   */
+  const [photos, setPhotos] = useState<(File | null)[]>([null, null]);
+  const [previews, setPreviews] = useState<(string | null)[]>([null, null]);
   const [shelf, setShelf] = useState<ShelfCoffee[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,16 +105,16 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
   }, []);
 
   useEffect(() => {
-    if (!photo) {
-      setPreview(null);
-      return;
-    }
-    const url = URL.createObjectURL(photo);
-    setPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [photo]);
+    const urls = photos.map((file) => (file ? URL.createObjectURL(file) : null));
+    setPreviews(urls);
+    // Revoked together, so replacing one slot cannot leak the other's blob for
+    // the life of the tab.
+    return () => {
+      for (const url of urls) if (url) URL.revokeObjectURL(url);
+    };
+  }, [photos]);
 
-  function attach(file: File | null): void {
+  function attach(file: File | null, slot: number): void {
     if (!file) return;
     const complaint = validateImageFile(file);
     if (complaint) {
@@ -96,8 +122,14 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
       return;
     }
     setError(null);
-    setPhoto(file);
+    setPhotos((current) => current.map((existing, index) => (index === slot ? file : existing)));
   }
+
+  /** Where a pasted image goes: the first empty slot, front before back. */
+  const nextEmptySlot = (): number => {
+    const index = photos.findIndex((file) => file === null);
+    return index === -1 ? 0 : index;
+  };
 
   function onPaste(event: ClipboardEvent<HTMLDivElement>): void {
     const item = Array.from(event.clipboardData?.items ?? []).find((entry) =>
@@ -107,7 +139,7 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
     const file = item.getAsFile();
     if (!file) return;
     event.preventDefault();
-    attach(file);
+    attach(file, nextEmptySlot());
   }
 
   async function pasteFromClipboard(): Promise<void> {
@@ -116,7 +148,7 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
       for (const item of items) {
         const type = item.types.find((candidate) => candidate.startsWith('image/'));
         if (!type) continue;
-        attach(fileFromClipboard(await item.getType(type)));
+        attach(fileFromClipboard(await item.getType(type)), nextEmptySlot());
         return;
       }
       setError('There is no image on the clipboard — copy one first, or choose a file.');
@@ -129,7 +161,7 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
     setDescription('');
     setRoaster('');
     setName('');
-    setPhoto(null);
+    setPhotos([null, null]);
     setOpen(false);
     setManual(false);
   }
@@ -137,19 +169,22 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
   /** The photo path: the assistant reads the label. */
   async function submitPhoto(): Promise<void> {
     const text = description.trim();
-    if (!photo && text === '') return;
+    const chosen = photos.filter((file): file is File => file !== null);
+    if (chosen.length === 0 && text === '') return;
     setBusy(true);
     setError(null);
     setOutcome(null);
     try {
-      let mediaId: string | undefined;
-      if (photo) {
-        const asset = await uploadMedia(photo, 'equipment_submission');
-        mediaId = asset.id;
+      // Uploaded in order, so `position` in the request matches what they saw:
+      // slot one is whatever they put in slot one.
+      const mediaIds: string[] = [];
+      for (const file of chosen) {
+        const asset = await uploadMedia(file, 'equipment_submission');
+        mediaIds.push(asset.id);
       }
       const items = await submitCoffee({
         ...(text ? { description: text } : {}),
-        ...(mediaId ? { image_media_id: mediaId } : {}),
+        ...(mediaIds.length > 0 ? { image_media_ids: mediaIds } : {}),
       });
       setShelf(await fetchShelf());
       setOutcome(describe(items[0]));
@@ -213,61 +248,81 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
           {!manual ? (
             <>
               <p style={{ marginBottom: 0 }}>
-                Photograph the bag — the label has everything on it. The assistant reads the
-                roaster, the coffee, the origin and the roast date, adds it to your shelf, and
-                puts it in the catalogue if the label is clear enough.
+                Photograph the bag — the label has everything on it. Both sides help: the front
+                names the roaster and the coffee, the back usually carries the roast date and the
+                process. The assistant reads them together, adds the bag to your shelf, and puts
+                it in the catalogue if the label is clear enough.
               </p>
 
-              <span className="bc-field">
-                <label className="bc-kit__label" htmlFor="bag-photo">
-                  Photo of the bag
-                </label>
-                {photo && preview ? (
-                  <span className="bc-photo-chosen">
-                    <img className="bc-photo-chosen__thumb" src={preview} alt="The bag you attached" />
-                    <span className="bc-photo-chosen__text">
-                      <span>{photo.name}</span>
-                      <span className="bc-muted">{formatBytes(photo.size)}</span>
+              <div className="bc-bag-slots">
+                {SLOTS.map((slot, index) => {
+                  const file = photos[index] ?? null;
+                  const preview = previews[index] ?? null;
+                  return (
+                    <span className="bc-field" key={slot.id}>
+                      <label className="bc-kit__label" htmlFor={slot.id}>
+                        {slot.label}{' '}
+                        {slot.optional ? <span className="bc-muted">(optional)</span> : null}
+                      </label>
+                      {file && preview ? (
+                        <span className="bc-photo-chosen">
+                          <img
+                            className="bc-photo-chosen__thumb"
+                            src={preview}
+                            alt={`The ${slot.label.toLowerCase()} you attached`}
+                          />
+                          <span className="bc-photo-chosen__text">
+                            <span>{file.name}</span>
+                            <span className="bc-muted">{formatBytes(file.size)}</span>
+                          </span>
+                          <button
+                            type="button"
+                            className="bc-button bc-button--quiet"
+                            disabled={busy}
+                            onClick={() =>
+                              setPhotos((current) =>
+                                current.map((existing, i) => (i === index ? null : existing)),
+                              )
+                            }
+                          >
+                            Remove
+                          </button>
+                        </span>
+                      ) : (
+                        <>
+                          <input
+                            id={slot.id}
+                            {...(index === 0 ? { ref: fileInput } : {})}
+                            className="bc-input"
+                            type="file"
+                            accept={IMAGE_ACCEPT}
+                            capture="environment"
+                            disabled={busy}
+                            onChange={(event) => attach(event.target.files?.[0] ?? null, index)}
+                          />
+                          <span className="bc-muted" style={{ fontSize: '0.85rem' }}>
+                            {slot.hint}
+                          </span>
+                        </>
+                      )}
                     </span>
-                    <button
-                      type="button"
-                      className="bc-button bc-button--quiet"
-                      disabled={busy}
-                      onClick={() => setPhoto(null)}
-                    >
-                      Remove
-                    </button>
-                  </span>
-                ) : (
-                  <>
-                    <input
-                      id="bag-photo"
-                      ref={fileInput}
-                      className="bc-input"
-                      type="file"
-                      accept={IMAGE_ACCEPT}
-                      capture="environment"
-                      disabled={busy}
-                      onChange={(event) => attach(event.target.files?.[0] ?? null)}
-                    />
-                    <span className="bc-photo-paste">
-                      {canReadClipboard ? (
-                        <button
-                          type="button"
-                          className="bc-button bc-button--quiet"
-                          disabled={busy}
-                          onClick={() => void pasteFromClipboard()}
-                        >
-                          Paste from clipboard
-                        </button>
-                      ) : null}
-                      <span className="bc-muted" style={{ fontSize: '0.85rem' }}>
-                        Or press Ctrl+V (⌘V) anywhere in this box.
-                      </span>
-                    </span>
-                  </>
-                )}
+                  );
+                })}
+              </div>
+
+              <span className="bc-photo-paste">
+                {canReadClipboard ? (
+                  <button
+                    type="button"
+                    className="bc-button bc-button--quiet"
+                    disabled={busy}
+                    onClick={() => void pasteFromClipboard()}
+                  >
+                    Paste from clipboard
+                  </button>
+                ) : null}
                 <span className="bc-muted" style={{ fontSize: '0.85rem' }}>
+                  Or press Ctrl+V (⌘V) anywhere in this box — it fills the next empty slot.{' '}
                   {PHOTO_PRIVACY_NOTE}
                 </span>
               </span>
@@ -292,7 +347,7 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
                 <button
                   type="button"
                   className="bc-button"
-                  disabled={busy || (!photo && description.trim() === '')}
+                  disabled={busy || (photos.every((file) => file === null) && description.trim() === '')}
                   onClick={() => void submitPhoto()}
                 >
                   {busy ? 'Reading the label…' : 'Add this coffee'}

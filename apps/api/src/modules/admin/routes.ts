@@ -459,7 +459,9 @@ export async function registerAdminRoutes(
     }
   };
 
-  app.post<{ Body: { description?: string; image_media_id?: string } }>(
+  app.post<{
+    Body: { description?: string; image_media_ids?: string[]; image_media_id?: string };
+  }>(
     `${prefix}/coffee-requests`,
     mutation,
     async (request, reply) => {
@@ -469,28 +471,38 @@ export async function registerAdminRoutes(
       if (userId === null) throw badRequest('Authentication required.');
 
       const description = (request.body?.description ?? '').trim();
-      const imageMediaId = request.body?.image_media_id ?? null;
-      if (description === '' && !imageMediaId) {
+      // `image_media_id` (singular) is still accepted: an old tab mid-deploy is
+      // not a reason to lose somebody's photo.
+      const mediaIds = [
+        ...(request.body?.image_media_ids ?? []),
+        ...(request.body?.image_media_id ? [request.body.image_media_id] : []),
+      ]
+        .filter((id): id is string => typeof id === 'string' && id !== '')
+        .slice(0, 4);
+
+      if (description === '' && mediaIds.length === 0) {
         throw badRequest('Add a photo of the bag, or type what the coffee is.');
       }
       if (description.length > 4000) {
         throw badRequest('That is a bit long — 4000 characters or fewer.');
       }
-      if (imageMediaId) {
-        await assertMediaUsable(db, imageMediaId, userId, 'equipment_submission');
+      // Every photo is checked for ownership BEFORE anything is written, so a
+      // borrowed id in the second slot cannot ride in behind a valid first one.
+      for (const mediaId of mediaIds) {
+        await assertMediaUsable(db, mediaId, userId, 'equipment_submission');
       }
 
       const requestId = await createCoffeeRequest(db, {
         requesterId: userId,
         submittedText: description,
-        imageMediaId,
+        imageMediaIds: mediaIds,
       });
 
       try {
         const stored = await findCoffeeRequest(db, requestId);
         const draft = await draftCoffee(
           actor,
-          { description, imageUrl: stored?.image_url ?? null },
+          { description, imageUrls: stored?.image_urls ?? [] },
           { gateway: getGateway() },
         );
         await attachCoffeeDraft(db, requestId, draft as unknown as Record<string, unknown>, null);

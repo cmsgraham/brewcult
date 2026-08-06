@@ -49,6 +49,7 @@ const MIGRATIONS = [
   'db/migrations/0012_equipment_submission_media.sql',
   'db/migrations/0013_community_catalogue.sql',
   'db/migrations/0014_community_coffee.sql',
+  'db/migrations/0015_coffee_request_images.sql',
 ];
 
 let pg: PGlite;

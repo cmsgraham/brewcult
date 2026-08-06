@@ -136,8 +136,12 @@ export function parseRoastDate(value: string | undefined): string | null {
 export interface CoffeeDraftInput {
   /** What they typed, if anything. Often empty — the photo is the submission. */
   description?: string;
-  /** A photo of the bag, already through the media pipeline. Never a chosen URL. */
-  imageUrl?: string | null;
+  /**
+   * The sides of ONE bag, already through the media pipeline. Never URLs the
+   * submitter chose. Usually front then back — the front carries the name, the
+   * back carries the roast date and the process.
+   */
+  imageUrls?: readonly string[];
 }
 
 export interface CoffeeDraftDeps {
@@ -207,17 +211,23 @@ export async function draftCoffee(
   if (userId === null) throw badRequest('Authentication required.');
 
   const description = (input.description ?? '').trim();
-  if (description === '' && !input.imageUrl) {
+  const images = (input.imageUrls ?? []).filter((url) => url !== '');
+  if (description === '' && images.length === 0) {
     throw badRequest('Add a photo of the bag, or describe the coffee.');
   }
 
   const prompt = assemble({
     feature: 'coffee_draft',
     untrusted: description ? [{ source: 'coffee_name', content: description }] : [],
-    ...(input.imageUrl ? { images: [input.imageUrl] } : {}),
+    ...(images.length > 0 ? { images: [...images] } : {}),
     question:
-      'Read this coffee from the bag. Record only what is printed — omit anything ' +
-      'that is not there rather than inferring it.',
+      images.length > 1
+        ? `Read this coffee from the bag. The ${images.length} images are different SIDES ` +
+          'of the same bag — read them together, and expect the roast date and the ' +
+          'process on the back. Record only what is printed, omitting anything that is ' +
+          'not there rather than inferring it.'
+        : 'Read this coffee from the bag. Record only what is printed — omit anything ' +
+          'that is not there rather than inferring it.',
   });
 
   const result = await deps.gateway.complete({

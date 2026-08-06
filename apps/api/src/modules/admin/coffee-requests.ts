@@ -16,8 +16,8 @@ export interface CoffeeRequestRow {
   requester_id: string;
   requester_handle: string | null;
   submitted_text: string;
-  image_storage_key: string | null;
-  image_url: string | null;
+  /** Every side they photographed, in the order they sent them. */
+  image_urls: string[];
   ai_draft: Record<string, unknown> | null;
   ai_error: string | null;
   status: CoffeeRequestStatus;
@@ -27,12 +27,24 @@ export interface CoffeeRequestRow {
   created_at: string;
 }
 
+/**
+ * The storage keys come back as an ARRAY, aggregated in the same query rather
+ * than fetched per row. A submission has one to four photos and a queue has a
+ * hundred submissions; N+1 here would be four hundred round trips to draw one
+ * page.
+ */
 const SELECT = `
   SELECT r.id::text                 AS id,
          r.requester_id::text       AS requester_id,
          u.handle                   AS requester_handle,
          r.submitted_text           AS submitted_text,
-         m.storage_key              AS image_storage_key,
+         coalesce(
+           (SELECT array_agg(m.storage_key ORDER BY i.position)
+              FROM coffee_request_images i
+              JOIN media m ON m.id = i.media_id
+             WHERE i.request_id = r.id),
+           '{}'
+         )                          AS image_keys,
          r.ai_draft                 AS ai_draft,
          r.ai_error                 AS ai_error,
          r.status                   AS status,
@@ -41,13 +53,17 @@ const SELECT = `
          r.coffee_product_id::text  AS coffee_product_id,
          r.created_at               AS created_at
     FROM coffee_requests r
-    LEFT JOIN users u ON u.id = r.requester_id
-    LEFT JOIN media m ON m.id = r.image_media_id`;
+    LEFT JOIN users u ON u.id = r.requester_id`;
 
-const withImageUrl = (row: CoffeeRequestRow): CoffeeRequestRow => ({
-  ...row,
-  image_url: row.image_storage_key ? mediaUrl(row.image_storage_key) : null,
-});
+interface RawCoffeeRequestRow extends Omit<CoffeeRequestRow, 'image_urls'> {
+  image_keys: string[] | null;
+}
+
+/** Keys become URLs here, in one place, so every reader agrees. */
+const toRow = (row: RawCoffeeRequestRow): CoffeeRequestRow => {
+  const { image_keys: keys, ...rest } = row;
+  return { ...rest, image_urls: (keys ?? []).map((key) => mediaUrl(key)) };
+};
 
 /**
  * Record the submission first, read the label afterwards.
@@ -59,15 +75,29 @@ const withImageUrl = (row: CoffeeRequestRow): CoffeeRequestRow => ({
  */
 export async function createCoffeeRequest(
   db: AdminDb,
-  input: { requesterId: string; submittedText?: string; imageMediaId?: string | null },
+  input: { requesterId: string; submittedText?: string; imageMediaIds?: readonly string[] },
 ): Promise<string> {
   const { rows } = await db.query<{ id: string }>(
-    `INSERT INTO coffee_requests (requester_id, submitted_text, image_media_id)
-          VALUES ($1::uuid, $2, $3::uuid)
+    `INSERT INTO coffee_requests (requester_id, submitted_text)
+          VALUES ($1::uuid, $2)
        RETURNING id::text AS id`,
-    [input.requesterId, (input.submittedText ?? '').trim(), input.imageMediaId ?? null],
+    [input.requesterId, (input.submittedText ?? '').trim()],
   );
-  return rows[0]!.id;
+  const id = rows[0]!.id;
+
+  // Position is the order they were sent, which is usually front then back.
+  // Nothing downstream depends on that being true — the model is told it is
+  // looking at sides of one bag, not at a labelled front and a labelled back.
+  const images = (input.imageMediaIds ?? []).slice(0, 4);
+  for (const [position, mediaId] of images.entries()) {
+    await db.query(
+      `INSERT INTO coffee_request_images (request_id, media_id, position)
+            VALUES ($1::uuid, $2::uuid, $3)
+       ON CONFLICT DO NOTHING`,
+      [id, mediaId, position],
+    );
+  }
+  return id;
 }
 
 export async function attachCoffeeDraft(
@@ -86,30 +116,30 @@ export async function findCoffeeRequest(
   db: AdminDb,
   id: string,
 ): Promise<CoffeeRequestRow | null> {
-  const { rows } = await db.query<CoffeeRequestRow>(`${SELECT} WHERE r.id = $1::uuid`, [id]);
-  return rows[0] ? withImageUrl(rows[0]) : null;
+  const { rows } = await db.query<RawCoffeeRequestRow>(`${SELECT} WHERE r.id = $1::uuid`, [id]);
+  return rows[0] ? toRow(rows[0]) : null;
 }
 
 export async function listMyCoffeeRequests(
   db: AdminDb,
   requesterId: string,
 ): Promise<CoffeeRequestRow[]> {
-  const { rows } = await db.query<CoffeeRequestRow>(
+  const { rows } = await db.query<RawCoffeeRequestRow>(
     `${SELECT} WHERE r.requester_id = $1::uuid ORDER BY r.created_at DESC LIMIT 50`,
     [requesterId],
   );
-  return rows.map(withImageUrl);
+  return rows.map(toRow);
 }
 
 export async function listCoffeeRequests(
   db: AdminDb,
   status: CoffeeRequestStatus = 'pending',
 ): Promise<CoffeeRequestRow[]> {
-  const { rows } = await db.query<CoffeeRequestRow>(
+  const { rows } = await db.query<RawCoffeeRequestRow>(
     `${SELECT} WHERE r.status = $1 ORDER BY r.created_at DESC LIMIT 100`,
     [status],
   );
-  return rows.map(withImageUrl);
+  return rows.map(toRow);
 }
 
 /** The assistant's decision, recorded as one. Same shape as 0013's. */
