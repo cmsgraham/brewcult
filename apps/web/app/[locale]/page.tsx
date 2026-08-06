@@ -1,6 +1,7 @@
 import { type Metadata } from 'next';
+import { localePath } from '../../lib/i18n';
 import { localeAlternates } from '../../lib/seo';
-import { localeParam } from '../../lib/locale-server';
+import { localeParam, translator } from '../../lib/locale-server';
 import Link from 'next/link';
 import { JsonLd, readCspNonce } from '../../components/catalog/json-ld';
 import { brandSameAs } from '../../lib/seo';
@@ -29,7 +30,13 @@ const ABOUT =
   'BrewCult helps you log what you brew, understand what changed the cup, and find ' +
   'coffee and equipment worth your money — without gatekeeping.';
 
-export default async function HomePage() {
+export default async function HomePage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const locale = localeParam((await params).locale);
+  const t = translator(locale);
   const [user, nonce] = await Promise.all([getSessionUser(), readCspNonce()]);
 
   // The brand entity lives HERE and only here. Every other page carries markup
@@ -50,35 +57,33 @@ export default async function HomePage() {
   return (
     <div className="bc-hero">
       <JsonLd documents={brandDocuments} nonce={nonce} />
-      <h1>Coffee gets better when you pay attention.</h1>
-      <p className="bc-lede">
-        BrewCult attaches to the habit you already have. Log the brew you were going to
-        make anyway, and get something useful back: what changed, what to try next, and
-        which coffees are worth your money.
-      </p>
-      <p>
-        Every great brewer started with bitter coffee. Bring whatever gear you own — a
-        great cup is absolutely possible on your setup, and nobody here is going to tell
-        you to buy a $700 grinder first.
-      </p>
+      <h1>{t('home.headline')}</h1>
+      <p className="bc-lede">{t('home.intro')}</p>
+      <p>{t('home.welcome')}</p>
 
       <div className="bc-actions">
         {user ? (
           <>
-            <Link className="bc-button" href="/discover">
-              Discover coffee
+            <Link className="bc-button" href={localePath('/discover', locale)}>
+              {t('home.discoverCta')}
             </Link>
-            <Link className="bc-button bc-button--secondary" href="/profile">
-              Your profile
+            <Link
+              className="bc-button bc-button--secondary"
+              href={localePath('/profile', locale)}
+            >
+              {t('home.profileCta')}
             </Link>
           </>
         ) : (
           <>
-            <Link className="bc-button" href="/register">
-              Create an account
+            <Link className="bc-button" href={localePath('/register', locale)}>
+              {t('home.registerCta')}
             </Link>
-            <Link className="bc-button bc-button--secondary" href="/discover">
-              Look around first
+            <Link
+              className="bc-button bc-button--secondary"
+              href={localePath('/discover', locale)}
+            >
+              {t('home.lookAroundCta')}
             </Link>
           </>
         )}
@@ -86,24 +91,16 @@ export default async function HomePage() {
 
       <ul className="bc-feature-grid">
         <li className="bc-card">
-          <h2>A brew log, not homework</h2>
-          <p className="bc-card__meta">
-            Ten seconds, one tap to repeat yesterday. It works with one bar of wifi in the
-            kitchen, because that is where brewing happens.
-          </p>
+          <h2>{t('home.logTitle')}</h2>
+          <p className="bc-card__meta">{t('home.logBody')}</p>
         </li>
         <li className="bc-card">
-          <h2>Suggestions, never orders</h2>
-          <p className="bc-card__meta">
-            &ldquo;Try grinding finer&rdquo; — then you decide. Experiments are the point,
-            and one that flops is still useful data.
-          </p>
+          <h2>{t('home.suggestionsTitle')}</h2>
+          <p className="bc-card__meta">{t('home.suggestionsBody')}</p>
         </li>
         <li className="bc-card">
-          <h2>Questions are welcome</h2>
-          <p className="bc-card__meta">
-            No downvotes, no gear-shaming. Patient explanation is what earns status here.
-          </p>
+          <h2>{t('home.questionsTitle')}</h2>
+          <p className="bc-card__meta">{t('home.questionsBody')}</p>
         </li>
       </ul>
     </div>

@@ -10,6 +10,7 @@
  * Discover — that decision is a flag flip here, not a refactor.
  */
 import type { FeatureFlags } from './client-config';
+import type { MessageKey } from './i18n';
 
 export type NavKey =
   | 'home'
@@ -23,7 +24,16 @@ export type NavKey =
 
 export interface NavItem {
   readonly key: NavKey;
+  /**
+   * English, and a fallback rather than the thing rendered.
+   *
+   * The nav is drawn from `labelKey` below; this stays so a caller that has no
+   * translator (a test, a future non-localised surface) still renders words
+   * rather than keys.
+   */
   readonly label: string;
+  /** Where the rendered label actually comes from. */
+  readonly labelKey: MessageKey;
   readonly href: string;
   /**
    * Feature flag that must be true for this item to render. Items without a
@@ -35,15 +45,16 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: readonly NavItem[] = [
-  { key: 'home', label: 'Home', href: '/' },
-  { key: 'brew', label: 'Brew', href: '/brew', flag: 'navBrew' },
-  { key: 'ai', label: 'AI', href: '/ai', flag: 'navAi' },
-  { key: 'discover', label: 'Discover', href: '/discover' },
-  { key: 'news', label: 'News', href: '/news', flag: 'navNews' },
-  { key: 'community', label: 'Community', href: '/community', flag: 'navCommunity' },
+  { key: 'home', label: 'Home', labelKey: 'nav.home', href: '/' },
+  { key: 'brew', label: 'Brew', labelKey: 'nav.brew', href: '/brew', flag: 'navBrew' },
+  { key: 'ai', label: 'AI', labelKey: 'nav.ai', href: '/ai', flag: 'navAi' },
+  { key: 'discover', label: 'Discover', labelKey: 'nav.discoverShort', href: '/discover' },
+  { key: 'news', label: 'News', labelKey: 'nav.news', href: '/news', flag: 'navNews' },
+  { key: 'community', label: 'Community', labelKey: 'nav.community', href: '/community', flag: 'navCommunity' },
   {
     key: 'marketplace',
     label: 'Marketplace',
+    labelKey: 'nav.marketplace',
     href: '/marketplace',
     flag: 'navMarketplace',
   },
@@ -51,7 +62,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   // signed-out visitor straight to /login. Brew, AI and Discover all serve
   // anonymously, so they stay visible — hiding a page that works would cost a
   // visitor the reason to sign up in the first place.
-  { key: 'profile', label: 'Profile', href: '/profile', requiresAuth: true },
+  { key: 'profile', label: 'Profile', labelKey: 'common.profile', href: '/profile', requiresAuth: true },
 ] as const;
 
 /**

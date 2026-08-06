@@ -30,6 +30,12 @@ export const en = {
 
   nav: {
     skipToContent: 'Skip to content',
+    home: 'Home',
+    logIn: 'Log in',
+    news: 'News',
+    community: 'Community',
+    marketplace: 'Marketplace',
+    discoverShort: 'Discover',
     discover: 'Discover coffee',
     equipment: 'Equipment',
     recipes: 'Recipes',
@@ -41,6 +47,24 @@ export const en = {
   home: {
     tagline: 'Brewing intelligence for people who love coffee',
     lede: 'Log your brews, dial in your grinder and find coffee worth drinking. Beginners welcome — every great brewer started with bitter coffee.',
+    headline: 'Coffee gets better when you pay attention.',
+    intro:
+      'BrewCult attaches to the habit you already have. Log the brew you were going to make anyway, and get something useful back: what changed, what to try next, and which coffees are worth your money.',
+    welcome:
+      'Every great brewer started with bitter coffee. Bring whatever gear you own — a great cup is absolutely possible on your setup, and nobody here is going to tell you to buy a $700 grinder first.',
+    discoverCta: 'Discover coffee',
+    profileCta: 'Your profile',
+    registerCta: 'Create an account',
+    lookAroundCta: 'Look around first',
+    logTitle: 'A brew log, not homework',
+    logBody:
+      'Ten seconds, one tap to repeat yesterday. It works with one bar of wifi in the kitchen, because that is where brewing happens.',
+    suggestionsTitle: 'Suggestions, never orders',
+    suggestionsBody:
+      '“Try grinding finer” — then you decide. Experiments are the point, and one that flops is still useful data.',
+    questionsTitle: 'Questions are welcome',
+    questionsBody:
+      'No downvotes, no gear-shaming. Patient explanation is what earns status here.',
   },
 
   discover: {

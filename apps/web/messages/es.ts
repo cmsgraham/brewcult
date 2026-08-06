@@ -39,6 +39,12 @@ export const es: Messages = {
 
   nav: {
     skipToContent: 'Saltar al contenido',
+    home: 'Inicio',
+    logIn: 'Iniciar sesión',
+    news: 'Noticias',
+    community: 'Comunidad',
+    marketplace: 'Tienda',
+    discoverShort: 'Descubrir',
     discover: 'Descubrir café',
     equipment: 'Equipo',
     recipes: 'Recetas',
@@ -50,6 +56,24 @@ export const es: Messages = {
   home: {
     tagline: 'Inteligencia de preparación para quienes aman el café',
     lede: 'Anotá tus preparaciones, ajustá tu molino y encontrá café que vale la pena tomar. Principiantes bienvenidos: todo buen barista empezó con café amargo.',
+    headline: 'El café mejora cuando le ponés atención.',
+    intro:
+      'BrewCult se pega al hábito que ya tenés. Anotá la preparación que ibas a hacer de todos modos y llevate algo útil a cambio: qué cambió, qué probar después y cuáles cafés valen lo que cuestan.',
+    welcome:
+      'Todo buen barista empezó con café amargo. Traé el equipo que tengás: una gran taza es totalmente posible con lo que ya usás, y aquí nadie te va a decir que primero comprés un molino de $700.',
+    discoverCta: 'Descubrir café',
+    profileCta: 'Tu perfil',
+    registerCta: 'Crear una cuenta',
+    lookAroundCta: 'Primero ver un poco',
+    logTitle: 'Una bitácora, no una tarea',
+    logBody:
+      'Diez segundos, un toque para repetir lo de ayer. Funciona con una barra de wifi en la cocina, porque ahí es donde se prepara el café.',
+    suggestionsTitle: 'Sugerencias, nunca órdenes',
+    suggestionsBody:
+      '“Probá moliendo más fino”, y después decidís vos. Los experimentos son el punto, y uno que sale mal igual son datos útiles.',
+    questionsTitle: 'Las preguntas son bienvenidas',
+    questionsBody:
+      'Sin votos negativos y sin burlarse del equipo de nadie. Aquí lo que da estatus es explicar con paciencia.',
   },
 
   discover: {

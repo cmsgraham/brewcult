@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useId, useState } from 'react';
 import { DEFAULT_LOCALE, localePath, stripLocale, type Locale } from '../lib/i18n';
+import { useTranslate } from './locale-provider';
 import { isActiveNavItem, type NavItem } from '../lib/nav';
 import { BrandLockup } from './brand-lockup';
 import { LanguageSwitcher } from './language-switcher';
@@ -41,6 +42,7 @@ export function SiteNav({
   locale = DEFAULT_LOCALE,
   labels,
 }: SiteNavProps) {
+  const t = useTranslate();
   const pathname = usePathname() ?? '/';
   const [open, setOpen] = useState(false);
   const navId = useId();
@@ -82,7 +84,7 @@ export function SiteNav({
                     aria-current={active ? 'page' : undefined}
                     onClick={() => setOpen(false)}
                   >
-                    {item.label}
+                    {t(item.labelKey)}
                   </Link>
                 </li>
               );
@@ -107,14 +109,14 @@ export function SiteNav({
                   href={localePath('/login', locale)}
                   onClick={() => setOpen(false)}
                 >
-                  Log in
+                  {t('nav.logIn')}
                 </Link>
                 <Link
                   className="bc-button bc-button--secondary bc-nav__cta"
                   href={localePath('/register', locale)}
                   onClick={() => setOpen(false)}
                 >
-                  Sign up
+                  {t('common.signUp')}
                 </Link>
               </li>
             )}

@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslate } from '../locale-provider';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { authApi } from '../../lib/api';
@@ -17,6 +18,7 @@ import { authApi } from '../../lib/api';
  * the session server-side rather than just dropping cookies locally.
  */
 export function SignOutButton() {
+  const t = useTranslate();
   const router = useRouter();
   const [pending, setPending] = useState(false);
 
@@ -41,7 +43,7 @@ export function SignOutButton() {
       onClick={endSession}
       disabled={pending}
     >
-      {pending ? 'Signing out…' : 'Sign out'}
+      {pending ? '…' : t('common.signOut')}
     </button>
   );
 }
