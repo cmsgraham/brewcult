@@ -1,14 +1,7 @@
 import Link from 'next/link';
 import { EntityImage } from '../media/entity-image';
 import type { CoffeeSummary, EquipmentSummary, RecipeView, RoasterSummary } from './catalog-api';
-import {
-  EQUIPMENT_CATEGORY_LABEL,
-  METHOD_LABEL,
-  grindCategoryLabel,
-  originLabel,
-  processLabel,
-  roastLevelLabel,
-} from './copy';
+import { catalogCopy, grindCategoryLabel, originLabel, processLabel, roastLevelLabel } from './copy';
 
 /**
  * Cards for the hub grids and the "more from…" rails on detail pages.
@@ -30,8 +23,19 @@ import {
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-export function CoffeeCard({ coffee }: { coffee: CoffeeSummary }) {
-  const meta = [originLabel(coffee.origin), processLabel(coffee.process), roastLevelLabel(coffee.roast_level)]
+export function CoffeeCard({
+  coffee,
+  locale = 'en',
+}: {
+  coffee: CoffeeSummary;
+  /** Which language the process and roast labels are written in. */
+  locale?: string;
+}) {
+  const meta = [
+    originLabel(coffee.origin),
+    processLabel(coffee.process, locale),
+    roastLevelLabel(coffee.roast_level, locale),
+  ]
     .filter((part): part is string => Boolean(part))
     .join(' · ');
 
@@ -73,7 +77,10 @@ export function RoasterCard({ roaster }: { roaster: RoasterSummary }) {
   );
 }
 
-export function EquipmentCard({ equipment }: { equipment: EquipmentSummary }) {
+export function EquipmentCard({ equipment,
+  locale = 'en',
+}: { equipment: EquipmentSummary; locale?: string }) {
+  const copy = catalogCopy(locale);
   return (
     <li className="bc-card">
       <EntityImage
@@ -87,7 +94,7 @@ export function EquipmentCard({ equipment }: { equipment: EquipmentSummary }) {
         </Link>
       </h3>
       <p className="bc-card__meta">
-        {EQUIPMENT_CATEGORY_LABEL[equipment.category] ?? equipment.category}
+        {copy.EQUIPMENT_CATEGORY_LABEL[equipment.category] ?? equipment.category}
       </p>
       {equipment.grind_scale_type ? (
         <p className="bc-card__meta">{equipment.grind_scale_type} adjustment</p>
@@ -96,12 +103,15 @@ export function EquipmentCard({ equipment }: { equipment: EquipmentSummary }) {
   );
 }
 
-export function RecipeCard({ recipe }: { recipe: RecipeView }) {
+export function RecipeCard({ recipe,
+  locale = 'en',
+}: { recipe: RecipeView; locale?: string }) {
+  const copy = catalogCopy(locale);
   const params = recipe.params;
   const ratio =
     params && typeof params.ratio === 'number' ? `1:${Math.round(params.ratio * 10) / 10}` : null;
   const grind = grindCategoryLabel(recipe.grind?.category);
-  const meta = [METHOD_LABEL[recipe.method] ?? recipe.method, ratio, grind]
+  const meta = [copy.METHOD_LABEL[recipe.method] ?? recipe.method, ratio, grind]
     .filter((part): part is string => Boolean(part))
     .join(' · ');
 

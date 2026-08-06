@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { GrindConversion } from './catalog-api';
 import styles from './catalog.module.css';
-import { CONFIDENCE_BAND_COPY, CONVERSION_SOURCE_COPY, GRIND_SCALE_COPY } from './copy';
+import { catalogCopy } from './copy';
 
 /**
  * Grind-setting conversions for one grinder (§6.4 — "the hardest domain
@@ -25,6 +25,8 @@ import { CONFIDENCE_BAND_COPY, CONVERSION_SOURCE_COPY, GRIND_SCALE_COPY } from '
  */
 
 export interface GrindConversionSectionProps {
+  /** Which language the explanatory copy is written in. */
+  locale?: string;
   grinderName: string;
   grindScaleType: string | null;
   conversions: GrindConversion[];
@@ -50,8 +52,10 @@ export function GrindConversionSection({
   conversions,
   disclaimer,
   unavailable = false,
+  locale = 'en',
 }: GrindConversionSectionProps) {
-  const scaleCopy = grindScaleType ? GRIND_SCALE_COPY[grindScaleType] : null;
+  const copy = catalogCopy(locale);
+  const scaleCopy = grindScaleType ? copy.GRIND_SCALE_COPY[grindScaleType] : null;
 
   return (
     <section className={styles.section} aria-labelledby="grind-conversions">
@@ -117,10 +121,10 @@ export function GrindConversionSection({
                       }`}
                     </span>
                     <span className={styles.paramNote}>
-                      {CONFIDENCE_BAND_COPY[conversion.uncertainty.band]}
+                      {copy.CONFIDENCE_BAND_COPY[conversion.uncertainty.band]}
                     </span>
                     <span className={styles.paramNote}>
-                      {CONVERSION_SOURCE_COPY[conversion.uncertainty.source] ??
+                      {copy.CONVERSION_SOURCE_COPY[conversion.uncertainty.source] ??
                         'Source not recorded.'}
                     </span>
                   </td>

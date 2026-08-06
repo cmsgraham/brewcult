@@ -186,6 +186,7 @@ export default async function EquipmentDetailPage({ params }: PageProps) {
 
       {isGrinder ? (
         <GrindConversionSection
+          locale={locale}
           grinderName={fullName}
           grindScaleType={equipment.grind_scale_type}
           conversions={conversions.items}

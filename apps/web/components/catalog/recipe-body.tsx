@@ -1,15 +1,7 @@
 import Link from 'next/link';
 import type { EspressoParams, FilterParams, RecipeView } from './catalog-api';
 import styles from './catalog.module.css';
-import {
-  GRIND_CATEGORY_HINT,
-  METHOD_LABEL,
-  celsius,
-  duration,
-  grams,
-  grindCategoryLabel,
-  humanize,
-} from './copy';
+import { catalogCopy, celsius, duration, grams, grindCategoryLabel, humanize } from './copy';
 import { authorName } from './entity-cards';
 
 /**
@@ -93,7 +85,7 @@ export function recipeParams(recipe: RecipeView): Param[] {
   return out;
 }
 
-export function RecipeParams({ recipe }: { recipe: RecipeView }) {
+export function RecipeParams({ recipe }: { recipe: RecipeView; locale?: string }) {
   const params = recipeParams(recipe);
   if (params.length === 0) {
     return (
@@ -122,12 +114,15 @@ export function RecipeParams({ recipe }: { recipe: RecipeView }) {
  * only part that transfers, and the dial number is always attributed to a
  * specific grinder.
  */
-export function RecipeGrind({ recipe }: { recipe: RecipeView }) {
+export function RecipeGrind({ recipe,
+  locale = 'en',
+}: { recipe: RecipeView; locale?: string }) {
+  const copy = catalogCopy(locale);
   const grind = recipe.grind;
   if (!grind) return null;
 
   const category = grindCategoryLabel(grind.category);
-  const hint = grind.category ? GRIND_CATEGORY_HINT[grind.category] : null;
+  const hint = grind.category ? copy.GRIND_CATEGORY_HINT[grind.category] : null;
 
   return (
     <div>
@@ -172,7 +167,7 @@ export function RecipeGrind({ recipe }: { recipe: RecipeView }) {
 }
 
 /** Pour schedule. The bloom is simply the first pour (§6.3), not a special field. */
-export function RecipePours({ recipe }: { recipe: RecipeView }) {
+export function RecipePours({ recipe }: { recipe: RecipeView; locale?: string }) {
   const params = recipe.params;
   if (!isFilter(params) || !params.pours || params.pours.length === 0) return null;
 
@@ -193,7 +188,7 @@ export function RecipePours({ recipe }: { recipe: RecipeView }) {
 }
 
 /** Espresso puck-prep steps, when the author recorded them. */
-export function RecipePuckPrep({ recipe }: { recipe: RecipeView }) {
+export function RecipePuckPrep({ recipe }: { recipe: RecipeView; locale?: string }) {
   const params = recipe.params;
   if (!isEspresso(params) || !params.puck_prep || params.puck_prep.length === 0) return null;
 
@@ -212,7 +207,7 @@ export function RecipePuckPrep({ recipe }: { recipe: RecipeView }) {
  * Fork lineage (§6.6). Attribution to the upstream author is permanent and
  * displayed — this is the social contract that makes forking safe to do.
  */
-export function RecipeLineage({ recipe }: { recipe: RecipeView }) {
+export function RecipeLineage({ recipe }: { recipe: RecipeView; locale?: string }) {
   if (!recipe.parent) return null;
 
   const upstream = authorName(recipe.parent.author ?? null);
@@ -232,8 +227,9 @@ export function RecipeLineage({ recipe }: { recipe: RecipeView }) {
 }
 
 /** One-line description of the recipe, reused for meta descriptions. */
-export function recipeSummaryLine(recipe: RecipeView): string {
-  const method = METHOD_LABEL[recipe.method] ?? recipe.method;
+export function recipeSummaryLine(recipe: RecipeView, locale = 'en'): string {
+  const copy = catalogCopy(locale);
+  const method = copy.METHOD_LABEL[recipe.method] ?? recipe.method;
   const bits: string[] = [method];
   const ratio = ratioText(recipe.params);
   if (ratio) bits.push(ratio);

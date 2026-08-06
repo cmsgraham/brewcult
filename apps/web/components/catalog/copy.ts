@@ -202,19 +202,28 @@ export function processCopy(process: LotProcess | null | undefined): string | nu
   return PROCESS_COPY[process] ?? null;
 }
 
-export function processLabel(process: LotProcess | null | undefined): string | null {
+export function processLabel(
+  process: LotProcess | null | undefined,
+  locale = 'en',
+): string | null {
   if (!process) return null;
-  return PROCESS_LABEL[process] ?? process;
+  return catalogCopy(locale).PROCESS_LABEL[process] ?? process;
 }
 
-export function roastLevelLabel(level: RoastLevel | null | undefined): string | null {
+export function roastLevelLabel(
+  level: RoastLevel | null | undefined,
+  locale = 'en',
+): string | null {
   if (!level) return null;
-  return ROAST_LEVEL_LABEL[level] ?? level;
+  return catalogCopy(locale).ROAST_LEVEL_LABEL[level] ?? level;
 }
 
-export function grindCategoryLabel(category: GrindCategory | null | undefined): string | null {
+export function grindCategoryLabel(
+  category: GrindCategory | null | undefined,
+  locale = 'en',
+): string | null {
   if (!category) return null;
-  return GRIND_CATEGORY_LABEL[category] ?? category;
+  return catalogCopy(locale).GRIND_CATEGORY_LABEL[category] ?? category;
 }
 
 /** "Ethiopia, Yirgacheffe" / "Ethiopia" — never a dangling comma. */

@@ -218,7 +218,7 @@ export default async function CoffeeHubPage({ params, searchParams }: PageProps)
         ) : (
           <ul className="bc-card-grid">
             {coffees.map((coffee) => (
-              <CoffeeCard key={coffee.id} coffee={coffee} />
+              <CoffeeCard key={coffee.id} coffee={coffee} locale={locale} />
             ))}
           </ul>
         )}

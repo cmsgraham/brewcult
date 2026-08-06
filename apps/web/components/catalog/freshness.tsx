@@ -1,6 +1,6 @@
 import type { CoffeeDetail } from './catalog-api';
 import styles from './catalog.module.css';
-import { FRESHNESS_EXPLAINER, FRESHNESS_NO_BATCH_COPY, daysSince, formatDate } from './copy';
+import { catalogCopy, daysSince, formatDate } from './copy';
 
 /**
  * Roast-date context (§6.2 — "freshness is a logistics requirement, not
@@ -37,10 +37,14 @@ function restingAdvice(days: number, intendedUse: CoffeeDetail['intended_use']):
 export function FreshnessSection({
   coffee,
   now = new Date(),
+  locale = 'en',
 }: {
   coffee: CoffeeDetail;
   now?: Date;
+  /** Which language the explainer is written in. */
+  locale?: string;
 }) {
+  const copy = catalogCopy(locale);
   const batches = (coffee.roast_batches ?? [])
     .filter((batch) => typeof batch?.roast_date === 'string')
     .slice(0, 5);
@@ -48,11 +52,11 @@ export function FreshnessSection({
   return (
     <section className={styles.section} aria-labelledby="freshness">
       <h2 id="freshness">Roast date and freshness</h2>
-      <p>{FRESHNESS_EXPLAINER}</p>
+      <p>{copy.FRESHNESS_EXPLAINER}</p>
 
       {batches.length === 0 ? (
         <div className={styles.explainer}>
-          <p>{FRESHNESS_NO_BATCH_COPY}</p>
+          <p>{copy.FRESHNESS_NO_BATCH_COPY}</p>
         </div>
       ) : (
         <>

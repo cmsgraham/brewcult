@@ -168,7 +168,7 @@ export default async function EquipmentHubPage({ params, searchParams }: PagePro
         ) : (
           <ul className="bc-card-grid">
             {equipment.map((item) => (
-              <EquipmentCard key={item.id} equipment={item} />
+              <EquipmentCard key={item.id} equipment={item} locale={locale} />
             ))}
           </ul>
         )}

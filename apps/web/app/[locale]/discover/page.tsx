@@ -96,7 +96,7 @@ export default async function DiscoverPage({
         ) : (
           <ul className="bc-card-grid">
             {result.coffees.map((coffee) => (
-              <CoffeeCard key={coffee.id ?? coffee.slug} coffee={coffee} />
+              <CoffeeCard key={coffee.id ?? coffee.slug} coffee={coffee} locale={locale} />
             ))}
           </ul>
         )}

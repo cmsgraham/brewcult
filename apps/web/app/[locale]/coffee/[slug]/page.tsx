@@ -272,7 +272,7 @@ export default async function CoffeeDetailPage({ params }: PageProps) {
         ) : null}
       </section>
 
-      <FreshnessSection coffee={coffee} />
+      <FreshnessSection coffee={coffee} locale={locale} />
 
       {/*
         Per-viewer, so a client island rather than part of the cached render.
@@ -316,7 +316,7 @@ export default async function CoffeeDetailPage({ params }: PageProps) {
           <h2 id="more-from-roaster">More from {coffee.roaster.name}</h2>
           <ul className="bc-card-grid">
             {otherCoffees.map((item) => (
-              <CoffeeCard key={item.id} coffee={item} />
+              <CoffeeCard key={item.id} coffee={item} locale={locale} />
             ))}
           </ul>
           <p>

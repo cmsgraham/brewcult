@@ -213,7 +213,7 @@ export default async function RecipeHubPage({ params, searchParams }: PageProps)
         ) : (
           <ul className="bc-card-grid">
             {recipes.map((recipe) => (
-              <RecipeCard key={recipe.id} recipe={recipe} />
+              <RecipeCard key={recipe.id} recipe={recipe} locale={locale} />
             ))}
           </ul>
         )}
