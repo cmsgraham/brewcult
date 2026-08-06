@@ -1,4 +1,5 @@
 import { type MetadataRoute } from 'next';
+import { DEFAULT_LOCALE, LOCALES, LOCALE_TAG, localePath } from '../lib/i18n';
 import { CATALOG_HUB_SITEMAP_ROUTES, catalogSitemapEntries } from '../lib/seo';
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://brewcult.coffee';
@@ -39,14 +40,39 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   const lastModified = new Date();
-  const entries: MetadataRoute.Sitemap = [...staticRoutes, ...CATALOG_HUB_SITEMAP_ROUTES].map(
-    (route) => ({
-      url: `${siteUrl}${route.path}`,
+
+  /**
+   * One sitemap row per URL per language, each declaring the other.
+   *
+   * `alternates.languages` is how a search engine learns that `/discover` and
+   * `/es/discover` are the same page in two languages rather than two thin
+   * pages competing with each other — which is what they would otherwise look
+   * like, and what gets one of them dropped.
+   */
+  const localised = (
+    path: string,
+    changeFrequency: MetadataRoute.Sitemap[number]['changeFrequency'],
+    priority: number,
+  ): MetadataRoute.Sitemap =>
+    LOCALES.map((locale) => ({
+      url: `${siteUrl}${localePath(path, locale)}`,
       lastModified,
-      changeFrequency: route.changeFrequency,
-      priority: route.priority,
-    }),
-  );
+      changeFrequency,
+      priority:
+        // The default language is the one already indexed and linked; the
+        // translation is equally valid but not more so.
+        locale === DEFAULT_LOCALE ? priority : Math.max(0.1, priority - 0.1),
+      alternates: {
+        languages: Object.fromEntries(
+          LOCALES.map((other) => [LOCALE_TAG[other], `${siteUrl}${localePath(path, other)}`]),
+        ),
+      },
+    }));
+
+  const entries: MetadataRoute.Sitemap = [
+    ...staticRoutes,
+    ...CATALOG_HUB_SITEMAP_ROUTES,
+  ].flatMap((route) => localised(route.path, route.changeFrequency, route.priority));
 
   try {
     const apiBase = process.env.API_INTERNAL_URL ?? 'http://localhost:4000';
@@ -99,12 +125,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     });
 
     for (const entry of detail) {
-      entries.push({
-        url: entry.url.startsWith('http') ? entry.url : `${siteUrl}${entry.url}`,
-        lastModified: entry.lastModified,
-        changeFrequency: entry.changeFrequency,
-        priority: entry.priority,
-      });
+      // Detail URLs are paths from the catalogue projection; the same page
+      // exists in both languages because the SLUG is language-independent —
+      // a coffee is named what the bag says, in either.
+      const path = entry.url.startsWith('http')
+        ? new URL(entry.url).pathname
+        : entry.url;
+      entries.push(...localised(path, entry.changeFrequency, entry.priority ?? 0.5));
     }
   } catch (error) {
     // Degrade to the static routes rather than 500 the sitemap — an incomplete

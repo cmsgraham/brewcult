@@ -12,6 +12,7 @@ import {
   type CoffeeOffer,
 } from '../../lib/coffee-offers-client';
 import { Alert } from '../ui/alert';
+import { useTranslate } from '../locale-provider';
 
 /**
  * Where to buy it, and what it costs.
@@ -31,6 +32,7 @@ import { Alert } from '../ui/alert';
 const SIZES = [250, 340, 454, 500, 1000];
 
 export function CoffeeOffers({ slug }: { slug: string }) {
+  const t = useTranslate();
   const [offers, setOffers] = useState<CoffeeOffer[]>([]);
   const [loading, setLoading] = useState(true);
   const [signedIn, setSignedIn] = useState(false);
@@ -78,7 +80,7 @@ export function CoffeeOffers({ slug }: { slug: string }) {
     const priceCrc = parseColones(crc);
     const priceUsd = parseDollars(usd);
     if (priceCrc === undefined && priceUsd === undefined) {
-      setError('Give a price in colones, in dollars, or both.');
+      setError(t('offers.needAPrice'));
       return;
     }
     setBusy(true);
@@ -108,7 +110,7 @@ export function CoffeeOffers({ slug }: { slug: string }) {
       setUsd('');
       setUrl('');
     } catch (failure) {
-      setError(isApiError(failure) ? failure.userMessage : 'That did not save.');
+      setError(isApiError(failure) ? failure.userMessage : t('common.tryAgain'));
     } finally {
       setBusy(false);
     }
@@ -116,17 +118,14 @@ export function CoffeeOffers({ slug }: { slug: string }) {
 
   return (
     <section aria-labelledby="offers-heading" className="bc-stack">
-      <h2 id="offers-heading">Where to buy it</h2>
+      <h2 id="offers-heading">{t('offers.heading')}</h2>
 
       {error ? <Alert tone="error">{error}</Alert> : null}
 
       {loading ? (
-        <p className="bc-muted">Loading prices…</p>
+        <p className="bc-muted">{t('common.loading')}</p>
       ) : offers.length === 0 ? (
-        <p className="bc-muted">
-          Nobody has added a price yet. If you know what it costs and where, that is the most
-          useful thing on this page.
-        </p>
+        <p className="bc-muted">{t('offers.empty')}</p>
       ) : (
         <ul className="bc-offers">
           {offers.map((offer) => (
@@ -142,7 +141,9 @@ export function CoffeeOffers({ slug }: { slug: string }) {
                   )}
                 </strong>
                 {offer.vendor.verified ? null : (
-                  <span className="bc-kit__badge bc-kit__badge--quiet">unverified</span>
+                  <span className="bc-kit__badge bc-kit__badge--quiet">
+                    {t('offers.unverified')}
+                  </span>
                 )}
                 <span className="bc-muted">
                   {[offer.vendor.location, `${offer.size_grams} g`].filter(Boolean).join(' · ')}
@@ -159,7 +160,10 @@ export function CoffeeOffers({ slug }: { slug: string }) {
                 {offer.price_usd_approx !== null ? (
                   <span
                     className="bc-muted"
-                    title={`Converted at ₡${offer.fx_crc_per_usd}/$ — the shop quotes colones`}
+                    title={t('offers.approxTitle', {
+                      rate: offer.fx_crc_per_usd ?? 0,
+                      quoted: t('offers.priceCrc'),
+                    })}
                   >
                     ≈ {formatDollars(offer.price_usd_approx)}
                   </span>
@@ -167,7 +171,10 @@ export function CoffeeOffers({ slug }: { slug: string }) {
                 {offer.price_crc_approx !== null ? (
                   <span
                     className="bc-muted"
-                    title={`Converted at ₡${offer.fx_crc_per_usd}/$ — the shop quotes dollars`}
+                    title={t('offers.approxTitle', {
+                      rate: offer.fx_crc_per_usd ?? 0,
+                      quoted: t('offers.priceUsd'),
+                    })}
                   >
                     ≈ {formatColones(offer.price_crc_approx)}
                   </span>
@@ -180,7 +187,8 @@ export function CoffeeOffers({ slug }: { slug: string }) {
                       : ''}
                 </span>
                 <span className="bc-muted">
-                  {offer.in_stock ? '' : 'out of stock · '}quoted {offer.quoted_on}
+                  {offer.in_stock ? '' : `${t('offers.outOfStock')} · `}
+                  {t('offers.quotedOn', { date: offer.quoted_on })}
                 </span>
               </span>
             </li>
@@ -191,7 +199,7 @@ export function CoffeeOffers({ slug }: { slug: string }) {
       {!signedIn ? null : !open ? (
         <div className="bc-actions" style={{ marginTop: 0 }}>
           <button type="button" className="bc-button bc-button--quiet" onClick={() => setOpen(true)}>
-            Add a price
+            {t('offers.add')}
           </button>
         </div>
       ) : (
@@ -199,7 +207,7 @@ export function CoffeeOffers({ slug }: { slug: string }) {
           <div className="bc-sca-grid">
             <span className="bc-field">
               <label className="bc-kit__label" htmlFor="offer-vendor">
-                Shop or roastery
+                {t('offers.shop')}
               </label>
               <input
                 id="offer-vendor"
@@ -212,7 +220,7 @@ export function CoffeeOffers({ slug }: { slug: string }) {
             </span>
             <span className="bc-field">
               <label className="bc-kit__label" htmlFor="offer-location">
-                Town <span className="bc-muted">(optional)</span>
+                {t('offers.town')} <span className="bc-muted">{t('common.optional')}</span>
               </label>
               <input
                 id="offer-location"
@@ -225,7 +233,7 @@ export function CoffeeOffers({ slug }: { slug: string }) {
             </span>
             <span className="bc-field">
               <label className="bc-kit__label" htmlFor="offer-size">
-                Bag size
+                {t('offers.size')}
               </label>
               <select
                 id="offer-size"
@@ -246,7 +254,7 @@ export function CoffeeOffers({ slug }: { slug: string }) {
           <div className="bc-sca-grid">
             <span className="bc-field">
               <label className="bc-kit__label" htmlFor="offer-crc">
-                Price in colones
+                {t('offers.priceCrc')}
               </label>
               <input
                 id="offer-crc"
@@ -260,7 +268,7 @@ export function CoffeeOffers({ slug }: { slug: string }) {
             </span>
             <span className="bc-field">
               <label className="bc-kit__label" htmlFor="offer-usd">
-                Price in dollars
+                {t('offers.priceUsd')}
               </label>
               <input
                 id="offer-usd"
@@ -274,21 +282,20 @@ export function CoffeeOffers({ slug }: { slug: string }) {
             </span>
           </div>
           <p className="bc-muted" style={{ marginTop: 0, fontSize: '0.85rem' }}>
-            Whichever the shop actually quotes — one is enough. The other currency is shown as
-            an ≈ approximation, so the shop&rsquo;s own number is always the bold one.
+            {t('offers.currencyHint')}
           </p>
 
           <details>
-            <summary>How to reach them (optional)</summary>
+            <summary>{t('offers.contacts')}</summary>
             <div className="bc-sca-grid" style={{ marginTop: '0.75rem' }}>
               {(
                 [
-                  ['offer-phone', 'Phone', phone, setPhone, '2222-2222'],
-                  ['offer-whatsapp', 'WhatsApp', whatsapp, setWhatsapp, '8888-8888'],
-                  ['offer-website', 'Website', website, setWebsite, 'https://…'],
-                  ['offer-instagram', 'Instagram', instagram, setInstagram, 'https://instagram.com/…'],
-                  ['offer-facebook', 'Facebook', facebook, setFacebook, 'https://facebook.com/…'],
-                  ['offer-maps', 'Map link', maps, setMaps, 'https://maps.app.goo.gl/…'],
+                  ['offer-phone', t('offers.phone'), phone, setPhone, '2222-2222'],
+                  ['offer-whatsapp', t('offers.whatsapp'), whatsapp, setWhatsapp, '8888-8888'],
+                  ['offer-website', t('offers.website'), website, setWebsite, 'https://…'],
+                  ['offer-instagram', t('offers.instagram'), instagram, setInstagram, 'https://instagram.com/…'],
+                  ['offer-facebook', t('offers.facebook'), facebook, setFacebook, 'https://facebook.com/…'],
+                  ['offer-maps', t('offers.maps'), maps, setMaps, 'https://maps.app.goo.gl/…'],
                 ] as const
               ).map(([id, label, value, setter, placeholder]) => (
                 <span className="bc-field" key={id}>
@@ -310,7 +317,7 @@ export function CoffeeOffers({ slug }: { slug: string }) {
 
           <span className="bc-field">
             <label className="bc-kit__label" htmlFor="offer-url">
-              Link to this coffee on their site <span className="bc-muted">(optional)</span>
+              {t('offers.linkLabel')} <span className="bc-muted">{t('common.optional')}</span>
             </label>
             <input
               id="offer-url"
@@ -329,7 +336,7 @@ export function CoffeeOffers({ slug }: { slug: string }) {
               disabled={busy || vendorName.trim() === ''}
               onClick={() => void save()}
             >
-              {busy ? 'Saving…' : 'Add this price'}
+              {busy ? t('common.saving') : t('offers.submit')}
             </button>
             <button
               type="button"
@@ -337,7 +344,7 @@ export function CoffeeOffers({ slug }: { slug: string }) {
               disabled={busy}
               onClick={() => setOpen(false)}
             >
-              Cancel
+              {t('common.cancel')}
             </button>
           </div>
         </div>

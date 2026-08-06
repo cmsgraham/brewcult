@@ -16,6 +16,14 @@
  *    landing page, and its URL is not stable enough to be one.
  */
 import { type Metadata } from 'next';
+import {
+  DEFAULT_LOCALE,
+  LOCALES,
+  LOCALE_TAG,
+  localePath,
+  stripLocale,
+  type Locale,
+} from './i18n';
 
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://brewcult.coffee').replace(
   /\/+$/,
@@ -397,4 +405,36 @@ export function brandSameAs(): string[] {
     .split(',')
     .map((entry) => entry.trim())
     .filter((entry) => entry.startsWith('https://'));
+}
+
+
+/* ------------------------------------------------------------------ *
+ * Two languages, one page
+ * ------------------------------------------------------------------ */
+
+/**
+ * `alternates` for a page that exists in both languages.
+ *
+ * Google wants three things and gets all three here: a canonical pointing at
+ * THIS language's URL, an `hreflang` for each language, and an `x-default`
+ * saying which one an unmatched visitor should get. Omitting x-default is the
+ * usual mistake — without it a search engine picks for a Portuguese speaker,
+ * and it does not pick well.
+ *
+ * `path` is the unprefixed path (`/discover`); the prefixing is done here so no
+ * caller has to remember which language is the bare one.
+ */
+export function localeAlternates(path: string, locale: Locale): {
+  canonical: string;
+  languages: Record<string, string>;
+} {
+  const bare = stripLocale(path);
+  return {
+    canonical: localePath(bare, locale),
+    languages: {
+      ...Object.fromEntries(LOCALES.map((l) => [LOCALE_TAG[l], localePath(bare, l)])),
+      // The language a visitor gets when none of ours matches theirs.
+      'x-default': localePath(bare, DEFAULT_LOCALE),
+    },
+  };
 }

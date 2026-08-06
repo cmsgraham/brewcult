@@ -65,7 +65,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }),
 }));
 
-const { default: SecurityPage } = await import('../app/profile/security/page');
+const { default: SecurityPage } = await import('../app/[locale]/profile/security/page');
 
 // jsdom makes `resolveApiUrl` take its browser branch, so requests keep their
 // public `/api/...` form rather than being rewritten to the internal origin.

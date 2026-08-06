@@ -1,4 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import {
+  DEFAULT_LOCALE,
+  LOCALES,
+  LOCALE_COOKIE,
+  LOCALE_COOKIE_MAX_AGE,
+  isLocale,
+  localeFromAcceptLanguage,
+} from './lib/i18n';
 
 /**
  * Per-request CSP nonce (deployment_guide §5.3, backlog F-15 — web half).
@@ -12,6 +20,19 @@ import { NextResponse, type NextRequest } from 'next/server';
  * `'strict-dynamic'` lets the nonced bootstrap load the /_next chunks it needs
  * without enumerating them.
  *
+ * ── AND THE LOCALE, because both need the same request ──────────────────────
+ * Two languages share one route tree under `app/[locale]`. English is
+ * unprefixed, so `/discover` is REWRITTEN to `/en/discover` internally while
+ * the URL the visitor sees never changes — that is what keeps every already
+ * indexed URL working.
+ *
+ * A first-time visitor whose browser asks for Spanish is REDIRECTED to `/es/…`
+ * once, and the choice is remembered in a cookie. Redirect rather than rewrite,
+ * because the language a person reads should be in the URL they can bookmark
+ * and send to somebody else. Anybody who has chosen a language is never
+ * redirected again — the cookie beats the header, and an explicit prefix beats
+ * both.
+ *
  * ── Note for infra ────────────────────────────────────────────────────────────
  * Caddy's `header Content-Security-Policy "…"` *replaces* this one, and the
  * static policy has no nonce. For the app to work under CSP, the edge must let
@@ -21,7 +42,11 @@ import { NextResponse, type NextRequest } from 'next/server';
  * of the policy below is a byte-for-byte copy of §5.3 so nothing else changes.
  * ─────────────────────────────────────────────────────────────────────────────
  */
+/** Paths that are not pages and must never be rewritten or redirected. */
+const PASS_THROUGH = /^\/(?:api|_next|icons|brand|favicon|robots\.txt|sitemap\.xml|manifest\.webmanifest|og-|sw\.js)/;
+
 export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
   const nonce = btoa(crypto.randomUUID());
   const isDev = process.env.NODE_ENV !== 'production';
 
@@ -47,10 +72,59 @@ export function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-nonce', nonce);
   requestHeaders.set('Content-Security-Policy', csp);
+  // The path as the VISITOR sees it, for the language switcher and the
+  // canonical/hreflang tags — by the time a page renders, a rewrite has already
+  // hidden the difference between `/discover` and `/en/discover`.
+  requestHeaders.set('x-pathname', pathname);
 
-  const response = NextResponse.next({ request: { headers: requestHeaders } });
-  response.headers.set('Content-Security-Policy', csp);
-  return response;
+  const withCsp = (response: NextResponse): NextResponse => {
+    response.headers.set('Content-Security-Policy', csp);
+    return response;
+  };
+
+  if (PASS_THROUGH.test(pathname)) {
+    return withCsp(NextResponse.next({ request: { headers: requestHeaders } }));
+  }
+
+  const prefix = pathname.split('/')[1];
+
+  // Already asking for a language explicitly: serve it, and remember it. This
+  // is how a shared `/es/…` link teaches the site what the recipient reads.
+  if (isLocale(prefix)) {
+    const response = withCsp(NextResponse.next({ request: { headers: requestHeaders } }));
+    if (request.cookies.get(LOCALE_COOKIE)?.value !== prefix) {
+      response.cookies.set(LOCALE_COOKIE, prefix, {
+        path: '/',
+        maxAge: LOCALE_COOKIE_MAX_AGE,
+        sameSite: 'lax',
+      });
+    }
+    return response;
+  }
+
+  // Unprefixed. Either this person wants English, or they have never been here
+  // and their browser is asking for something else.
+  const chosen = request.cookies.get(LOCALE_COOKIE)?.value;
+  const preferred = isLocale(chosen)
+    ? chosen
+    : localeFromAcceptLanguage(request.headers.get('accept-language'));
+
+  if (preferred !== DEFAULT_LOCALE && LOCALES.includes(preferred)) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/${preferred}${pathname === '/' ? '' : pathname}`;
+    const response = withCsp(NextResponse.redirect(url));
+    response.cookies.set(LOCALE_COOKIE, preferred, {
+      path: '/',
+      maxAge: LOCALE_COOKIE_MAX_AGE,
+      sameSite: 'lax',
+    });
+    return response;
+  }
+
+  // English, served from the unprefixed URL it was indexed under.
+  const url = request.nextUrl.clone();
+  url.pathname = `/${DEFAULT_LOCALE}${pathname === '/' ? '' : pathname}`;
+  return withCsp(NextResponse.rewrite(url, { request: { headers: requestHeaders } }));
 }
 
 export const config = {

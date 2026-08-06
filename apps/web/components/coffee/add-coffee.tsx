@@ -19,6 +19,8 @@ import {
   validateImageFile,
 } from '../../lib/media-client';
 import { Alert } from '../ui/alert';
+import { useTranslate } from '../locale-provider';
+import type { Translator } from '../../lib/i18n';
 
 /**
  * Add a coffee by photographing the bag.
@@ -45,19 +47,9 @@ function fileFromClipboard(blob: Blob): File {
  * first is filled would hide the fact that the back is wanted at all — and the
  * back is where the roast date lives.
  */
-const SLOTS = [
-  {
-    id: 'bag-photo-front',
-    label: 'Front of the bag',
-    optional: false,
-    hint: 'The roaster and the name of the coffee.',
-  },
-  {
-    id: 'bag-photo-back',
-    label: 'Back of the bag',
-    optional: true,
-    hint: 'Roast date, process, weight — whatever is printed there.',
-  },
+const SLOT_KEYS = [
+  { id: 'bag-photo-front', label: 'addCoffee.front', hint: 'addCoffee.frontHint', optional: false },
+  { id: 'bag-photo-back', label: 'addCoffee.back', hint: 'addCoffee.backHint', optional: true },
 ] as const;
 
 type Outcome =
@@ -66,6 +58,7 @@ type Outcome =
   | { kind: 'rejected'; why: string };
 
 export function AddCoffee({ compact = false }: { compact?: boolean }) {
+  const t = useTranslate();
   const [open, setOpen] = useState(false);
   const [manual, setManual] = useState(false);
   const [description, setDescription] = useState('');
@@ -191,7 +184,7 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
       reset();
     } catch (failure) {
       setError(
-        isApiError(failure) ? failure.userMessage : 'That did not send. Try again in a moment.',
+        isApiError(failure) ? failure.userMessage : t('common.tryAgain'),
       );
     } finally {
       setBusy(false);
@@ -218,7 +211,7 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
       reset();
     } catch (failure) {
       setError(
-        isApiError(failure) ? failure.userMessage : 'That did not save. Try again in a moment.',
+        isApiError(failure) ? failure.userMessage : t('common.tryAgain'),
       );
     } finally {
       setBusy(false);
@@ -230,16 +223,18 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
   return (
     <div className="bc-stack">
       {error ? <Alert tone="error">{error}</Alert> : null}
-      {outcome ? <OutcomeNote outcome={outcome} /> : null}
+      {outcome ? <OutcomeNote outcome={outcome} t={t} /> : null}
 
       {!open ? (
         <div className="bc-actions" style={{ marginTop: 0 }}>
           <button type="button" className="bc-button" onClick={() => setOpen(true)}>
-            Add a coffee
+            {t('addCoffee.action')}
           </button>
           {!compact && open_.length > 0 ? (
             <span className="bc-muted" style={{ fontSize: '0.9rem', alignSelf: 'center' }}>
-              {open_.length} open {open_.length === 1 ? 'bag' : 'bags'} on your shelf
+              {open_.length === 1
+                ? t('addCoffee.openBag')
+                : t('addCoffee.openBags', { count: open_.length })}
             </span>
           ) : null}
         </div>
@@ -248,28 +243,27 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
           {!manual ? (
             <>
               <p style={{ marginBottom: 0 }}>
-                Photograph the bag — the label has everything on it. Both sides help: the front
-                names the roaster and the coffee, the back usually carries the roast date and the
-                process. The assistant reads them together, adds the bag to your shelf, and puts
-                it in the catalogue if the label is clear enough.
+                {t('addCoffee.intro')}
               </p>
 
               <div className="bc-bag-slots">
-                {SLOTS.map((slot, index) => {
+                {SLOT_KEYS.map((slot, index) => {
                   const file = photos[index] ?? null;
                   const preview = previews[index] ?? null;
                   return (
                     <span className="bc-field" key={slot.id}>
                       <label className="bc-kit__label" htmlFor={slot.id}>
-                        {slot.label}{' '}
-                        {slot.optional ? <span className="bc-muted">(optional)</span> : null}
+                        {t(slot.label)}{' '}
+                        {slot.optional ? (
+                          <span className="bc-muted">{t('common.optional')}</span>
+                        ) : null}
                       </label>
                       {file && preview ? (
                         <span className="bc-photo-chosen">
                           <img
                             className="bc-photo-chosen__thumb"
                             src={preview}
-                            alt={`The ${slot.label.toLowerCase()} you attached`}
+                            alt={t(slot.label)}
                           />
                           <span className="bc-photo-chosen__text">
                             <span>{file.name}</span>
@@ -285,7 +279,7 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
                               )
                             }
                           >
-                            Remove
+                            {t('common.remove')}
                           </button>
                         </span>
                       ) : (
@@ -301,7 +295,7 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
                             onChange={(event) => attach(event.target.files?.[0] ?? null, index)}
                           />
                           <span className="bc-muted" style={{ fontSize: '0.85rem' }}>
-                            {slot.hint}
+                            {t(slot.hint)}
                           </span>
                         </>
                       )}
@@ -318,26 +312,26 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
                     disabled={busy}
                     onClick={() => void pasteFromClipboard()}
                   >
-                    Paste from clipboard
+                    {t('addCoffee.pasteButton')}
                   </button>
                 ) : null}
                 <span className="bc-muted" style={{ fontSize: '0.85rem' }}>
-                  Or press Ctrl+V (⌘V) anywhere in this box — it fills the next empty slot.{' '}
-                  {PHOTO_PRIVACY_NOTE} If this coffee is added to the catalogue, your first
-                  photo becomes its picture on the site.
+                  {t('addCoffee.pasteHint')} {PHOTO_PRIVACY_NOTE}{' '}
+                  {t('addCoffee.publishNotice')}
                 </span>
               </span>
 
               <span className="bc-field">
                 <label className="bc-kit__label" htmlFor="bag-note">
-                  Anything the photo misses <span className="bc-muted">(optional)</span>
+                  {t('addCoffee.noteLabel')}{' '}
+                  <span className="bc-muted">{t('common.optional')}</span>
                 </label>
                 <textarea
                   id="bag-note"
                   className="bc-input"
                   rows={2}
                   maxLength={4000}
-                  placeholder="e.g. the roast date is on the bottom seam"
+                  placeholder={t('addCoffee.notePlaceholder')}
                   value={description}
                   disabled={busy}
                   onChange={(event) => setDescription(event.target.value)}
@@ -351,7 +345,7 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
                   disabled={busy || (photos.every((file) => file === null) && description.trim() === '')}
                   onClick={() => void submitPhoto()}
                 >
-                  {busy ? 'Reading the label…' : 'Add this coffee'}
+                  {busy ? t('addCoffee.reading') : t('addCoffee.submit')}
                 </button>
                 <button
                   type="button"
@@ -359,7 +353,7 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
                   disabled={busy}
                   onClick={() => setManual(true)}
                 >
-                  Type it instead
+                  {t('addCoffee.typeInstead')}
                 </button>
                 <button
                   type="button"
@@ -367,20 +361,19 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
                   disabled={busy}
                   onClick={reset}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
               </div>
             </>
           ) : (
             <>
               <p style={{ marginBottom: 0 }}>
-                Straight onto your shelf. Nothing is published and nothing is read — this is
-                just so you have something to log brews against.
+                {t('addCoffee.manualIntro')}
               </p>
               <div className="bc-photo-paste">
                 <span className="bc-field" style={{ flex: '1 1 10rem' }}>
                   <label className="bc-kit__label" htmlFor="bag-roaster">
-                    Roaster <span className="bc-muted">(optional)</span>
+                    {t('addCoffee.roaster')} <span className="bc-muted">{t('common.optional')}</span>
                   </label>
                   <input
                     id="bag-roaster"
@@ -393,7 +386,7 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
                 </span>
                 <span className="bc-field" style={{ flex: '1 1 10rem' }}>
                   <label className="bc-kit__label" htmlFor="bag-name">
-                    Coffee
+                    {t('addCoffee.coffee')}
                   </label>
                   <input
                     id="bag-name"
@@ -412,7 +405,7 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
                   disabled={busy || name.trim() === ''}
                   onClick={() => void submitManual()}
                 >
-                  {busy ? 'Saving…' : 'Add to my shelf'}
+                  {busy ? t('common.saving') : t('addCoffee.addToShelf')}
                 </button>
                 <button
                   type="button"
@@ -420,7 +413,7 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
                   disabled={busy}
                   onClick={() => setManual(false)}
                 >
-                  Use a photo
+                  {t('addCoffee.usePhoto')}
                 </button>
               </div>
             </>
@@ -436,7 +429,9 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
                 <span className="bc-kit__name">
                   {bag.slug ? <a href={`/coffee/${bag.slug}`}>{bag.name}</a> : bag.name}
                   {bag.is_custom ? (
-                    <span className="bc-kit__badge bc-kit__badge--quiet">yours only</span>
+                    <span className="bc-kit__badge bc-kit__badge--quiet">
+                      {t('addCoffee.yoursOnly')}
+                    </span>
                   ) : null}
                 </span>
                 <span className="bc-muted bc-kit__meta">
@@ -451,14 +446,14 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
                   className="bc-button bc-button--quiet"
                   onClick={() => void finishBag(bag.id).then(setShelf).catch(() => undefined)}
                 >
-                  Finished
+                  {t('addCoffee.finished')}
                 </button>
                 <button
                   type="button"
                   className="bc-button bc-button--quiet"
                   onClick={() => void removeFromShelf(bag.id).then(setShelf).catch(() => undefined)}
                 >
-                  Remove
+                  {t('common.remove')}
                 </button>
               </span>
             </li>
@@ -486,22 +481,23 @@ function describe(request: CoffeeRequest | undefined): Outcome {
   return { kind: 'shelved', label: label || 'That coffee' };
 }
 
-function OutcomeNote({ outcome }: { outcome: Outcome }) {
+function OutcomeNote({ outcome, t }: { outcome: Outcome; t: Translator }) {
   if (outcome.kind === 'rejected') {
+    // `why` comes from the API's decision note, which is not translated: it is
+    // the assistant's own words about this submission, and re-writing them here
+    // would mean maintaining a second set of reasons that could disagree.
     return <Alert tone="info">{outcome.why}</Alert>;
   }
   if (outcome.kind === 'published') {
     return (
-      <Alert tone="success" title={`${outcome.label} is on your shelf.`}>
-        It is in the catalogue too, so other people can find it — and the roaster is listed as
-        unverified until somebody confirms it.
+      <Alert tone="success" title={t('addCoffee.publishedTitle', { name: outcome.label })}>
+        {t('addCoffee.publishedBody')}
       </Alert>
     );
   }
   return (
-    <Alert tone="success" title={`${outcome.label} is on your shelf.`}>
-      The label was not clear enough to publish, so this one is yours alone. It works exactly the
-      same for logging brews.
+    <Alert tone="success" title={t('addCoffee.shelvedTitle', { name: outcome.label })}>
+      {t('addCoffee.shelvedBody')}
     </Alert>
   );
 }

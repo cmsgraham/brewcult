@@ -53,12 +53,12 @@ vi.mock('next/headers', () => ({
     }),
 }));
 
-const { default: CoffeeDetailPage } = await import('../app/coffee/[slug]/page');
-const { default: CoffeeHubPage } = await import('../app/coffee/page');
-const { default: RoasterDetailPage } = await import('../app/roaster/[slug]/page');
-const { default: RoasterHubPage } = await import('../app/roaster/page');
-const { default: EquipmentDetailPage } = await import('../app/equipment/[slug]/page');
-const { default: EquipmentHubPage } = await import('../app/equipment/page');
+const { default: CoffeeDetailPage } = await import('../app/[locale]/coffee/[slug]/page');
+const { default: CoffeeHubPage } = await import('../app/[locale]/coffee/page');
+const { default: RoasterDetailPage } = await import('../app/[locale]/roaster/[slug]/page');
+const { default: RoasterHubPage } = await import('../app/[locale]/roaster/page');
+const { default: EquipmentDetailPage } = await import('../app/[locale]/equipment/[slug]/page');
+const { default: EquipmentHubPage } = await import('../app/[locale]/equipment/page');
 
 /** Parse every JSON-LD block the render emitted, keyed by `@type`. */
 function jsonLdByType(container: HTMLElement): Record<string, Record<string, unknown>> {

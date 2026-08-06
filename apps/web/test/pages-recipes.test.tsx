@@ -47,8 +47,8 @@ vi.mock('next/headers', () => ({
     }),
 }));
 
-const { default: RecipeDetailPage, generateMetadata } = await import('../app/recipes/[id]/page');
-const { default: RecipeHubPage } = await import('../app/recipes/page');
+const { default: RecipeDetailPage, generateMetadata } = await import('../app/[locale]/recipes/[id]/page');
+const { default: RecipeHubPage } = await import('../app/[locale]/recipes/page');
 const { normalizeRecipe } = await import('../components/catalog/catalog-api');
 
 function jsonLdByType(container: HTMLElement): Record<string, Record<string, unknown>> {

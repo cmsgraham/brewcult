@@ -3,8 +3,10 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useId, useState } from 'react';
+import { DEFAULT_LOCALE, localePath, stripLocale, type Locale } from '../lib/i18n';
 import { isActiveNavItem, type NavItem } from '../lib/nav';
 import { BrandLockup } from './brand-lockup';
+import { LanguageSwitcher } from './language-switcher';
 import { SignOutButton } from './profile/sign-out-button';
 
 export interface SiteNavProps {
@@ -19,6 +21,10 @@ export interface SiteNavProps {
    * redirect to /login, which is where they were going anyway.
    */
   signedIn?: boolean;
+  /** Which language is being read. Decided by the URL, never by a cookie. */
+  locale?: Locale;
+  /** Pre-translated labels; the nav itself stays a dumb renderer. */
+  labels?: { language: string };
 }
 
 /**
@@ -29,7 +35,12 @@ export interface SiteNavProps {
  * disclosure button with the aria-expanded/aria-controls pair — no icon-only
  * mystery-meat button, the control says "Menu".
  */
-export function SiteNav({ items, signedIn = false }: SiteNavProps) {
+export function SiteNav({
+  items,
+  signedIn = false,
+  locale = DEFAULT_LOCALE,
+  labels,
+}: SiteNavProps) {
   const pathname = usePathname() ?? '/';
   const [open, setOpen] = useState(false);
   const navId = useId();
@@ -37,7 +48,7 @@ export function SiteNav({ items, signedIn = false }: SiteNavProps) {
   return (
     <header className="bc-header">
       <div className="bc-shell bc-header__inner">
-        <Link href="/" aria-label="BrewCult — home">
+        <Link href={localePath('/', locale)} aria-label="BrewCult — home">
           <BrandLockup />
         </Link>
 
@@ -59,12 +70,15 @@ export function SiteNav({ items, signedIn = false }: SiteNavProps) {
         >
           <ul className="bc-nav__list">
             {items.map((item) => {
-              const active = isActiveNavItem(item, pathname);
+              // Compared with the prefix stripped: `/es/discover` is still the
+              // discover page, and marking nothing current in Spanish would be
+              // a quiet accessibility regression rather than a visible bug.
+              const active = isActiveNavItem(item, stripLocale(pathname));
               return (
                 <li key={item.key}>
                   <Link
                     className="bc-nav__link"
-                    href={item.href}
+                    href={localePath(item.href, locale)}
                     aria-current={active ? 'page' : undefined}
                     onClick={() => setOpen(false)}
                   >
@@ -88,18 +102,25 @@ export function SiteNav({ items, signedIn = false }: SiteNavProps) {
               </li>
             ) : (
               <li className="bc-nav__auth">
-                <Link className="bc-nav__link" href="/login" onClick={() => setOpen(false)}>
+                <Link
+                  className="bc-nav__link"
+                  href={localePath('/login', locale)}
+                  onClick={() => setOpen(false)}
+                >
                   Log in
                 </Link>
                 <Link
                   className="bc-button bc-button--secondary bc-nav__cta"
-                  href="/register"
+                  href={localePath('/register', locale)}
                   onClick={() => setOpen(false)}
                 >
                   Sign up
                 </Link>
               </li>
             )}
+            <li className="bc-nav__lang">
+              <LanguageSwitcher current={locale} label={labels?.language ?? 'Language'} />
+            </li>
           </ul>
         </nav>
       </div>

@@ -998,3 +998,25 @@ svg {
 .bc-quiet-link:hover {
   border-bottom-style: solid;
 }
+
+/* The language switcher: two links, the current one marked rather than hidden. */
+.bc-lang {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.85rem;
+}
+.bc-lang__option {
+  color: var(--bc-ink-muted);
+  text-decoration: none;
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--bc-radius-sm);
+}
+.bc-lang__option:hover {
+  text-decoration: underline;
+}
+.bc-lang__option[aria-current='true'] {
+  color: var(--bc-ink);
+  font-weight: 600;
+  background: var(--bc-surface);
+}

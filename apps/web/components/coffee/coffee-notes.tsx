@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { hasSessionHint, isApiError } from '../../lib/api';
 import {
-  SCA_ANCHORS,
   SCA_FORM,
   deleteMyReview,
   fetchCoffeeReviews,
@@ -15,6 +14,7 @@ import {
   type ScaField,
 } from '../../lib/coffee-reviews-client';
 import { Alert } from '../ui/alert';
+import { useTranslate } from '../locale-provider';
 
 /**
  * What people thought of a coffee.
@@ -44,9 +44,15 @@ import { Alert } from '../ui/alert';
  */
 const STEPS: number[] = Array.from({ length: 17 }, (_, i) => 6 + i * 0.25);
 
-/** The word the form prints beside each whole number. */
-const anchorFor = (value: number): string =>
-  SCA_ANCHORS.slice().reverse().find((anchor) => value >= anchor.value)?.word ?? '';
+/**
+ * The word the form prints beside each whole number.
+ *
+ * Translated, unlike the attribute NAMES, which the trade uses in English here
+ * ("el body", "el clean cup"). A score's meaning has to be readable; a term of
+ * art is clearer left as the term of art.
+ */
+const anchorKeyFor = (value: number): 'good' | 'veryGood' | 'excellent' | 'outstanding' | 'exceptional' =>
+  value >= 10 ? 'exceptional' : value >= 9 ? 'outstanding' : value >= 8 ? 'excellent' : value >= 7 ? 'veryGood' : 'good';
 
 const EMPTY_SUMMARY: CoffeeRatingSummary = {
   average_overall: null,
@@ -56,6 +62,7 @@ const EMPTY_SUMMARY: CoffeeRatingSummary = {
 };
 
 export function CoffeeNotes({ slug }: { slug: string }) {
+  const t = useTranslate();
   /**
    * Worked out here rather than passed in. The page above is `revalidate`d and
    * shared between everybody; reading a cookie there would make it per-request
@@ -140,7 +147,7 @@ export function CoffeeNotes({ slug }: { slug: string }) {
       setEditing(false);
     } catch (failure) {
       setError(
-        isApiError(failure) ? failure.userMessage : 'That did not save. Try again in a moment.',
+        isApiError(failure) ? failure.userMessage : t('common.tryAgain'),
       );
     } finally {
       setBusy(false);
@@ -155,7 +162,7 @@ export function CoffeeNotes({ slug }: { slug: string }) {
       setSummary(result.summary);
       setEditing(false);
     } catch (failure) {
-      setError(isApiError(failure) ? failure.userMessage : 'That did not delete.');
+      setError(isApiError(failure) ? failure.userMessage : t('common.tryAgain'));
     } finally {
       setBusy(false);
     }
@@ -167,21 +174,29 @@ export function CoffeeNotes({ slug }: { slug: string }) {
       setItems(result.items);
       setSummary(result.summary);
     } catch (failure) {
-      setError(isApiError(failure) ? failure.userMessage : 'That did not register.');
+      setError(isApiError(failure) ? failure.userMessage : t('common.tryAgain'));
     }
   }
 
   return (
     <section aria-labelledby="notes-heading" className="bc-stack">
       <h2 id="notes-heading">
-        What people thought
+        {t('notes.heading')}
         {summary.count > 0 ? (
           <span className="bc-muted" style={{ fontSize: '1rem', fontWeight: 400 }}>
             {' '}
-            · {summary.average_overall} overall from {summary.count}{' '}
-            {summary.count === 1 ? 'person' : 'people'}
+            ·{' '}
+            {summary.count === 1
+              ? t('notes.summaryOne', { score: summary.average_overall ?? 0 })
+              : t('notes.summary', {
+                  score: summary.average_overall ?? 0,
+                  count: summary.count,
+                })}
             {summary.average_cupping !== null
-              ? ` · ${summary.average_cupping} cupping score from ${summary.cupped_count}`
+              ? ` · ${t('notes.cupping', {
+                  score: summary.average_cupping,
+                  count: summary.cupped_count,
+                })}`
               : ''}
           </span>
         ) : null}
@@ -191,14 +206,16 @@ export function CoffeeNotes({ slug }: { slug: string }) {
 
       {!signedIn ? (
         <p className="bc-muted">
-          <a href={`/login?next=${encodeURIComponent(`/coffee/${slug}`)}`}>Sign in</a> to rate this
-          one or leave a note.
+          <a href={`/login?next=${encodeURIComponent(`/coffee/${slug}`)}`}>
+            {t('common.signIn')}
+          </a>{' '}
+          {t('notes.signedOutPrompt')}
         </p>
       ) : editing ? (
         <div className="bc-panel bc-stack">
           <span className="bc-field">
             <label className="bc-kit__label" htmlFor="sca-overall">
-              Overall — the SCA scale, 6 to 10
+              {t('notes.overallLabel')}
             </label>
             <select
               id="sca-overall"
@@ -207,19 +224,18 @@ export function CoffeeNotes({ slug }: { slug: string }) {
               disabled={busy}
               onChange={(event) => setOverall(Number(event.target.value))}
             >
-              <option value="">Pick a score…</option>
+              <option value="">{t('notes.pickScore')}</option>
               {STEPS.map((value) => (
                 <option key={value} value={value}>
-                  {value.toFixed(2)} — {anchorFor(value)}
+                  {value.toFixed(2)} — {t(`scale.${anchorKeyFor(value)}`)}
                 </option>
               ))}
             </select>
             {/* The scale is not ours, and saying so is the point of using it. */}
             <span className="bc-muted" style={{ fontSize: '0.85rem' }}>
-              The same scale a cupping table uses — 80+ across the full form is what
-              &ldquo;specialty&rdquo; means.{' '}
+              {t('notes.scaleHint')}{' '}
               <a href="/learn/cupping" target="_blank" rel="noreferrer">
-                What each factor means
+                {t('notes.whatEachMeans')}
               </a>
             </span>
           </span>
@@ -232,12 +248,12 @@ export function CoffeeNotes({ slug }: { slug: string }) {
                 onClick={() => setCupping(true)}
                 disabled={busy}
               >
-                Score the full cupping form
+                {t('notes.openFullForm')}
               </button>{' '}
               <span className="bc-muted">
-                — nine more attributes, for a score out of 100.{' '}
+                {t('notes.fullFormHint')}{' '}
                 <a href="/learn/cupping" target="_blank" rel="noreferrer">
-                  How to identify each one
+                  {t('notes.howToIdentify')}
                 </a>
               </span>
             </p>
@@ -282,7 +298,7 @@ export function CoffeeNotes({ slug }: { slug: string }) {
               <div className="bc-sca-grid">
                 <span className="bc-field">
                   <label className="bc-kit__label" htmlFor="sca-taints">
-                    Tainted cups <span className="bc-muted">(−2 each)</span>
+                    {t('notes.taints')} <span className="bc-muted">{t('notes.minusTwo')}</span>
                   </label>
                   <input
                     id="sca-taints"
@@ -297,7 +313,7 @@ export function CoffeeNotes({ slug }: { slug: string }) {
                 </span>
                 <span className="bc-field">
                   <label className="bc-kit__label" htmlFor="sca-faults">
-                    Faulty cups <span className="bc-muted">(−4 each)</span>
+                    {t('notes.faults')} <span className="bc-muted">{t('notes.minusFour')}</span>
                   </label>
                   <input
                     id="sca-faults"
@@ -313,23 +329,21 @@ export function CoffeeNotes({ slug }: { slug: string }) {
               </div>
 
               <p className="bc-muted" style={{ marginBottom: 0, fontSize: '0.85rem' }}>
-                All nine plus Overall gives a score out of 100. Leave any blank and the note
-                still counts — it simply has no total, which is honest rather than
-                approximate.
+                {t('notes.partialFormHint')}
               </p>
             </div>
           )}
 
           <span className="bc-field">
             <label className="bc-kit__label" htmlFor="note-body">
-              Anything worth saying <span className="bc-muted">(optional)</span>
+              {t('notes.bodyLabel')} <span className="bc-muted">{t('common.optional')}</span>
             </label>
             <textarea
               id="note-body"
               className="bc-input"
               rows={3}
               maxLength={4000}
-              placeholder="What it tasted like, what worked, what you would change."
+              placeholder={t('notes.bodyPlaceholder')}
               value={body}
               disabled={busy}
               onChange={(event) => setBody(event.target.value)}
@@ -338,20 +352,20 @@ export function CoffeeNotes({ slug }: { slug: string }) {
 
           <span className="bc-field">
             <label className="bc-kit__label" htmlFor="note-method">
-              How you brewed it <span className="bc-muted">(optional)</span>
+              {t('notes.methodLabel')} <span className="bc-muted">{t('common.optional')}</span>
             </label>
             <input
               id="note-method"
               className="bc-input"
               maxLength={60}
-              placeholder="V60, 1:16, 94°C"
+              placeholder={t('notes.methodPlaceholder')}
               value={method}
               disabled={busy}
               onChange={(event) => setMethod(event.target.value)}
             />
             {/* "Tasted thin" means something different at 1:18 than at 1:14. */}
             <span className="bc-muted" style={{ fontSize: '0.85rem' }}>
-              Context settles arguments a note on its own starts.
+              {t('notes.methodHint')}
             </span>
           </span>
 
@@ -362,7 +376,7 @@ export function CoffeeNotes({ slug }: { slug: string }) {
               disabled={busy || overall === 0}
               onClick={() => void save()}
             >
-              {busy ? 'Saving…' : mine ? 'Update my note' : 'Post my note'}
+              {busy ? t('common.saving') : mine ? t('notes.update') : t('notes.post')}
             </button>
             <button
               type="button"
@@ -370,7 +384,7 @@ export function CoffeeNotes({ slug }: { slug: string }) {
               disabled={busy}
               onClick={() => setEditing(false)}
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             {mine ? (
               <button
@@ -379,7 +393,7 @@ export function CoffeeNotes({ slug }: { slug: string }) {
                 disabled={busy}
                 onClick={() => void remove()}
               >
-                Delete my note
+                {t('notes.deleteMine')}
               </button>
             ) : null}
           </div>
@@ -387,17 +401,16 @@ export function CoffeeNotes({ slug }: { slug: string }) {
       ) : (
         <div className="bc-actions" style={{ marginTop: 0 }}>
           <button type="button" className="bc-button" onClick={startEditing}>
-            {mine ? 'Edit my note' : 'Rate this coffee'}
+            {mine ? t('notes.edit') : t('notes.rate')}
           </button>
         </div>
       )}
 
       {loading ? (
-        <p className="bc-muted">Loading notes…</p>
+        <p className="bc-muted">{t('common.loading')}</p>
       ) : items.length === 0 ? (
         <p className="bc-muted">
-          Nobody has said anything yet. If you have had this one, you know more about it than
-          anybody reading this page.
+          {t('notes.emptyList')}
         </p>
       ) : (
         <ul className="bc-notes">
@@ -406,14 +419,15 @@ export function CoffeeNotes({ slug }: { slug: string }) {
               <p className="bc-notes__head">
                 <strong>
                   {item.total_score !== null
-                    ? `${item.total_score}/100`
-                    : `${item.overall} overall`}
+                    ? t('notes.outOf100', { score: item.total_score })
+                    : t('notes.overallOnly', { score: item.overall })}
                 </strong>{' '}
                 <span className="bc-muted">
-                  {item.author_display_name ?? (item.author_handle ? `@${item.author_handle}` : 'Someone')}
-                  {item.is_mine ? ' · you' : ''}
+                  {item.author_display_name ??
+                    (item.author_handle ? `@${item.author_handle}` : t('notes.someone'))}
+                  {item.is_mine ? ` · ${t('notes.you')}` : ''}
                   {item.brew_method ? ` · ${item.brew_method}` : ''}
-                  {item.scored_at_table ? ' · cupped' : ''}
+                  {item.scored_at_table ? ` · ${t('notes.cupped')}` : ''}
                 </span>
               </p>
               {item.body ? <p className="bc-notes__body">{item.body}</p> : null}
@@ -421,8 +435,8 @@ export function CoffeeNotes({ slug }: { slug: string }) {
                 {item.is_mine ? (
                   <span className="bc-muted">
                     {item.helpful_count > 0
-                      ? `${item.helpful_count} found this useful`
-                      : 'No votes yet'}
+                      ? t('notes.foundUseful', { count: item.helpful_count })
+                      : t('notes.noVotes')}
                   </span>
                 ) : (
                   <button
@@ -431,7 +445,7 @@ export function CoffeeNotes({ slug }: { slug: string }) {
                     disabled={!signedIn}
                     onClick={() => void vote(item)}
                   >
-                    {item.voted_helpful ? 'Useful ✓' : 'Useful'}
+                    {item.voted_helpful ? t('notes.usefulDone') : t('notes.useful')}
                     {item.helpful_count > 0 ? ` · ${item.helpful_count}` : ''}
                   </button>
                 )}

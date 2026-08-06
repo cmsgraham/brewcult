@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { restoreSession } from '../lib/api';
+import { useTranslate } from './locale-provider';
 
 /**
  * What a private page shows instead of bouncing you to /login.
@@ -16,6 +17,7 @@ import { restoreSession } from '../lib/api';
  * So: pause here, ask the browser, and go to /login only if the answer is no.
  */
 export function SessionRestoreScreen({ next }: { next: string }) {
+  const t = useTranslate();
   const router = useRouter();
   const attempted = useRef(false);
 
@@ -33,11 +35,11 @@ export function SessionRestoreScreen({ next }: { next: string }) {
       {/* Deliberately quiet. This resolves in a few hundred milliseconds and is
           usually gone before it is read; anything louder would make a working
           session look like a problem. */}
-      <p className="bc-muted">Signing you back in…</p>
+      <p className="bc-muted">{t('session.restoring')}</p>
       <noscript>
         <p>
-          This page needs JavaScript to restore your session.{' '}
-          <a href={`/login?next=${encodeURIComponent(next)}`}>Sign in</a> instead.
+          {t('session.noScript')}{' '}
+          <a href={`/login?next=${encodeURIComponent(next)}`}>{t('common.signIn')}</a>.
         </p>
       </noscript>
     </div>

@@ -40,7 +40,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: () => undefined }),
 }));
 
-const { default: AdminAuditPage } = await import('../app/admin/audit/page');
+const { default: AdminAuditPage } = await import('../app/[locale]/admin/audit/page');
 
 // The API serves the current user at /v1/users/me, reached as /api/v1/users/me.
 // This constant said '/api/me' — the path the client wrongly used — so the
