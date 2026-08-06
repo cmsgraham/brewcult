@@ -245,8 +245,13 @@ is a fact nobody can trace back to anything.
 Rules:
 1. \`roaster\` and \`name\` come off the bag. The name is the coffee — often a
    farm, producer, region or a blend name — WITHOUT the roaster repeated.
-2. Transcribe \`tasting_notes\` exactly as printed. They are the roaster's words
-   about their own coffee. Never write your own.
+2. \`tasting_notes\` are the roaster's words, SPLIT INTO DISCRETE NOTES. A bag
+   that reads "a smooth balance of chocolate and citrus, with hints of caramel"
+   becomes ["chocolate", "citrus", "caramel"] — not one long string. One to
+   three words each. Never a sentence, and never a note you thought of yourself.
+2b. \`roaster\` keeps the capitalisation printed on the bag. "COOPETARRAZÚ" is
+   "Coopetarrazú", not "coope Tarrazú": read it as the company writes its name,
+   including accents.
 3. \`roast_date\` only if a date is actually printed, as YYYY-MM-DD. Bags print
    "Roasted on" or "Best before"; a best-before date is NOT a roast date, so if
    that is all you can see, omit it and say so in \`notes\`.

@@ -61,8 +61,10 @@ export const COFFEE_DRAFT_SCHEMA: Record<string, unknown> = {
     },
     tasting_notes: {
       type: 'array',
-      items: { type: 'string' },
-      description: 'The notes printed on the bag, verbatim. Never your own guesses.',
+      items: { type: 'string', maxLength: 24 },
+      description:
+        'SHORT descriptors, one per entry: "milk chocolate", "citrus", "almond". Split any ' +
+        'prose on the bag into its parts. Never a sentence, never your own guesses.',
     },
     roast_date: { type: 'string', description: 'ISO date (YYYY-MM-DD) if a date is printed.' },
     confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
@@ -116,6 +118,52 @@ export function isCoffeePublishable(draft: CoffeeDraft): boolean {
   if (draft.roast_level && !ROAST_LEVELS.includes(draft.roast_level)) return false;
   if (draft.intended_use && !INTENDED_USES.includes(draft.intended_use)) return false;
   return true;
+}
+
+/**
+ * Turn whatever came back into discrete tasting notes.
+ *
+ * Bags print prose — the first real submission came back as ONE note reading
+ * "smooth balance of chocolate and citrus flavors, with subtle hints of caramel
+ * and almond". That is faithful transcription and useless as data: notes are
+ * filtered on, matched against, and rendered as chips, all of which need
+ * "chocolate" rather than a sentence containing it.
+ *
+ * The prompt asks for the split; this is the guard, because the prompt is a
+ * request and the schema is a contract. Splitting on commas and conjunctions,
+ * dropping the connective filler that survives, and refusing anything still
+ * sentence-shaped afterwards.
+ */
+const NOTE_FILLER =
+  /^(?:a |an |the )?(?:smooth |bright |rich |lovely |delicate |subtle |sweet )?(?:balance of|balanced|hints? of|notes? of|touch of|with|and|plus|finishing with|finish of|flavors?|flavours?|aromas? of)\s+/i;
+
+export function normaliseTastingNotes(raw: readonly string[] | undefined): string[] {
+  const out: string[] = [];
+  for (const entry of raw ?? []) {
+    const parts = entry
+      .split(/[,;/]| and | & |\bwith\b/i)
+      .map((part) => part.trim())
+      .filter((part) => part !== '');
+
+    for (let part of parts) {
+      // Filler can nest: "with subtle hints of caramel" needs two passes.
+      let previous = '';
+      while (previous !== part) {
+        previous = part;
+        part = part.replace(NOTE_FILLER, '').trim();
+      }
+      part = part.replace(/\b(flavou?rs?|aromas?|tones?|undertones?)\b/gi, '').trim();
+      part = part.replace(/^[-–—•*]+\s*/, '').replace(/[.!]+$/, '').trim();
+
+      // Still a phrase rather than a note. Better dropped than shown: a chip
+      // reading "subtle hints of everything" is worse than one fewer chip.
+      if (part === '' || part.length > 24 || part.split(/\s+/).length > 3) continue;
+      const note = part.toLowerCase();
+      if (!out.some((existing) => existing.toLowerCase() === note)) out.push(part);
+      if (out.length >= 8) return out;
+    }
+  }
+  return out;
 }
 
 /** A roast date is only useful if it is a real, recent-ish day. */
@@ -184,10 +232,11 @@ function parseCoffeeDraft(content: AiContentBlock[]): CoffeeDraft {
     ...(text('roast_date') ? { roast_date: text('roast_date') } : {}),
     ...(Array.isArray(record['tasting_notes'])
       ? {
-          tasting_notes: (record['tasting_notes'] as unknown[])
-            .filter((note): note is string => typeof note === 'string' && note.trim() !== '')
-            .slice(0, 12)
-            .map((note) => note.trim()),
+          tasting_notes: normaliseTastingNotes(
+            (record['tasting_notes'] as unknown[]).filter(
+              (note): note is string => typeof note === 'string' && note.trim() !== '',
+            ),
+          ),
         }
       : {}),
     confidence:

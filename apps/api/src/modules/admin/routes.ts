@@ -75,7 +75,7 @@ import {
   upsertRoasterByName,
 } from '../catalog/index.js';
 import { addOwnedEquipment } from '../brewing/index.js';
-import { assertMediaUsable } from '../media/index.js';
+import { assertMediaUsable, setEntityImage } from '../media/index.js';
 import {
   attachCoffeeDraft,
   createCoffeeRequest,
@@ -366,6 +366,8 @@ export async function registerAdminRoutes(
     requestId: string,
     userId: string,
     draft: CoffeeDraft,
+    /** In the order they were sent; the first is the front of the bag. */
+    photoMediaIds: readonly string[] = [],
   ): Promise<void> => {
     if (!isCoffeePublishable(draft)) {
       // Three different outcomes hide behind "not publishable", and collapsing
@@ -442,6 +444,23 @@ export async function registerAdminRoutes(
       const roastDate = parseRoastDate(draft.roast_date);
       if (roastDate) await recordRoastBatch(db as never, created.id, roastDate);
 
+      // The first photo becomes the coffee's picture. A catalogue of grey
+      // placeholder cards is a catalogue nobody browses, and the person who
+      // photographed the bag is the only source of a picture we will ever have
+      // for a lot that exists for six weeks.
+      //
+      // Attaching is what makes the media PUBLIC (media/policies.ts computes
+      // `public_attachment` from exactly this column), so this line is the
+      // moment a private submission photo becomes catalogue imagery. The form
+      // says so before they send it.
+      if (photoMediaIds[0]) {
+        await setEntityImage(db as never, 'coffee_product', created.id, photoMediaIds[0]).catch(
+          (err: unknown) => {
+            request.log.warn({ err, requestId }, 'could not attach the bag photo');
+          },
+        );
+      }
+
       await recordCoffeeDecision(db, {
         id: requestId,
         status: 'approved',
@@ -506,7 +525,7 @@ export async function registerAdminRoutes(
           { gateway: getGateway() },
         );
         await attachCoffeeDraft(db, requestId, draft as unknown as Record<string, unknown>, null);
-        await publishCoffeeIfReady(request, requestId, userId, draft);
+        await publishCoffeeIfReady(request, requestId, userId, draft, mediaIds);
       } catch (err) {
         request.log.warn({ err, requestId }, 'coffee draft failed');
         await attachCoffeeDraft(db, requestId, null, (err as Error).message.slice(0, 300));

@@ -323,7 +323,8 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
                 ) : null}
                 <span className="bc-muted" style={{ fontSize: '0.85rem' }}>
                   Or press Ctrl+V (⌘V) anywhere in this box — it fills the next empty slot.{' '}
-                  {PHOTO_PRIVACY_NOTE}
+                  {PHOTO_PRIVACY_NOTE} If this coffee is added to the catalogue, your first
+                  photo becomes its picture on the site.
                 </span>
               </span>
 

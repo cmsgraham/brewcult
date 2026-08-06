@@ -9,8 +9,15 @@
 
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { authorize } from '../../lib/policy.js';
-import { badRequest, notFound } from '../../lib/errors.js';
+import { badRequest, notFound, unauthorized } from '../../lib/errors.js';
 import { actorOf, loadRequireAuth } from './auth-seam.js';
+import {
+  deleteCoffeeReview,
+  listCoffeeReviews,
+  ratingSummary,
+  toggleHelpful,
+  upsertCoffeeReview,
+} from './coffee-reviews.js';
 import * as repo from './repository.js';
 import { defaultCatalogDb, type CatalogDb } from './repository.js';
 import { assertValidSlug, normaliseQuery, slugify } from './text.js';
@@ -90,6 +97,12 @@ export async function registerCatalogRoutes(
 
   /** Every editorial route: authenticated (401) then staff-checked (403). */
   const editorial = { preHandler: [requireAuth] };
+  /**
+   * A signed-in member write. Named apart from `editorial` on purpose: that one
+   * guards catalogue edits and reads as staff-shaped, and a reviewer skimming
+   * for "who may write here" should not have to check which is which.
+   */
+  const mutation = { preHandler: [requireAuth] };
 
   const auditEditorial = (
     request: FastifyRequest,
@@ -148,6 +161,98 @@ export async function registerCatalogRoutes(
       await authorize(actorOf(request), 'list', 'roaster');
       const q = request.query;
       return repo.listRoasters(db, { ...q, limit: q.limit ?? 20 });
+    },
+  );
+
+
+  // -------------------------------------------------------------------------
+  // Notes on a coffee (0016).
+  //
+  // Reads are PUBLIC — a coffee page with its notes hidden behind a login is a
+  // page search engines and undecided visitors see as empty. Writes need an
+  // account, and each one is scoped to its author by the row itself.
+  // -------------------------------------------------------------------------
+
+  /** Resolves a slug to an id, or 404s. Every route below starts here. */
+  const coffeeIdFor = async (slug: string): Promise<string> => {
+    const coffee = await repo.getCoffeeBySlug(db, slug);
+    return coffee.id;
+  };
+
+  app.get<{ Params: { slug: string } }>(
+    `${prefix}/coffees/:slug/reviews`,
+    { schema: { params: slugParams } },
+    async (request) => {
+      await authorize(actorOf(request), 'read', 'coffee_product');
+      const coffeeId = await coffeeIdFor(request.params.slug);
+      const viewer = actorOf(request).userId;
+      return {
+        items: await listCoffeeReviews(db, coffeeId, viewer),
+        summary: await ratingSummary(db, coffeeId),
+      };
+    },
+  );
+
+  app.put<{
+    Params: { slug: string };
+    Body: { rating?: number; body?: string; brew_method?: string };
+  }>(`${prefix}/coffees/:slug/reviews/mine`, mutation, async (request) => {
+    const userId = actorOf(request).userId;
+    if (userId === null) throw unauthorized();
+
+    const coffeeId = await coffeeIdFor(request.params.slug);
+    const review = await upsertCoffeeReview(db, {
+      coffeeProductId: coffeeId,
+      userId,
+      rating: Number(request.body?.rating),
+      body: request.body?.body ?? null,
+      brewMethod: request.body?.brew_method ?? null,
+    });
+    return {
+      review,
+      items: await listCoffeeReviews(db, coffeeId, userId),
+      summary: await ratingSummary(db, coffeeId),
+    };
+  });
+
+  app.delete<{ Params: { slug: string } }>(
+    `${prefix}/coffees/:slug/reviews/mine`,
+    mutation,
+    async (request) => {
+      const userId = actorOf(request).userId;
+      if (userId === null) throw unauthorized();
+
+      const coffeeId = await coffeeIdFor(request.params.slug);
+      const mine = (await listCoffeeReviews(db, coffeeId, userId)).find((r) => r.is_mine);
+      if (!mine || !(await deleteCoffeeReview(db, mine.id, userId))) {
+        throw notFound('You have not left a note on this one.');
+      }
+      return {
+        items: await listCoffeeReviews(db, coffeeId, userId),
+        summary: await ratingSummary(db, coffeeId),
+      };
+    },
+  );
+
+  app.post<{ Params: { slug: string; id: string } }>(
+    `${prefix}/coffees/:slug/reviews/:id/helpful`,
+    mutation,
+    async (request) => {
+      const userId = actorOf(request).userId;
+      if (userId === null) throw unauthorized();
+
+      const result = await toggleHelpful(db, request.params.id, userId);
+      if (result === 'not_found') throw notFound('That note has gone.');
+      if (result === 'own_review') {
+        throw badRequest('You cannot mark your own note useful — everybody would.');
+      }
+
+      const coffeeId = await coffeeIdFor(request.params.slug);
+      return {
+        voted: result === 'added',
+        items: await listCoffeeReviews(db, coffeeId, userId),
+        summary: await ratingSummary(db, coffeeId),
+      };
     },
   );
 

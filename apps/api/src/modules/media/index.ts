@@ -149,6 +149,17 @@ export {
 /** Absolute URL on the cookie-less media origin for a stored key. */
 export { mediaUrl, memoryStorage, s3Storage, type MediaStorage } from './storage.js';
 
+/**
+ * Point a catalogue entity at an image (0014). Published narrowly for the
+ * community-submission path: the person who photographed a bag is the only
+ * source of a picture we will ever have for a lot that exists for six weeks.
+ *
+ * Note what this call MEANS: attaching is what makes media public, because
+ * `public_attachment` is computed from exactly these columns. It is the moment
+ * a private submission photo becomes catalogue imagery.
+ */
+export { setEntityImage } from './repository.js';
+
 /** The public projection, so other modules can embed a media DTO in their own. */
 export { toDto } from './routes.js';
 

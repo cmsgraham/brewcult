@@ -20,6 +20,8 @@ import {
   originLabel,
   processCopy,
 } from '../../../components/catalog/copy';
+import { CoffeeNotes } from '../../../components/coffee/coffee-notes';
+import { EntityImage } from '../../../components/media/entity-image';
 import { FreshnessSection } from '../../../components/catalog/freshness';
 import { StartingRecipeCard } from '../../../components/ai/starting-recipe';
 import { JsonLd, readCspNonce } from '../../../components/catalog/json-ld';
@@ -160,6 +162,12 @@ export default async function CoffeeDetailPage({ params }: PageProps) {
 
       <Breadcrumbs entries={breadcrumbs} />
 
+
+      {/* The bag. Usually photographed by whoever added the coffee — for a lot
+          that exists for six weeks, that is the only picture there will ever
+          be. `EntityImage` renders nothing at all when there is none, rather
+          than a grey placeholder pretending to be one. */}
+      <EntityImage entity={coffee} alt={`${coffee.roaster?.name ?? ''} ${coffee.name}`.trim()} />
       <header className={styles.header}>
         <p className={styles.eyebrow}>Coffee</p>
         <h1>{coffee.name}</h1>
@@ -254,6 +262,16 @@ export default async function CoffeeDetailPage({ params }: PageProps) {
       </section>
 
       <FreshnessSection coffee={coffee} />
+
+      {/*
+        Per-viewer, so a client island rather than part of the cached render.
+
+        It works out whether you are signed in ITSELF rather than being told:
+        reading a cookie here would force this whole page dynamic, and this is
+        the SEO landing page — 300 seconds of shared cache is worth more than
+        rendering one sentence server-side.
+      */}
+      <CoffeeNotes slug={slug} />
       <StartingRecipeCard coffeeProductId={coffee.id} coffeeName={coffee.name} />
 
       <RecipesSection
