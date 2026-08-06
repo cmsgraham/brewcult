@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { LocaleLink as Link } from '../../components/locale-link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { authApi, isApiError } from '../../lib/api';
@@ -10,12 +10,14 @@ import {
   validatePassword,
   type FieldErrors,
 } from '../../lib/validation';
+import { useTranslate } from '../locale-provider';
 import { Alert } from '../ui/alert';
 import { Field } from '../ui/field';
 
 type ResetField = 'password' | 'confirm';
 
 export function ResetPasswordForm({ token }: { token: string }) {
+  const t = useTranslate();
   const router = useRouter();
   const [errors, setErrors] = useState<FieldErrors<ResetField>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -29,8 +31,8 @@ export function ResetPasswordForm({ token }: { token: string }) {
     const confirm = String(data.get('confirm') ?? '');
 
     const nextErrors: FieldErrors<ResetField> = {
-      password: validatePassword(password),
-      confirm: password === confirm ? undefined : 'These two do not match yet.',
+      password: validatePassword(t, password),
+      confirm: password === confirm ? undefined : t('auth.resetMismatch'),
     };
     setErrors(nextErrors);
     setFormError(null);
@@ -42,11 +44,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
       setDone(true);
       router.refresh();
     } catch (error) {
-      setFormError(
-        isApiError(error)
-          ? error.userMessage
-          : 'Something went wrong on our side. Try again in a moment.',
-      );
+      setFormError(isApiError(error) ? error.userMessage : t('auth.somethingWrong'));
     } finally {
       setPending(false);
     }
@@ -54,17 +52,18 @@ export function ResetPasswordForm({ token }: { token: string }) {
 
   if (!token) {
     return (
-      <Alert tone="error" title="This link is missing its token.">
-        Open the link straight from the email, or{' '}
-        <Link href="/forgot-password">request a new one</Link>.
+      <Alert tone="error" title={t('auth.resetNoTokenTitle')}>
+        {t('auth.resetNoTokenOne')}{' '}
+        <Link href="/forgot-password">{t('auth.resetNoTokenLink')}</Link>.
       </Alert>
     );
   }
 
   if (done) {
     return (
-      <Alert tone="success" title="Password changed.">
-        You are all set — <Link href="/login">sign in</Link> with your new password.
+      <Alert tone="success" title={t('auth.resetDoneTitle')}>
+        {t('auth.resetDoneOne')} <Link href="/login">{t('auth.resetDoneLink')}</Link>{' '}
+        {t('auth.resetDoneTwo')}
       </Alert>
     );
   }
@@ -76,17 +75,17 @@ export function ResetPasswordForm({ token }: { token: string }) {
       <Field
         id="reset-password"
         name="password"
-        label="New password"
+        label={t('auth.resetNewLabel')}
         type="password"
         autoComplete="new-password"
         required
-        hint={`At least ${MIN_PASSWORD_LENGTH} characters.`}
+        hint={t('auth.resetNewHint', { min: MIN_PASSWORD_LENGTH })}
         error={errors.password ?? null}
       />
       <Field
         id="reset-confirm"
         name="confirm"
-        label="Confirm new password"
+        label={t('auth.resetConfirmLabel')}
         type="password"
         autoComplete="new-password"
         required
@@ -94,7 +93,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
       />
 
       <button className="bc-button" type="submit" disabled={pending}>
-        {pending ? 'Saving…' : 'Set new password'}
+        {pending ? t('common.saving') : t('auth.resetSubmit')}
       </button>
     </form>
   );

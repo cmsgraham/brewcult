@@ -1,19 +1,30 @@
 import { type Metadata } from 'next';
 import { ForgotPasswordForm } from '../../../components/auth/forgot-password-form';
+import { localeParam, translator } from '../../../lib/locale-server';
 
-export const metadata: Metadata = {
-  title: 'Reset your password',
-  description: 'Request a BrewCult password reset link.',
-  robots: { index: false, follow: true },
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const t = translator(localeParam((await params).locale));
+  return {
+    title: t('auth.forgotTitle'),
+    description: t('auth.forgotDescription'),
+    robots: { index: false, follow: true },
+  };
+}
 
-export default function ForgotPasswordPage() {
+export default async function ForgotPasswordPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const t = translator(localeParam((await params).locale));
   return (
     <div className="bc-auth bc-stack">
-      <h1>Reset your password</h1>
-      <p className="bc-muted">
-        It happens to everyone. Tell us your email and we will send a link.
-      </p>
+      <h1>{t('auth.forgotTitle')}</h1>
+      <p className="bc-muted">{t('auth.forgotLede')}</p>
       <ForgotPasswordForm />
     </div>
   );

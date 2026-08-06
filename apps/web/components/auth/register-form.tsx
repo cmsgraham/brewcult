@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { LocaleLink as Link } from '../../components/locale-link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { authApi, isApiError } from '../../lib/api';
@@ -12,12 +12,14 @@ import {
   validatePassword,
   type FieldErrors,
 } from '../../lib/validation';
+import { useTranslate } from '../locale-provider';
 import { Alert } from '../ui/alert';
 import { Field } from '../ui/field';
 
 type RegisterField = 'email' | 'handle' | 'password' | 'age';
 
 export function RegisterForm() {
+  const t = useTranslate();
   const router = useRouter();
   const [errors, setErrors] = useState<FieldErrors<RegisterField>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -34,11 +36,11 @@ export function RegisterForm() {
     const ageConfirmed = data.get('age') === 'on';
 
     const nextErrors: FieldErrors<RegisterField> = {
-      email: validateEmail(email),
-      handle: validateHandle(handle),
-      password: validatePassword(password),
+      email: validateEmail(t, email),
+      handle: validateHandle(t, handle),
+      password: validatePassword(t, password),
       // EF §4.5 — 16+ age gate, confirmed rather than carded.
-      age: ageConfirmed ? undefined : 'Please confirm you are 16 or older.',
+      age: ageConfirmed ? undefined : t('auth.ageUnconfirmed'),
     };
     setErrors(nextErrors);
     setFormError(null);
@@ -55,11 +57,7 @@ export function RegisterForm() {
       setDone(true);
       router.refresh();
     } catch (error) {
-      setFormError(
-        isApiError(error)
-          ? error.userMessage
-          : 'Something went wrong on our side. Try again in a moment.',
-      );
+      setFormError(isApiError(error) ? error.userMessage : t('auth.somethingWrong'));
     } finally {
       setPending(false);
     }
@@ -67,10 +65,11 @@ export function RegisterForm() {
 
   if (done) {
     return (
-      <Alert tone="success" title="Check your email.">
-        We sent you a link to confirm your address. Once you have clicked it you can{' '}
-        <Link href="/login">sign in</Link>. No link after a few minutes? Look in spam, then{' '}
-        <Link href="/verify-email">try again</Link>.
+      <Alert tone="success" title={t('auth.registeredTitle')}>
+        {t('auth.registeredOne')}{' '}
+        <Link href="/login">{t('auth.registeredSignIn')}</Link>
+        {t('auth.registeredTwo')}{' '}
+        <Link href="/verify-email">{t('auth.registeredRetry')}</Link>.
       </Alert>
     );
   }
@@ -82,7 +81,7 @@ export function RegisterForm() {
       <Field
         id="register-email"
         name="email"
-        label="Email"
+        label={t('auth.emailLabel')}
         type="email"
         autoComplete="email"
         required
@@ -91,28 +90,28 @@ export function RegisterForm() {
       <Field
         id="register-handle"
         name="handle"
-        label="Handle"
+        label={t('auth.handleLabel')}
         autoComplete="username"
         required
-        hint="Lowercase letters, numbers and underscores. This is your @name."
+        hint={t('auth.handleHint')}
         error={errors.handle ?? null}
       />
       <Field
         id="register-display-name"
         name="displayName"
-        label="Display name (optional)"
+        label={t('auth.displayNameLabel')}
         autoComplete="name"
-        hint="What people see. You can change it any time."
+        hint={t('auth.displayNameHint')}
         error={null}
       />
       <Field
         id="register-password"
         name="password"
-        label="Password"
+        label={t('auth.passwordLabel')}
         type="password"
         autoComplete="new-password"
         required
-        hint={`At least ${MIN_PASSWORD_LENGTH} characters. A short sentence beats a clever squiggle.`}
+        hint={t('auth.newPasswordHint', { min: MIN_PASSWORD_LENGTH })}
         error={errors.password ?? null}
       />
 
@@ -126,8 +125,8 @@ export function RegisterForm() {
             aria-describedby={errors.age ? 'register-age-error' : undefined}
           />
           <span>
-            I am 16 or older and I accept the <Link href="/terms">Terms</Link> and{' '}
-            <Link href="/privacy">Privacy Policy</Link>.
+            {t('auth.agePre')} <Link href="/terms">{t('auth.ageTerms')}</Link>{' '}
+            {t('auth.ageMid')} <Link href="/privacy">{t('auth.agePrivacy')}</Link>.
           </span>
         </label>
         {errors.age ? (
@@ -139,21 +138,16 @@ export function RegisterForm() {
 
       {/* EF §4.5 — personalisation disclosed plainly, at the moment of signup. */}
       <div className="bc-panel" style={{ fontSize: '0.92rem' }}>
-        <h2 style={{ fontSize: '1rem' }}>What we do with your brews</h2>
-        <p style={{ marginBottom: 0 }}>
-          Your brew logs build a taste profile that we use to suggest coffees and dial-in
-          tweaks. That is the whole trick — nothing is sold, and there is an off switch in
-          your profile. Turning it off makes suggestions blander; it does not lock you out
-          of anything. You can export or delete everything whenever you like.
-        </p>
+        <h2 style={{ fontSize: '1rem' }}>{t('auth.personalisationHeading')}</h2>
+        <p style={{ marginBottom: 0 }}>{t('auth.personalisationBody')}</p>
       </div>
 
       <button className="bc-button" type="submit" disabled={pending}>
-        {pending ? 'Creating your account…' : 'Create account'}
+        {pending ? t('auth.creating') : t('auth.createAccount')}
       </button>
 
       <p className="bc-muted" style={{ fontSize: '0.9rem' }}>
-        Already have an account? <Link href="/login">Sign in</Link>
+        {t('auth.haveAccount')} <Link href="/login">{t('common.signIn')}</Link>
       </p>
     </form>
   );

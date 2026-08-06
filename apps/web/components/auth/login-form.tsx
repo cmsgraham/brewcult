@@ -1,10 +1,11 @@
 'use client';
 
-import Link from 'next/link';
+import { LocaleLink as Link } from '../../components/locale-link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { authApi, isApiError } from '../../lib/api';
 import { isValid, validateEmail, validateRequired, type FieldErrors } from '../../lib/validation';
+import { useTranslate } from '../locale-provider';
 import { Alert } from '../ui/alert';
 import { Field } from '../ui/field';
 
@@ -25,6 +26,7 @@ export function LoginForm({
   /** A message from a failed Google round trip, already made human upstream. */
   initialError?: string;
 }) {
+  const t = useTranslate();
   const router = useRouter();
   const [errors, setErrors] = useState<FieldErrors<LoginField>>({});
   const [formError, setFormError] = useState<string | null>(initialError ?? null);
@@ -44,9 +46,7 @@ export function LoginForm({
   }
 
   function describe(error: unknown): string {
-    return isApiError(error)
-      ? error.userMessage
-      : 'Something went wrong on our side. Try again in a moment.';
+    return isApiError(error) ? error.userMessage : t('auth.somethingWrong');
   }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -56,8 +56,8 @@ export function LoginForm({
     const password = String(data.get('password') ?? '');
 
     const nextErrors: FieldErrors<LoginField> = {
-      email: validateEmail(email),
-      password: validateRequired(password, 'Password'),
+      email: validateEmail(t, email),
+      password: validateRequired(t, password, t('auth.passwordNoun')),
     };
     setErrors(nextErrors);
     setFormError(null);
@@ -83,7 +83,7 @@ export function LoginForm({
     if (!mfaToken) return;
     const value = String(new FormData(event.currentTarget).get('code') ?? '').trim();
     if (!value) {
-      setFormError(useRecoveryCode ? 'Enter a recovery code.' : 'Enter the 6-digit code.');
+      setFormError(t(useRecoveryCode ? 'auth.mfaRecoveryMissing' : 'auth.mfaCodeMissing'));
       return;
     }
 
@@ -111,15 +111,13 @@ export function LoginForm({
         {formError ? <Alert tone="error">{formError}</Alert> : null}
 
         <p className="bc-muted">
-          {useRecoveryCode
-            ? 'Enter one of the recovery codes you saved when you set up two-factor authentication.'
-            : 'Open your authenticator app and enter the current 6-digit code.'}
+          {t(useRecoveryCode ? 'auth.mfaRecoveryPrompt' : 'auth.mfaCodePrompt')}
         </p>
 
         <Field
           id="login-mfa-code"
           name="code"
-          label={useRecoveryCode ? 'Recovery code' : 'Authentication code'}
+          label={t(useRecoveryCode ? 'auth.mfaRecoveryLabel' : 'auth.mfaCodeLabel')}
           type="text"
           inputMode={useRecoveryCode ? 'text' : 'numeric'}
           autoComplete="one-time-code"
@@ -129,7 +127,7 @@ export function LoginForm({
         />
 
         <button className="bc-button" type="submit" disabled={pending}>
-          {pending ? 'Checking…' : 'Verify and sign in'}
+          {pending ? t('auth.mfaChecking') : t('auth.mfaVerify')}
         </button>
 
         <p className="bc-muted" style={{ fontSize: '0.9rem' }}>
@@ -141,7 +139,7 @@ export function LoginForm({
               setFormError(null);
             }}
           >
-            {useRecoveryCode ? 'Use your authenticator app instead' : 'Lost your device? Use a recovery code'}
+            {t(useRecoveryCode ? 'auth.mfaUseApp' : 'auth.mfaUseRecovery')}
           </button>
           {' · '}
           <button
@@ -153,7 +151,7 @@ export function LoginForm({
               setFormError(null);
             }}
           >
-            Start over
+            {t('auth.mfaStartOver')}
           </button>
         </p>
       </form>
@@ -167,7 +165,7 @@ export function LoginForm({
       <Field
         id="login-email"
         name="email"
-        label="Email"
+        label={t('auth.emailLabel')}
         type="email"
         autoComplete="email"
         required
@@ -176,7 +174,7 @@ export function LoginForm({
       <Field
         id="login-password"
         name="password"
-        label="Password"
+        label={t('auth.passwordLabel')}
         type="password"
         autoComplete="current-password"
         required
@@ -184,12 +182,14 @@ export function LoginForm({
       />
 
       <button className="bc-button" type="submit" disabled={pending}>
-        {pending ? 'Signing in…' : 'Sign in'}
+        {pending ? t('auth.signingIn') : t('common.signIn')}
       </button>
 
       <p className="bc-muted" style={{ fontSize: '0.9rem' }}>
-        <Link href="/forgot-password">Forgot your password?</Link> · New here?{' '}
-        <Link href="/register">Create an account</Link>
+        <Link href="/forgot-password">{t('auth.forgotPassword')}</Link>
+        {' · '}
+        {t('auth.newHere')}{' '}
+        <Link href="/register">{t('auth.createAnAccount')}</Link>
       </p>
     </form>
   );

@@ -1,4 +1,6 @@
 import { GOOGLE_OAUTH_START } from '../../lib/api';
+import { type Locale } from '../../lib/i18n';
+import { translator } from '../../lib/locale-server';
 
 /**
  * "Sign in with Google" (deployment_guide §7.2), built to Google's Identity
@@ -13,7 +15,11 @@ import { GOOGLE_OAUTH_START } from '../../lib/api';
  *   - light: #FFFFFF on a #747775 hairline with #1F1F1F text
  *     dark:  #131314 with a #8E918F hairline and #E3E3E3 text
  *   - Roboto Medium 14px where available
- *   - approved wording only ("Sign in with Google")
+ *   - approved wording only ("Sign in with Google"), in Google's own translation
+ *     of it — they publish the button text per language, and "Iniciar sesión con
+ *     Google" is theirs, not ours. Which is why this takes a `wording` choice
+ *     rather than a free-text label: a caller can pick which approved phrase it
+ *     is, and cannot invent a sixth one.
  *
  * The logo is inlined as SVG on purpose: the Content-Security-Policy forbids
  * off-origin requests, so a hosted image would simply not load, and inlining
@@ -27,14 +33,19 @@ import { GOOGLE_OAUTH_START } from '../../lib/api';
 export function GoogleButton({
   enabled,
   next,
-  label = 'Sign in with Google',
+  locale,
+  wording = 'signIn',
 }: {
   enabled: boolean;
   next?: string;
-  /** Approved alternatives only: "Sign up with Google", "Continue with Google". */
-  label?: string;
+  locale: Locale;
+  /** Which approved phrase — registration contexts use "Sign up with Google". */
+  wording?: 'signIn' | 'signUp';
 }) {
   if (!enabled) return null;
+
+  const t = translator(locale);
+  const label = t(wording === 'signUp' ? 'auth.googleSignUp' : 'auth.googleSignIn');
 
   const href = next
     ? `${GOOGLE_OAUTH_START}?next=${encodeURIComponent(next)}`
@@ -67,7 +78,7 @@ export function GoogleButton({
         </span>
         <span className="bc-gsi__label">{label}</span>
       </a>
-      <p className="bc-divider">or use your email</p>
+      <p className="bc-divider">{t('auth.orUseEmail')}</p>
     </>
   );
 }

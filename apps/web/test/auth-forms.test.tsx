@@ -37,6 +37,7 @@ vi.mock('../lib/api', async () => {
   };
 });
 
+const { LocaleProvider } = await import('../components/locale-provider');
 const { ForgotPasswordForm } = await import('../components/auth/forgot-password-form');
 const { GoogleButton } = await import('../components/auth/google-button');
 const { LoginForm } = await import('../components/auth/login-form');
@@ -236,7 +237,7 @@ describe('ResetPasswordForm', () => {
 
 describe('GoogleButton', () => {
   it('is a plain link to the redirect endpoint, not a fetch', () => {
-    render(<GoogleButton enabled next="/profile" />);
+    render(<GoogleButton enabled next="/profile" locale="en" />);
     const link = screen.getByRole('link', { name: 'Sign in with Google' });
     // UNVERSIONED on purpose — the API mounts Google at its root because the
     // callback is registered in Google's console and matched byte for byte.
@@ -252,7 +253,7 @@ describe('GoogleButton', () => {
    * unapproved wording.
    */
   it('carries the official four-colour Google mark, un-recoloured', () => {
-    const { container } = render(<GoogleButton enabled />);
+    const { container } = render(<GoogleButton enabled locale="en" />);
     const svg = container.querySelector('svg');
     expect(svg).not.toBeNull();
     const fills = Array.from(svg?.querySelectorAll('path') ?? []).map((p) =>
@@ -264,14 +265,26 @@ describe('GoogleButton', () => {
   });
 
   it('uses approved wording only', () => {
-    const { rerender } = render(<GoogleButton enabled />);
+    const { rerender } = render(<GoogleButton enabled locale="en" />);
     expect(screen.getByRole('link').textContent).toBe('Sign in with Google');
-    rerender(<GoogleButton enabled label="Sign up with Google" />);
+    rerender(<GoogleButton enabled locale="en" wording="signUp" />);
     expect(screen.getByRole('link').textContent).toBe('Sign up with Google');
   });
 
+  /**
+   * Google publishes the button text per language; these two are theirs. A
+   * hand-translated "Ingresá con Google" would be exactly the kind of unapproved
+   * wording that gets an OAuth app refused at verification.
+   */
+  it('uses Google’s own Spanish wording, not a translation of ours', () => {
+    const { rerender } = render(<GoogleButton enabled locale="es" />);
+    expect(screen.getByRole('link').textContent).toBe('Iniciar sesión con Google');
+    rerender(<GoogleButton enabled locale="es" wording="signUp" />);
+    expect(screen.getByRole('link').textContent).toBe('Registrarse con Google');
+  });
+
   it('disappears when the client-config flag says Google is unavailable', () => {
-    const { container } = render(<GoogleButton enabled={false} />);
+    const { container } = render(<GoogleButton enabled={false} locale="en" />);
     expect(container).toBeEmptyDOMElement();
   });
 });
@@ -302,5 +315,71 @@ describe('LoginForm handles what the Google callback hands back', () => {
     render(<LoginForm />);
     expect(screen.getByLabelText('Password')).toBeInTheDocument();
     expect(screen.queryByLabelText('Authentication code')).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Every test above renders with no provider above it, which is the English
+ * fallback — so they double as the guarantee that translating these forms did
+ * not reword them. These are the other half: with a provider, the same forms
+ * are actually in Spanish, including the parts a person only sees when
+ * something goes wrong.
+ *
+ * Validation messages matter most here. They were built by string concatenation
+ * in `lib/validation`, which is the shape that survives a translation pass
+ * looking correct and reading as English.
+ */
+describe('the auth forms in Spanish', () => {
+  function inSpanish(node: ReactNode) {
+    return render(<LocaleProvider locale="es">{node}</LocaleProvider>);
+  }
+
+  it('labels the sign-in form and its button', () => {
+    inSpanish(<LoginForm />);
+    expect(screen.getByLabelText('Correo')).toBeInTheDocument();
+    expect(screen.getByLabelText('Contraseña')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Iniciar sesión' })).toBeInTheDocument();
+  });
+
+  it('says what is missing in Spanish, not in English', async () => {
+    const user = userEvent.setup();
+    inSpanish(<LoginForm />);
+
+    await user.click(screen.getByRole('button', { name: 'Iniciar sesión' }));
+
+    expect(login).not.toHaveBeenCalled();
+    expect(await screen.findByText('Necesitamos tu correo para iniciar tu sesión.')).toBeInTheDocument();
+    // The label slots into the sentence rather than being prepended to it —
+    // "Contraseña es obligatorio" would be both wrong and machine-sounding.
+    expect(screen.getByText('Necesitamos tu contraseña.')).toBeInTheDocument();
+  });
+
+  it('translates the password-length rule with the number still in it', async () => {
+    const user = userEvent.setup();
+    inSpanish(<ResetPasswordForm token="tok_123" />);
+
+    await user.type(screen.getByLabelText('Nueva contraseña'), 'corta');
+    await user.click(screen.getByRole('button', { name: 'Guardar la nueva contraseña' }));
+
+    // Not just /al menos 12 caracteres/ — the field's own hint says that too.
+    // This has to be the error, and it has to still carry the number.
+    expect(
+      await screen.findByText(/^Un poquito más larga, por favor: al menos 12 caracteres/),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the age gate and its two legal links in one readable sentence', () => {
+    inSpanish(<RegisterForm />);
+    expect(
+      screen.getByText(/Tengo 16 años o más y acepto los/),
+    ).toHaveTextContent('Tengo 16 años o más y acepto los Términos y la Política de Privacidad.');
+  });
+
+  it('sends a Spanish reader to the Spanish sign-in page, not the English one', () => {
+    inSpanish(<ForgotPasswordForm />);
+    expect(screen.getByRole('link', { name: 'Volver a iniciar sesión' })).toHaveAttribute(
+      'href',
+      '/es/login',
+    );
   });
 });

@@ -4,7 +4,15 @@
  * The server is the authority (EF §3.3); this exists so people get an answer
  * before a round trip. Tone rules from second_draft §9.7/§10.2 apply to error
  * copy too: say what is needed, never imply the person is doing it wrong.
+ *
+ * ── WHY EVERY VALIDATOR TAKES A TRANSLATOR ──────────────────────────────────
+ * These messages are read by a person, in the language they are reading the
+ * page in, so they belong in the catalogue like all the other copy. Passing `t`
+ * in — rather than importing a catalogue here — keeps this module free of any
+ * opinion about where the locale comes from: a client form hands it `useTranslate()`,
+ * and a server caller could hand it `translator(locale)`.
  */
+import type { Translator } from './i18n';
 
 export type FieldErrors<K extends string> = Partial<Record<K, string>>;
 
@@ -16,32 +24,41 @@ const HANDLE_RE = /^[a-z0-9_]{3,30}$/;
 
 export const MIN_PASSWORD_LENGTH = 12;
 
-export function validateEmail(value: string): string | undefined {
+export function validateEmail(t: Translator, value: string): string | undefined {
   const email = value.trim();
-  if (!email) return 'We need your email address to sign you in.';
-  if (!EMAIL_RE.test(email)) return 'That does not look like an email address yet.';
+  if (!email) return t('validation.emailMissing');
+  if (!EMAIL_RE.test(email)) return t('validation.emailMalformed');
   return undefined;
 }
 
-export function validateRequired(value: string, label: string): string | undefined {
-  if (!value.trim()) return `${label} is required.`;
+/**
+ * `label` is a translated noun, not a field name — and the two are not always
+ * the same word. English slots a capitalised "Password" into "{label} is
+ * required."; Spanish reads better as "Necesitamos tu contraseña.", so its
+ * label is "tu contraseña". Hence a catalogue key per label rather than reusing
+ * the one on the input, which has to stay a bare noun.
+ */
+export function validateRequired(
+  t: Translator,
+  value: string,
+  label: string,
+): string | undefined {
+  if (!value.trim()) return t('validation.required', { label });
   return undefined;
 }
 
-export function validatePassword(value: string): string | undefined {
-  if (!value) return 'Choose a password so we can keep your account yours.';
+export function validatePassword(t: Translator, value: string): string | undefined {
+  if (!value) return t('validation.passwordMissing');
   if (value.length < MIN_PASSWORD_LENGTH) {
-    return `A little longer, please — at least ${MIN_PASSWORD_LENGTH} characters. A short sentence works well.`;
+    return t('validation.passwordShort', { min: MIN_PASSWORD_LENGTH });
   }
   return undefined;
 }
 
-export function validateHandle(value: string): string | undefined {
+export function validateHandle(t: Translator, value: string): string | undefined {
   const handle = value.trim();
-  if (!handle) return 'Pick a handle — this is how people will find you.';
-  if (!HANDLE_RE.test(handle)) {
-    return 'Handles use 3–30 lowercase letters, numbers or underscores.';
-  }
+  if (!handle) return t('validation.handleMissing');
+  if (!HANDLE_RE.test(handle)) return t('validation.handleMalformed');
   return undefined;
 }
 
