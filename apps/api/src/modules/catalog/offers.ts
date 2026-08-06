@@ -249,7 +249,7 @@ export async function listOffers(
     price_usd: string | null;
     url: string | null;
     in_stock: boolean;
-    quoted_on: string;
+    quoted_on: string | Date;
     vendor: Vendor;
   }>(
     `SELECT o.id::text     AS id,
@@ -292,7 +292,12 @@ export async function listOffers(
       price_usd_per_kg: perKg(usd),
       url: row.url,
       in_stock: row.in_stock,
-      quoted_on: String(row.quoted_on).slice(0, 10),
+      // `date` arrives as a Date object, and String(Date) is "Thu Aug 06 2026
+      // …" — slicing ten characters off THAT gives "Thu Aug 06". ISO first.
+      quoted_on:
+        row.quoted_on instanceof Date
+          ? row.quoted_on.toISOString().slice(0, 10)
+          : String(row.quoted_on).slice(0, 10),
     };
   });
 }

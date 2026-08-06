@@ -395,6 +395,9 @@ describe('where to buy it', () => {
 
     const [offer] = await listOffers(db, coffeeId);
     expect(offer).toMatchObject({ price_crc: 8500, price_usd: 16.5, size_grams: 340 });
+    // A `date` column arrives as a Date object; String(Date) starts "Thu Aug 06",
+    // so slicing ten characters off it produced a weekday instead of a date.
+    expect(offer?.quoted_on).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     // Per kilo is arithmetic on one row, so it IS computed — that is a
     // different thing from inventing a price in a currency nobody quoted.
     expect(offer?.price_crc_per_kg).toBe(25000);
