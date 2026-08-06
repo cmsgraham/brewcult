@@ -1,12 +1,24 @@
 import { type Metadata } from 'next';
+import { localeAlternates } from '../../../../lib/seo';
+import { localeParam } from '../../../../lib/locale-server';
 import Link from 'next/link';
 
-export const metadata: Metadata = {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const locale = localeParam((await params).locale);
+  return {
   title: 'How coffee is scored — the SCA cupping form explained',
   description:
     'What fragrance, flavour, aftertaste, acidity, body, uniformity, balance, clean cup, sweetness and overall actually mean, how to identify each one, and how the 100-point score works.',
-  alternates: { canonical: '/learn/cupping' },
-};
+    // Canonical for THIS language plus an hreflang for each, including
+    // x-default — without which a search engine picks for a visitor whose
+    // language is neither, and it does not pick well.
+    alternates: localeAlternates('/learn/cupping', locale),
+  };
+}
 
 /**
  * The teaching page behind every score on the site.

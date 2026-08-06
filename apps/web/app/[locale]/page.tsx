@@ -1,16 +1,28 @@
 import { type Metadata } from 'next';
+import { localeAlternates } from '../../lib/seo';
+import { localeParam } from '../../lib/locale-server';
 import Link from 'next/link';
 import { JsonLd, readCspNonce } from '../../components/catalog/json-ld';
 import { brandSameAs } from '../../lib/seo';
 import { organizationJsonLd, websiteJsonLd } from '../../lib/structured-data';
 import { getSessionUser } from '../../lib/server-api';
 
-export const metadata: Metadata = {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const locale = localeParam((await params).locale);
+  return {
   title: 'BrewCult — brewing intelligence for people who love coffee',
   description:
     'Log a brew in ten seconds, learn what actually changed the cup, and find coffee worth drinking. Beginners welcome.',
-  alternates: { canonical: '/' },
-};
+    // Canonical for THIS language plus an hreflang for each, including
+    // x-default — without which a search engine picks for a visitor whose
+    // language is neither, and it does not pick well.
+    alternates: localeAlternates('/', locale),
+  };
+}
 
 const TAGLINE = 'Brewing intelligence for people who love coffee.';
 const ABOUT =

@@ -1,4 +1,5 @@
 import { type Metadata } from 'next';
+import { localeAlternates } from '../../../lib/seo';
 import { CoffeeCard } from '../../../components/discover/coffee-card';
 import { AddCoffee } from '../../../components/coffee/add-coffee';
 import { localeParam, translator } from '../../../lib/locale-server';
@@ -7,18 +8,28 @@ import { Alert } from '../../../components/ui/alert';
 import { apiFetch, type CoffeeSummary, type Paginated } from '../../../lib/api';
 import { fetchClientConfig } from '../../../lib/client-config';
 
-export const metadata: Metadata = {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const locale = localeParam((await params).locale);
+  return {
   title: 'Discover coffee',
   description:
     'Browse specialty coffees by origin, process and roast level — with the tasting notes and the roasters behind them.',
-  alternates: { canonical: '/discover' },
   openGraph: {
     title: 'Discover coffee · BrewCult',
     description:
       'Browse specialty coffees by origin, process and roast level — with tasting notes and the roasters behind them.',
     url: '/discover',
   },
-};
+    // Canonical for THIS language plus an hreflang for each, including
+    // x-default — without which a search engine picks for a visitor whose
+    // language is neither, and it does not pick well.
+    alternates: localeAlternates('/discover', locale),
+  };
+}
 
 /**
  * This is the SEO surface, so it is server-rendered with real markup and

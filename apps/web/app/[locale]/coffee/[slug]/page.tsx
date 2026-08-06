@@ -28,7 +28,8 @@ import { StartingRecipeCard } from '../../../../components/ai/starting-recipe';
 import { JsonLd, readCspNonce } from '../../../../components/catalog/json-ld';
 import { RecipesSection } from '../../../../components/catalog/recipes-section';
 import { Explainer, SpecList, TagList } from '../../../../components/catalog/spec-list';
-import { coffeeMetadata, notFoundMetadata, sentence } from '../../../../lib/seo';
+import { coffeeMetadata, localeAlternates, notFoundMetadata, sentence } from '../../../../lib/seo';
+import { localeParam } from '../../../../lib/locale-server';
 import { breadcrumbJsonLd, coffeeProductJsonLd } from '../../../../lib/structured-data';
 
 /**
@@ -45,24 +46,30 @@ import { breadcrumbJsonLd, coffeeProductJsonLd } from '../../../../lib/structure
 export const revalidate = 300;
 
 interface PageProps {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ slug: string; locale: string }>;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug, locale: rawLocale } = await params;
+  const locale = localeParam(rawLocale);
   const result = await loadCoffee(slug);
   if (result.status !== 'ok') return notFoundMetadata('Coffee');
 
   const coffee = result.data;
-  return coffeeMetadata({
-    slug: coffee.slug,
-    name: coffee.name,
-    roasterName: coffee.roaster?.name ?? 'an independent roaster',
-    originLabel: originLabel(coffee.origin),
-    processLabel: coffee.process ? PROCESS_LABEL[coffee.process] : null,
-    roastLevelLabel: coffee.roast_level ? ROAST_LEVEL_LABEL[coffee.roast_level] : null,
-    tastingNotes: coffee.tasting_notes ?? [],
-  });
+  return {
+    ...coffeeMetadata({
+      slug: coffee.slug,
+      name: coffee.name,
+      roasterName: coffee.roaster?.name ?? 'an independent roaster',
+      originLabel: originLabel(coffee.origin),
+      processLabel: coffee.process ? PROCESS_LABEL[coffee.process] : null,
+      roastLevelLabel: coffee.roast_level ? ROAST_LEVEL_LABEL[coffee.roast_level] : null,
+      tastingNotes: coffee.tasting_notes ?? [],
+    }),
+    // hreflang for the coffee that IS this coffee in the other language —
+    // the slug is language-independent because it comes from the bag.
+    alternates: localeAlternates(`/coffee/${slug}`, locale),
+  };
 }
 
 /** Lede sentence — assembled from real data so no two pages read identically. */

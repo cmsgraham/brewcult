@@ -88,7 +88,7 @@ describe('/coffee/[slug]', () => {
     });
 
     const ui = await CoffeeDetailPage({
-      params: Promise.resolve({ slug: 'cascara-ethiopia-chelbesa-washed' }),
+      params: Promise.resolve({ slug: 'cascara-ethiopia-chelbesa-washed', locale: 'en' }),
     });
     const { container } = render(ui);
 
@@ -124,7 +124,7 @@ describe('/coffee/[slug]', () => {
 
     const { container } = render(
       await CoffeeDetailPage({
-        params: Promise.resolve({ slug: 'cascara-ethiopia-chelbesa-washed' }),
+        params: Promise.resolve({ slug: 'cascara-ethiopia-chelbesa-washed', locale: 'en' }),
       }),
     );
 
@@ -143,7 +143,7 @@ describe('/coffee/[slug]', () => {
 
     const { container } = render(
       await CoffeeDetailPage({
-        params: Promise.resolve({ slug: 'cascara-ethiopia-chelbesa-washed' }),
+        params: Promise.resolve({ slug: 'cascara-ethiopia-chelbesa-washed', locale: 'en' }),
       }),
     );
 
@@ -161,7 +161,7 @@ describe('/coffee/[slug]', () => {
 
     const { container } = render(
       await CoffeeDetailPage({
-        params: Promise.resolve({ slug: 'meridian-yirgacheffe-natural' }),
+        params: Promise.resolve({ slug: 'meridian-yirgacheffe-natural', locale: 'en' }),
       }),
     );
 
@@ -180,7 +180,7 @@ describe('/coffee/[slug]', () => {
 
     const { container } = render(
       await CoffeeDetailPage({
-        params: Promise.resolve({ slug: 'cascara-ethiopia-chelbesa-washed' }),
+        params: Promise.resolve({ slug: 'cascara-ethiopia-chelbesa-washed', locale: 'en' }),
       }),
     );
 
@@ -199,7 +199,7 @@ describe('/coffee/[slug]', () => {
 
     const { container } = render(
       await CoffeeDetailPage({
-        params: Promise.resolve({ slug: 'cascara-ethiopia-chelbesa-washed' }),
+        params: Promise.resolve({ slug: 'cascara-ethiopia-chelbesa-washed', locale: 'en' }),
       }),
     );
 
@@ -218,13 +218,13 @@ describe('/coffee/[slug]', () => {
   it('404s a slug the API does not know', async () => {
     mockApi({ '/api/v1/coffees/nope': { status: 404 } });
     await expect(
-      CoffeeDetailPage({ params: Promise.resolve({ slug: 'nope' }) }),
+      CoffeeDetailPage({ params: Promise.resolve({ slug: 'nope', locale: 'en' }) }),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it('shows an honest error panel — not a 404 — when the API is broken', async () => {
     mockApi({ '/api/v1/coffees/chelbesa': { status: 500, body: { error: 'internal' } } });
-    render(await CoffeeDetailPage({ params: Promise.resolve({ slug: 'chelbesa' }) }));
+    render(await CoffeeDetailPage({ params: Promise.resolve({ slug: 'chelbesa', locale: 'en' }) }));
     expect(screen.getByRole('heading', { name: 'We could not load this coffee' })).toBeInTheDocument();
     expect(screen.getByText(/That is on us, not on you/)).toBeInTheDocument();
   });
@@ -315,7 +315,7 @@ describe('/roaster/[slug]', () => {
     mockApi({ '/api/v1/roasters/meridian-coffee-roasters': { body: ROASTER_DETAIL } });
 
     const { container } = render(
-      await RoasterDetailPage({ params: Promise.resolve({ slug: 'meridian-coffee-roasters' }) }),
+      await RoasterDetailPage({ params: Promise.resolve({ slug: 'meridian-coffee-roasters', locale: 'en' }) }),
     );
 
     expect(
@@ -339,7 +339,7 @@ describe('/roaster/[slug]', () => {
     mockApi({ '/api/v1/roasters/meridian-coffee-roasters': { body: ROASTER_DETAIL } });
 
     const { container } = render(
-      await RoasterDetailPage({ params: Promise.resolve({ slug: 'meridian-coffee-roasters' }) }),
+      await RoasterDetailPage({ params: Promise.resolve({ slug: 'meridian-coffee-roasters', locale: 'en' }) }),
     );
 
     const docs = jsonLdByType(container);
@@ -358,7 +358,7 @@ describe('/roaster/[slug]', () => {
     });
 
     const { container } = render(
-      await RoasterDetailPage({ params: Promise.resolve({ slug: 'empty' }) }),
+      await RoasterDetailPage({ params: Promise.resolve({ slug: 'empty', locale: 'en' }) }),
     );
     expect(container.textContent).toContain('No coffees listed for');
   });
@@ -366,7 +366,7 @@ describe('/roaster/[slug]', () => {
   it('404s an unknown roaster', async () => {
     mockApi({ '/api/v1/roasters/nope': { status: 404 } });
     await expect(
-      RoasterDetailPage({ params: Promise.resolve({ slug: 'nope' }) }),
+      RoasterDetailPage({ params: Promise.resolve({ slug: 'nope', locale: 'en' }) }),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 });
@@ -397,7 +397,7 @@ describe('/equipment/[slug]', () => {
       '/api/v1/grind-conversions': { body: GRIND_CONVERSIONS },
     });
 
-    render(await EquipmentDetailPage({ params: Promise.resolve({ slug: 'mahlkonig-x54' }) }));
+    render(await EquipmentDetailPage({ params: Promise.resolve({ slug: 'mahlkonig-x54', locale: 'en' }) }));
 
     expect(
       screen.getByRole('heading', { level: 1, name: 'Mahlkönig X54 Allround' }),
@@ -416,7 +416,7 @@ describe('/equipment/[slug]', () => {
     });
 
     const { container } = render(
-      await EquipmentDetailPage({ params: Promise.resolve({ slug: 'mahlkonig-x54' }) }),
+      await EquipmentDetailPage({ params: Promise.resolve({ slug: 'mahlkonig-x54', locale: 'en' }) }),
     );
 
     expect(
@@ -442,7 +442,7 @@ describe('/equipment/[slug]', () => {
     });
 
     const { container } = render(
-      await EquipmentDetailPage({ params: Promise.resolve({ slug: 'mahlkonig-x54' }) }),
+      await EquipmentDetailPage({ params: Promise.resolve({ slug: 'mahlkonig-x54', locale: 'en' }) }),
     );
 
     expect(
@@ -464,7 +464,7 @@ describe('/equipment/[slug]', () => {
     });
 
     const { container } = render(
-      await EquipmentDetailPage({ params: Promise.resolve({ slug: 'mahlkonig-x54' }) }),
+      await EquipmentDetailPage({ params: Promise.resolve({ slug: 'mahlkonig-x54', locale: 'en' }) }),
     );
 
     expect(container.textContent).toContain('We could not load conversions just now');
@@ -481,7 +481,7 @@ describe('/equipment/[slug]', () => {
     });
 
     const { container } = render(
-      await EquipmentDetailPage({ params: Promise.resolve({ slug: 'chemex-6-cup' }) }),
+      await EquipmentDetailPage({ params: Promise.resolve({ slug: 'chemex-6-cup', locale: 'en' }) }),
     );
 
     expect(screen.queryByRole('heading', { name: 'Grind settings on other grinders' })).toBeNull();
@@ -499,7 +499,7 @@ describe('/equipment/[slug]', () => {
     });
 
     const { container } = render(
-      await EquipmentDetailPage({ params: Promise.resolve({ slug: 'mahlkonig-x54' }) }),
+      await EquipmentDetailPage({ params: Promise.resolve({ slug: 'mahlkonig-x54', locale: 'en' }) }),
     );
 
     const docs = jsonLdByType(container);
