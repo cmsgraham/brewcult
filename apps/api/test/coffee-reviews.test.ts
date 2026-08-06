@@ -40,6 +40,7 @@ const MIGRATIONS = [
   'db/migrations/0016_coffee_reviews.sql',
   'db/migrations/0017_sca_cupping.sql',
   'db/migrations/0018_vendors_and_prices.sql',
+  'db/migrations/0019_fix_url_checks.sql',
 ];
 
 let pg: PGlite;
@@ -451,6 +452,35 @@ describe('where to buy it', () => {
       [first.id],
     );
     expect(rows[0]).toMatchObject({ verified: false, source: 'community' });
+  });
+
+  it('STORES a good link and reads it back', async () => {
+    // The acceptance path had no test, so a CHECK constraint that could never
+    // pass shipped: Postgres caps a regex repetition count at 255 and 0018 asked
+    // for {3,300}, which is a syntax error rather than a big number. Every
+    // insert carrying a URL 500'd, and every test only exercised the refusal.
+    const vendor = await upsertVendor(db, {
+      name: 'Linked Shop',
+      contact: {
+        website_url: 'https://example.com',
+        instagram_url: 'https://instagram.com/example',
+        maps_url: 'https://maps.app.goo.gl/abc',
+      },
+    });
+    await upsertOffer(db, {
+      coffeeProductId: coffeeId,
+      vendorId: vendor.id,
+      sizeGrams: 340,
+      priceCrc: 8500,
+      url: 'https://example.com/the-coffee',
+    });
+
+    const [offer] = await listOffers(db, coffeeId);
+    expect(offer?.url).toBe('https://example.com/the-coffee');
+    expect(offer?.vendor).toMatchObject({
+      website_url: 'https://example.com',
+      instagram_url: 'https://instagram.com/example',
+    });
   });
 
   it('refuses a link that is not http(s)', async () => {

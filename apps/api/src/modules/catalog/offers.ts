@@ -72,7 +72,10 @@ const CONTACT_FIELDS = [
  */
 function assertWebUrl(value: string, field: string): string {
   const trimmed = value.trim();
-  if (!/^https?:\/\/[^\s]{3,300}$/i.test(trimmed)) {
+  // Shape and length checked separately, matching `is_web_url()` in 0019. The
+  // combined form was what tripped Postgres — its regex engine caps repetition
+  // at 255, so `{3,300}` was a syntax error rather than a large number.
+  if (!/^https?:\/\/[^\s]{3,}$/i.test(trimmed) || trimmed.length > 300) {
     throw badRequest(`${field.replace(/_/g, ' ')} must be a full http:// or https:// address.`);
   }
   return trimmed;
