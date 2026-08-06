@@ -32,7 +32,7 @@ export interface EntityImageProps {
   alt: string;
   /** Prefer the small derivative — right for cards and rails. */
   prefer?: 'full' | 'thumbnail';
-  shape?: 'landscape' | 'square';
+  shape?: 'landscape' | 'square' | 'hero';
   /** What to draw when there is no picture. Default: nothing. */
   fallback?: 'none' | 'monogram';
   /** Seed for the monogram letters; defaults to `alt`. */
@@ -51,7 +51,12 @@ export function EntityImage({
   className,
 }: EntityImageProps) {
   const url = src ?? readImageUrl(entity, { prefer });
-  const shapeClass = shape === 'square' ? ` ${styles.entityImageSquare}` : '';
+  const shapeClass =
+    shape === 'square'
+      ? ` ${styles.entityImageSquare}`
+      : shape === 'hero'
+        ? ` ${styles.entityImageHero}`
+        : '';
 
   if (url === null) {
     if (fallback === 'none') return null;

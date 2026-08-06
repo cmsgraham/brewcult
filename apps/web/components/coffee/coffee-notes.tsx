@@ -3,12 +3,16 @@
 import { useEffect, useState } from 'react';
 import { hasSessionHint, isApiError } from '../../lib/api';
 import {
+  SCA_ANCHORS,
+  SCA_FORM,
   deleteMyReview,
   fetchCoffeeReviews,
   saveMyReview,
   toggleHelpful,
   type CoffeeRatingSummary,
   type CoffeeReview,
+  type SaveReviewInput,
+  type ScaField,
 } from '../../lib/coffee-reviews-client';
 import { Alert } from '../ui/alert';
 
@@ -30,14 +34,25 @@ import { Alert } from '../ui/alert';
  * Enforced by the database (0016), which means this form is an EDITOR whenever
  * you already have one. There is no second "add another" path to get wrong.
  */
-const RATINGS = [1, 2, 3, 4, 5] as const;
+/**
+ * 6.00 to 10.00 in quarter points — the SCA scale, not a five-star one.
+ *
+ * The floor is 6 because the form grades SPECIALTY coffee: below that a coffee
+ * has a defect, and defects are counted as taints and faults rather than by
+ * scoring an attribute at 3. Somebody who hated a bag says 6 and explains why
+ * in the note, which is more use than one star.
+ */
+const STEPS: number[] = Array.from({ length: 17 }, (_, i) => 6 + i * 0.25);
 
-const RATING_WORD: Record<number, string> = {
-  1: 'Not for me',
-  2: 'Drinkable',
-  3: 'Good',
-  4: 'Really good',
-  5: 'Would buy again',
+/** The word the form prints beside each whole number. */
+const anchorFor = (value: number): string =>
+  SCA_ANCHORS.slice().reverse().find((anchor) => value >= anchor.value)?.word ?? '';
+
+const EMPTY_SUMMARY: CoffeeRatingSummary = {
+  average_overall: null,
+  average_cupping: null,
+  cupped_count: 0,
+  count: 0,
 };
 
 export function CoffeeNotes({ slug }: { slug: string }) {
@@ -50,13 +65,18 @@ export function CoffeeNotes({ slug }: { slug: string }) {
    */
   const [signedIn, setSignedIn] = useState(false);
   const [items, setItems] = useState<CoffeeReview[]>([]);
-  const [summary, setSummary] = useState<CoffeeRatingSummary>({ average: null, count: 0 });
+  const [summary, setSummary] = useState<CoffeeRatingSummary>(EMPTY_SUMMARY);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
-  const [rating, setRating] = useState(0);
+  const [overall, setOverall] = useState(0);
   const [body, setBody] = useState('');
   const [method, setMethod] = useState('');
+  /** The other nine. Hidden until asked for — most people are not cupping. */
+  const [cupping, setCupping] = useState(false);
+  const [attributes, setAttributes] = useState<Partial<Record<ScaField, number>>>({});
+  const [taints, setTaints] = useState(0);
+  const [faults, setFaults] = useState(0);
   const [busy, setBusy] = useState(false);
 
   const mine = items.find((item) => item.is_mine) ?? null;
@@ -83,23 +103,38 @@ export function CoffeeNotes({ slug }: { slug: string }) {
   }, [slug]);
 
   function startEditing(): void {
-    setRating(mine?.rating ?? 0);
+    setOverall(mine?.overall ?? 0);
     setBody(mine?.body ?? '');
     setMethod(mine?.brew_method ?? '');
+    setTaints(mine?.taint_cups ?? 0);
+    setFaults(mine?.fault_cups ?? 0);
+    const existing: Partial<Record<ScaField, number>> = {};
+    for (const field of SCA_FORM) {
+      const value = mine?.[field.key];
+      if (typeof value === 'number') existing[field.key] = value;
+    }
+    setAttributes(existing);
+    setCupping(Object.keys(existing).length > 0);
     setEditing(true);
     setError(null);
   }
 
   async function save(): Promise<void> {
-    if (rating === 0) return;
+    if (overall === 0) return;
     setBusy(true);
     setError(null);
     try {
-      const result = await saveMyReview(slug, {
-        rating,
+      const payload: SaveReviewInput = {
+        overall,
         ...(body.trim() ? { body: body.trim() } : {}),
         ...(method.trim() ? { brew_method: method.trim() } : {}),
-      });
+        // Only sent when the full form is open. A half-filled form has no
+        // total, and sending stray attributes would imply one.
+        ...(cupping
+          ? { ...attributes, taint_cups: taints, fault_cups: faults, scored_at_table: true }
+          : {}),
+      };
+      const result = await saveMyReview(slug, payload);
       setItems(result.items);
       setSummary(result.summary);
       setEditing(false);
@@ -143,8 +178,11 @@ export function CoffeeNotes({ slug }: { slug: string }) {
         {summary.count > 0 ? (
           <span className="bc-muted" style={{ fontSize: '1rem', fontWeight: 400 }}>
             {' '}
-            · {summary.average} out of 5 from {summary.count}{' '}
+            · {summary.average_overall} overall from {summary.count}{' '}
             {summary.count === 1 ? 'person' : 'people'}
+            {summary.average_cupping !== null
+              ? ` · ${summary.average_cupping} cupping score from ${summary.cupped_count}`
+              : ''}
           </span>
         ) : null}
       </h2>
@@ -158,23 +196,114 @@ export function CoffeeNotes({ slug }: { slug: string }) {
         </p>
       ) : editing ? (
         <div className="bc-panel bc-stack">
-          <fieldset className="bc-rating" disabled={busy}>
-            <legend className="bc-kit__label">How was it?</legend>
-            {RATINGS.map((value) => (
-              <label key={value} className="bc-rating__option">
-                <input
-                  type="radio"
-                  name="coffee-rating"
-                  value={value}
-                  checked={rating === value}
-                  onChange={() => setRating(value)}
-                />
-                <span>
-                  {value} <span className="bc-muted">{RATING_WORD[value]}</span>
+          <span className="bc-field">
+            <label className="bc-kit__label" htmlFor="sca-overall">
+              Overall — the SCA scale, 6 to 10
+            </label>
+            <select
+              id="sca-overall"
+              className="bc-input"
+              value={overall || ''}
+              disabled={busy}
+              onChange={(event) => setOverall(Number(event.target.value))}
+            >
+              <option value="">Pick a score…</option>
+              {STEPS.map((value) => (
+                <option key={value} value={value}>
+                  {value.toFixed(2)} — {anchorFor(value)}
+                </option>
+              ))}
+            </select>
+            {/* The scale is not ours, and saying so is the point of using it. */}
+            <span className="bc-muted" style={{ fontSize: '0.85rem' }}>
+              The same scale a cupping table uses. 80+ across the full form is what
+              &ldquo;specialty&rdquo; means.
+            </span>
+          </span>
+
+          {!cupping ? (
+            <p style={{ marginBottom: 0 }}>
+              <button
+                type="button"
+                className="bc-link-button"
+                onClick={() => setCupping(true)}
+                disabled={busy}
+              >
+                Score the full cupping form
+              </button>{' '}
+              <span className="bc-muted">— nine more attributes, for a score out of 100.</span>
+            </p>
+          ) : (
+            <div className="bc-stack">
+              <div className="bc-sca-grid">
+                {SCA_FORM.map((field) => (
+                  <span className="bc-field" key={field.key}>
+                    <label className="bc-kit__label" htmlFor={`sca-${field.key}`}>
+                      {field.label}
+                    </label>
+                    <select
+                      id={`sca-${field.key}`}
+                      className="bc-input"
+                      value={attributes[field.key] ?? ''}
+                      disabled={busy}
+                      onChange={(event) =>
+                        setAttributes((current) => ({
+                          ...current,
+                          [field.key]: Number(event.target.value),
+                        }))
+                      }
+                    >
+                      <option value="">—</option>
+                      {STEPS.map((value) => (
+                        <option key={value} value={value}>
+                          {value.toFixed(2)}
+                        </option>
+                      ))}
+                    </select>
+                  </span>
+                ))}
+              </div>
+
+              <div className="bc-sca-grid">
+                <span className="bc-field">
+                  <label className="bc-kit__label" htmlFor="sca-taints">
+                    Tainted cups <span className="bc-muted">(−2 each)</span>
+                  </label>
+                  <input
+                    id="sca-taints"
+                    className="bc-input"
+                    type="number"
+                    min={0}
+                    max={5}
+                    value={taints}
+                    disabled={busy}
+                    onChange={(event) => setTaints(Number(event.target.value))}
+                  />
                 </span>
-              </label>
-            ))}
-          </fieldset>
+                <span className="bc-field">
+                  <label className="bc-kit__label" htmlFor="sca-faults">
+                    Faulty cups <span className="bc-muted">(−4 each)</span>
+                  </label>
+                  <input
+                    id="sca-faults"
+                    className="bc-input"
+                    type="number"
+                    min={0}
+                    max={5}
+                    value={faults}
+                    disabled={busy}
+                    onChange={(event) => setFaults(Number(event.target.value))}
+                  />
+                </span>
+              </div>
+
+              <p className="bc-muted" style={{ marginBottom: 0, fontSize: '0.85rem' }}>
+                All nine plus Overall gives a score out of 100. Leave any blank and the note
+                still counts — it simply has no total, which is honest rather than
+                approximate.
+              </p>
+            </div>
+          )}
 
           <span className="bc-field">
             <label className="bc-kit__label" htmlFor="note-body">
@@ -215,7 +344,7 @@ export function CoffeeNotes({ slug }: { slug: string }) {
             <button
               type="button"
               className="bc-button"
-              disabled={busy || rating === 0}
+              disabled={busy || overall === 0}
               onClick={() => void save()}
             >
               {busy ? 'Saving…' : mine ? 'Update my note' : 'Post my note'}
@@ -260,11 +389,16 @@ export function CoffeeNotes({ slug }: { slug: string }) {
           {items.map((item) => (
             <li key={item.id} className="bc-notes__item">
               <p className="bc-notes__head">
-                <strong>{item.rating}/5</strong>{' '}
+                <strong>
+                  {item.total_score !== null
+                    ? `${item.total_score}/100`
+                    : `${item.overall} overall`}
+                </strong>{' '}
                 <span className="bc-muted">
                   {item.author_display_name ?? (item.author_handle ? `@${item.author_handle}` : 'Someone')}
                   {item.is_mine ? ' · you' : ''}
                   {item.brew_method ? ` · ${item.brew_method}` : ''}
+                  {item.scored_at_table ? ' · cupped' : ''}
                 </span>
               </p>
               {item.body ? <p className="bc-notes__body">{item.body}</p> : null}

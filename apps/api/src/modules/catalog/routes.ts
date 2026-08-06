@@ -11,6 +11,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { authorize } from '../../lib/policy.js';
 import { badRequest, notFound, unauthorized } from '../../lib/errors.js';
 import { actorOf, loadRequireAuth } from './auth-seam.js';
+import { listOffers, upsertOffer, upsertVendor } from './offers.js';
 import {
   deleteCoffeeReview,
   listCoffeeReviews,
@@ -195,18 +196,58 @@ export async function registerCatalogRoutes(
 
   app.put<{
     Params: { slug: string };
-    Body: { rating?: number; body?: string; brew_method?: string };
+    Body: {
+      overall?: number;
+      fragrance_aroma?: number;
+      flavour?: number;
+      aftertaste?: number;
+      acidity?: number;
+      body_score?: number;
+      uniformity?: number;
+      balance?: number;
+      clean_cup?: number;
+      sweetness?: number;
+      taint_cups?: number;
+      fault_cups?: number;
+      scored_at_table?: boolean;
+      body?: string;
+      brew_method?: string;
+    };
   }>(`${prefix}/coffees/:slug/reviews/mine`, mutation, async (request) => {
     const userId = actorOf(request).userId;
     if (userId === null) throw unauthorized();
+
+    const sent = request.body ?? {};
+    // The nine optional attributes, collected only when actually supplied —
+    // sending `undefined` through would look like "scored 0" to a reader of the
+    // object, and the repository treats absent as absent.
+    const attributes: Record<string, number> = {};
+    for (const name of [
+      'fragrance_aroma',
+      'flavour',
+      'aftertaste',
+      'acidity',
+      'body_score',
+      'uniformity',
+      'balance',
+      'clean_cup',
+      'sweetness',
+    ] as const) {
+      const value = sent[name];
+      if (typeof value === 'number') attributes[name] = value;
+    }
 
     const coffeeId = await coffeeIdFor(request.params.slug);
     const review = await upsertCoffeeReview(db, {
       coffeeProductId: coffeeId,
       userId,
-      rating: Number(request.body?.rating),
-      body: request.body?.body ?? null,
-      brewMethod: request.body?.brew_method ?? null,
+      overall: Number(sent.overall),
+      attributes: attributes as never,
+      taintCups: sent.taint_cups ?? 0,
+      faultCups: sent.fault_cups ?? 0,
+      scoredAtTable: sent.scored_at_table === true,
+      body: sent.body ?? null,
+      brewMethod: sent.brew_method ?? null,
     });
     return {
       review,
@@ -255,6 +296,88 @@ export async function registerCatalogRoutes(
       };
     },
   );
+
+
+  // -------------------------------------------------------------------------
+  // Where to buy it (0018).
+  //
+  // Reads public; writes need an account. Anybody signed in may add an offer —
+  // the same bet the catalogue already makes, with the same safety net: every
+  // row records who submitted it and vendors are never verified by this path.
+  // -------------------------------------------------------------------------
+
+  app.get<{ Params: { slug: string } }>(
+    `${prefix}/coffees/:slug/offers`,
+    { schema: { params: slugParams } },
+    async (request) => {
+      await authorize(actorOf(request), 'read', 'coffee_product');
+      return { items: await listOffers(db, await coffeeIdFor(request.params.slug)) };
+    },
+  );
+
+  app.post<{
+    Params: { slug: string };
+    Body: {
+      vendor?: {
+        name?: string;
+        location?: string;
+        phone?: string;
+        whatsapp?: string;
+        email?: string;
+        website_url?: string;
+        instagram_url?: string;
+        facebook_url?: string;
+        maps_url?: string;
+        shop_url?: string;
+      };
+      size_grams?: number;
+      price_crc?: number;
+      price_usd?: number;
+      url?: string;
+      in_stock?: boolean;
+    };
+  }>(`${prefix}/coffees/:slug/offers`, mutation, async (request, reply) => {
+    const userId = actorOf(request).userId;
+    if (userId === null) throw unauthorized();
+
+    const sent = request.body ?? {};
+    const vendorName = sent.vendor?.name?.trim() ?? '';
+    if (vendorName === '') throw badRequest('Who sells it?');
+
+    const coffeeId = await coffeeIdFor(request.params.slug);
+    const vendor = await upsertVendor(db, {
+      name: vendorName,
+      location: sent.vendor?.location ?? null,
+      submittedBy: userId,
+      contact: {
+        ...(sent.vendor?.phone !== undefined ? { phone: sent.vendor.phone } : {}),
+        ...(sent.vendor?.whatsapp !== undefined ? { whatsapp: sent.vendor.whatsapp } : {}),
+        ...(sent.vendor?.email !== undefined ? { email: sent.vendor.email } : {}),
+        ...(sent.vendor?.website_url !== undefined ? { website_url: sent.vendor.website_url } : {}),
+        ...(sent.vendor?.instagram_url !== undefined
+          ? { instagram_url: sent.vendor.instagram_url }
+          : {}),
+        ...(sent.vendor?.facebook_url !== undefined
+          ? { facebook_url: sent.vendor.facebook_url }
+          : {}),
+        ...(sent.vendor?.maps_url !== undefined ? { maps_url: sent.vendor.maps_url } : {}),
+        ...(sent.vendor?.shop_url !== undefined ? { shop_url: sent.vendor.shop_url } : {}),
+      },
+    });
+
+    await upsertOffer(db, {
+      coffeeProductId: coffeeId,
+      vendorId: vendor.id,
+      sizeGrams: Number(sent.size_grams),
+      priceCrc: typeof sent.price_crc === 'number' ? sent.price_crc : null,
+      priceUsd: typeof sent.price_usd === 'number' ? sent.price_usd : null,
+      url: sent.url ?? null,
+      inStock: sent.in_stock,
+      submittedBy: userId,
+    });
+
+    return reply.status(201).send({ items: await listOffers(db, coffeeId) });
+  });
 
   app.get<{ Params: { slug: string } }>(
     `${prefix}/roasters/:slug`,

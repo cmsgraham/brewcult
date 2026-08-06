@@ -18,12 +18,69 @@
 import { badRequest, notFound } from '../../lib/errors.js';
 import type { CatalogDb } from './repository.js';
 
+/**
+ * The ten attributes of the SCA cupping form, in the order the form prints
+ * them. Exported because the UI renders the same list and a second copy would
+ * drift.
+ */
+export const SCA_ATTRIBUTES = [
+  'fragrance_aroma',
+  'flavour',
+  'aftertaste',
+  'acidity',
+  // `body_score`, not `body`, everywhere outside the cupping form itself: the
+  // prose column got the plain name first (0016) and a DTO with two `body`
+  // fields meaning different things is a bug waiting for a careless reader.
+  'body_score',
+  'uniformity',
+  'balance',
+  'clean_cup',
+  'sweetness',
+  'overall',
+] as const;
+
+export type ScaAttribute = (typeof SCA_ATTRIBUTES)[number];
+
+/**
+ * 6.00–10.00 in quarter points, per the protocol.
+ *
+ * The floor is 6 because the form exists to grade SPECIALTY coffee; anything
+ * below that has a defect, and defects are counted separately as taints and
+ * faults rather than by scoring an attribute at 3.
+ */
+export function isScaScore(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value >= 6 &&
+    value <= 10 &&
+    Number.isInteger(value * 4)
+  );
+}
+
 export interface CoffeeReview {
   id: string;
   coffee_product_id: string;
   author_handle: string | null;
   author_display_name: string | null;
-  rating: number;
+  /** SCA "Overall", 6.00–10.00. Always present. */
+  overall: number;
+  /** The full form, when one was filled in. */
+  fragrance_aroma: number | null;
+  flavour: number | null;
+  aftertaste: number | null;
+  acidity: number | null;
+  body_score: number | null;
+  uniformity: number | null;
+  balance: number | null;
+  clean_cup: number | null;
+  sweetness: number | null;
+  taint_cups: number;
+  fault_cups: number;
+  scored_at_table: boolean;
+  /** Out of 100. Null unless the whole form is present. */
+  total_score: number | null;
+  /** Their words. Not to be confused with `body_score`, which is the attribute. */
   body: string | null;
   brew_method: string | null;
   helpful_count: number;
@@ -35,8 +92,21 @@ export interface CoffeeReview {
 }
 
 export interface CoffeeRatingSummary {
-  /** Rounded to one decimal. Null when nobody has rated it. */
-  average: number | null;
+  /**
+   * The average SCA "Overall", 6–10. Null when nobody has scored it.
+   *
+   * This is the number every note carries, so it is the one that can be
+   * averaged across all of them.
+   */
+  average_overall: number | null;
+  /**
+   * The average full cupping score out of 100, across the notes that HAVE one.
+   * Null when nobody has cupped it — which is most coffees, and is why the two
+   * numbers are reported separately rather than mixed into one.
+   */
+  average_cupping: number | null;
+  /** How many of the notes were full cupping forms. */
+  cupped_count: number;
   count: number;
 }
 
@@ -45,7 +115,20 @@ const SELECT = `
          r.coffee_product_id::text AS coffee_product_id,
          u.handle                  AS author_handle,
          u.display_name            AS author_display_name,
-         r.rating                  AS rating,
+         r.overall::float8         AS overall,
+         r.fragrance_aroma::float8 AS fragrance_aroma,
+         r.flavour::float8         AS flavour,
+         r.aftertaste::float8      AS aftertaste,
+         r.acidity::float8         AS acidity,
+         r.body_score::float8      AS body_score,
+         r.uniformity::float8      AS uniformity,
+         r.balance::float8         AS balance,
+         r.clean_cup::float8       AS clean_cup,
+         r.sweetness::float8       AS sweetness,
+         r.taint_cups              AS taint_cups,
+         r.fault_cups              AS fault_cups,
+         r.scored_at_table         AS scored_at_table,
+         r.total_score::float8     AS total_score,
          r.body                    AS body,
          r.brew_method             AS brew_method,
          (SELECT count(*)::int FROM coffee_review_votes v WHERE v.review_id = r.id)
@@ -92,15 +175,25 @@ export async function ratingSummary(
   db: CatalogDb,
   coffeeProductId: string,
 ): Promise<CoffeeRatingSummary> {
-  const { rows } = await db.query<{ average: string | null; count: string }>(
-    `SELECT round(avg(rating)::numeric, 1)::text AS average, count(*)::text AS count
+  const { rows } = await db.query<{
+    average_overall: string | null;
+    average_cupping: string | null;
+    cupped_count: string;
+    count: string;
+  }>(
+    `SELECT round(avg(overall)::numeric, 2)::text     AS average_overall,
+            round(avg(total_score)::numeric, 2)::text AS average_cupping,
+            count(total_score)::text                  AS cupped_count,
+            count(*)::text                            AS count
        FROM coffee_reviews
       WHERE coffee_product_id = $1::uuid AND hidden_at IS NULL`,
     [coffeeProductId],
   );
   const row = rows[0];
   return {
-    average: row?.average ? Number(row.average) : null,
+    average_overall: row?.average_overall ? Number(row.average_overall) : null,
+    average_cupping: row?.average_cupping ? Number(row.average_cupping) : null,
+    cupped_count: Number(row?.cupped_count ?? 0),
     count: Number(row?.count ?? 0),
   };
 }
@@ -108,7 +201,13 @@ export async function ratingSummary(
 export interface UpsertReviewInput {
   coffeeProductId: string;
   userId: string;
-  rating: number;
+  /** SCA "Overall". The only score required of anybody. */
+  overall: number;
+  /** The other nine, all-or-nothing: a partial form has no total. */
+  attributes?: Partial<Record<Exclude<ScaAttribute, 'overall'>, number>>;
+  taintCups?: number;
+  faultCups?: number;
+  scoredAtTable?: boolean;
   body?: string | null;
   brewMethod?: string | null;
 }
@@ -124,23 +223,78 @@ export async function upsertCoffeeReview(
   db: CatalogDb,
   input: UpsertReviewInput,
 ): Promise<CoffeeReview> {
-  if (!Number.isInteger(input.rating) || input.rating < 1 || input.rating > 5) {
-    throw badRequest('Pick a rating from one to five.');
+  if (!isScaScore(input.overall)) {
+    throw badRequest('Score it from 6 to 10, in quarter points — the SCA scale.');
+  }
+  const attributes = input.attributes ?? {};
+  for (const [name, value] of Object.entries(attributes)) {
+    if (value === undefined || value === null) continue;
+    if (!isScaScore(value)) {
+      throw badRequest(`${name.replace(/_/g, ' ')} must be 6 to 10, in quarter points.`);
+    }
+  }
+  const taints = input.taintCups ?? 0;
+  const faults = input.faultCups ?? 0;
+  if (!Number.isInteger(taints) || taints < 0 || taints > 5) {
+    throw badRequest('Tainted cups: a whole number from 0 to 5.');
+  }
+  if (!Number.isInteger(faults) || faults < 0 || faults > 5) {
+    throw badRequest('Faulty cups: a whole number from 0 to 5.');
   }
   const body = input.body?.trim() || null;
   if (body && body.length > 4000) throw badRequest('That note is a bit long — 4000 characters or fewer.');
   const method = input.brewMethod?.trim() || null;
   if (method && method.length > 60) throw badRequest('Keep the method short — 60 characters or fewer.');
 
+  const attr = (name: Exclude<ScaAttribute, 'overall'>): number | null =>
+    attributes[name] ?? null;
+
   const { rows } = await db.query<{ id: string }>(
-    `INSERT INTO coffee_reviews (coffee_product_id, user_id, rating, body, brew_method)
-          VALUES ($1::uuid, $2::uuid, $3, $4, $5)
+    `INSERT INTO coffee_reviews
+            (coffee_product_id, user_id, overall, body, brew_method,
+             fragrance_aroma, flavour, aftertaste, acidity, body_score,
+             uniformity, balance, clean_cup, sweetness,
+             taint_cups, fault_cups, scored_at_table)
+          VALUES ($1::uuid, $2::uuid, $3, $4, $5,
+                  $6, $7, $8, $9, $10,
+                  $11, $12, $13, $14,
+                  $15, $16, $17)
      ON CONFLICT (coffee_product_id, user_id)
-     DO UPDATE SET rating = EXCLUDED.rating,
+     DO UPDATE SET overall = EXCLUDED.overall,
                    body = EXCLUDED.body,
-                   brew_method = EXCLUDED.brew_method
+                   brew_method = EXCLUDED.brew_method,
+                   fragrance_aroma = EXCLUDED.fragrance_aroma,
+                   flavour = EXCLUDED.flavour,
+                   aftertaste = EXCLUDED.aftertaste,
+                   acidity = EXCLUDED.acidity,
+                   body_score = EXCLUDED.body_score,
+                   uniformity = EXCLUDED.uniformity,
+                   balance = EXCLUDED.balance,
+                   clean_cup = EXCLUDED.clean_cup,
+                   sweetness = EXCLUDED.sweetness,
+                   taint_cups = EXCLUDED.taint_cups,
+                   fault_cups = EXCLUDED.fault_cups,
+                   scored_at_table = EXCLUDED.scored_at_table
        RETURNING id::text AS id`,
-    [input.coffeeProductId, input.userId, input.rating, body, method],
+    [
+      input.coffeeProductId,
+      input.userId,
+      input.overall,
+      body,
+      method,
+      attr('fragrance_aroma'),
+      attr('flavour'),
+      attr('aftertaste'),
+      attr('acidity'),
+      attr('body_score'),
+      attr('uniformity'),
+      attr('balance'),
+      attr('clean_cup'),
+      attr('sweetness'),
+      taints,
+      faults,
+      input.scoredAtTable === true,
+    ],
   );
 
   const id = rows[0]?.id;

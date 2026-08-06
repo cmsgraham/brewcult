@@ -225,15 +225,38 @@
 
 /* --- entity image ------------------------------------------------- */
 
+/*
+ * A coffee bag is TALL. A 4:3 box with `object-fit: cover` cropped the middle
+ * out of every one of them — which on a bag means losing the roaster's mark at
+ * the top and the roast date at the bottom, i.e. the two things somebody is
+ * looking at the picture to read.
+ *
+ * So: a portrait box, and `contain` rather than `cover`. Contain letterboxes a
+ * landscape picture instead of cropping it, which is the right trade here —
+ * these are photographs of objects, not scenery, and a whole object in a
+ * slightly empty frame beats a cropped one that fills it.
+ */
 .entityImage {
   display: block;
   width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
+  aspect-ratio: 3 / 4;
+  object-fit: contain;
+  object-position: center;
   border-radius: var(--bc-radius-sm);
   border: 1px solid var(--bc-line);
   background: var(--bc-surface);
   margin-bottom: 0.35rem;
+}
+
+/*
+ * On a detail page there is no grid to keep tidy, so the picture is bounded by
+ * height and allowed to be whatever shape it actually is.
+ */
+.entityImageHero {
+  aspect-ratio: auto;
+  max-height: 24rem;
+  width: auto;
+  max-width: 100%;
 }
 
 .entityImageSquare {

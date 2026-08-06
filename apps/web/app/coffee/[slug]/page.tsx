@@ -21,6 +21,7 @@ import {
   processCopy,
 } from '../../../components/catalog/copy';
 import { CoffeeNotes } from '../../../components/coffee/coffee-notes';
+import { CoffeeOffers } from '../../../components/coffee/coffee-offers';
 import { EntityImage } from '../../../components/media/entity-image';
 import { FreshnessSection } from '../../../components/catalog/freshness';
 import { StartingRecipeCard } from '../../../components/ai/starting-recipe';
@@ -167,7 +168,11 @@ export default async function CoffeeDetailPage({ params }: PageProps) {
           that exists for six weeks, that is the only picture there will ever
           be. `EntityImage` renders nothing at all when there is none, rather
           than a grey placeholder pretending to be one. */}
-      <EntityImage entity={coffee} alt={`${coffee.roaster?.name ?? ''} ${coffee.name}`.trim()} />
+      <EntityImage
+        entity={coffee}
+        alt={`${coffee.roaster?.name ?? ''} ${coffee.name}`.trim()}
+        shape="hero"
+      />
       <header className={styles.header}>
         <p className={styles.eyebrow}>Coffee</p>
         <h1>{coffee.name}</h1>
@@ -271,6 +276,11 @@ export default async function CoffeeDetailPage({ params }: PageProps) {
         the SEO landing page — 300 seconds of shared cache is worth more than
         rendering one sentence server-side.
       */}
+      {/* Prices before opinions: somebody who has decided they want this coffee
+          is looking for where to get it, and that answer should not be below a
+          page of tasting notes. */}
+      <CoffeeOffers slug={slug} />
+
       <CoffeeNotes slug={slug} />
       <StartingRecipeCard coffeeProductId={coffee.id} coffeeName={coffee.name} />
 
