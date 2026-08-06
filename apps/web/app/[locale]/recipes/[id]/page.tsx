@@ -1,14 +1,10 @@
 import { type Metadata } from 'next';
+import { localeParam } from '../../../../lib/locale-server';
 import Link from 'next/link';
 import { Breadcrumbs } from '../../../../components/catalog/breadcrumbs';
 import { loadRecipe, type RecipeView } from '../../../../components/catalog/catalog-api';
 import styles from '../../../../components/catalog/catalog.module.css';
-import {
-  METHOD_LABEL,
-  RECIPE_STARTING_POINT_COPY,
-  duration,
-  grindCategoryLabel,
-} from '../../../../components/catalog/copy';
+import { catalogCopy, duration, grindCategoryLabel } from '../../../../components/catalog/copy';
 import { authorName } from '../../../../components/catalog/entity-cards';
 import { JsonLd, readCspNonce } from '../../../../components/catalog/json-ld';
 import {
@@ -45,10 +41,12 @@ import { breadcrumbJsonLd, recipeJsonLd } from '../../../../lib/structured-data'
 export const revalidate = 300;
 
 interface PageProps {
-  params: Promise<{ id: string }>;
+  params: Promise<{ id: string; locale: string }>;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const locale = localeParam((await params).locale);
+  const copy = catalogCopy(locale);
   const { id } = await params;
   const result = await loadRecipe(id);
   if (result.status !== 'ok') return notFoundMetadata('Recipe');
@@ -57,7 +55,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return recipeMetadata({
     id: recipe.id,
     title: recipe.title,
-    methodLabel: METHOD_LABEL[recipe.method] ?? recipe.method,
+    methodLabel: copy.METHOD_LABEL[recipe.method] ?? recipe.method,
     brewerName: recipe.brewer?.name ?? null,
     coffeeName: recipe.coffee?.name ?? null,
     authorName: authorName(recipe.author),
@@ -142,6 +140,8 @@ function totalSeconds(recipe: RecipeView): number | null {
 }
 
 export default async function RecipeDetailPage({ params }: PageProps) {
+  const locale = localeParam((await params).locale);
+  const copy = catalogCopy(locale);
   const { id } = await params;
   const [result, nonce] = await Promise.all([loadRecipe(id), readCspNonce()]);
 
@@ -172,7 +172,7 @@ export default async function RecipeDetailPage({ params }: PageProps) {
   }
 
   const recipe = result.data;
-  const method = METHOD_LABEL[recipe.method] ?? recipe.method;
+  const method = copy.METHOD_LABEL[recipe.method] ?? recipe.method;
   const author = authorName(recipe.author);
   const total = totalSeconds(recipe);
 
@@ -236,7 +236,7 @@ export default async function RecipeDetailPage({ params }: PageProps) {
 
         <Explainer>
           <p>
-            <strong>This is a starting point, not a rule.</strong> {RECIPE_STARTING_POINT_COPY}
+            <strong>This is a starting point, not a rule.</strong> {copy.RECIPE_STARTING_POINT_COPY}
           </p>
         </Explainer>
 

@@ -72,7 +72,7 @@ beforeEach(() => {
 describe('/recipes/[id] — filter recipe', () => {
   const renderRecipe = async () => {
     mockApi({ [`/api/v1/recipes/${FILTER_RECIPE.id}`]: { body: FILTER_RECIPE } });
-    return render(await RecipeDetailPage({ params: Promise.resolve({ id: FILTER_RECIPE.id }) }));
+    return render(await RecipeDetailPage({ params: Promise.resolve({ id: FILTER_RECIPE.id, locale: 'en' }) }));
   };
 
   it('renders dose, water, ratio, temperature and total time', async () => {
@@ -164,7 +164,7 @@ describe('/recipes/[id] — filter recipe', () => {
 
   it('produces canonical + OG metadata', async () => {
     mockApi({ [`/api/v1/recipes/${FILTER_RECIPE.id}`]: { body: FILTER_RECIPE } });
-    const metadata = await generateMetadata({ params: Promise.resolve({ id: FILTER_RECIPE.id }) });
+    const metadata = await generateMetadata({ params: Promise.resolve({ id: FILTER_RECIPE.id, locale: 'en' }) });
 
     expect(metadata.alternates?.canonical).toBe(`/recipes/${FILTER_RECIPE.id}`);
     expect(metadata.openGraph?.url).toBe(`https://brewcult.coffee/recipes/${FILTER_RECIPE.id}`);
@@ -179,7 +179,7 @@ describe('/recipes/[id] — espresso and fork lineage', () => {
       [`/api/v1/recipes/${FORKED_ESPRESSO_RECIPE.id}`]: { body: FORKED_ESPRESSO_RECIPE },
     });
     return render(
-      await RecipeDetailPage({ params: Promise.resolve({ id: FORKED_ESPRESSO_RECIPE.id }) }),
+      await RecipeDetailPage({ params: Promise.resolve({ id: FORKED_ESPRESSO_RECIPE.id, locale: 'en' }) }),
     );
   };
 
@@ -223,7 +223,7 @@ describe('/recipes/[id] — the API not existing yet', () => {
   it('explains rather than 404s when the recipes route is missing', async () => {
     mockApi({ '/api/v1/recipes': { status: 404 } });
 
-    render(await RecipeDetailPage({ params: Promise.resolve({ id: 'some-id' }) }));
+    render(await RecipeDetailPage({ params: Promise.resolve({ id: 'some-id', locale: 'en' }) }));
 
     expect(
       screen.getByRole('heading', { level: 1, name: 'Recipes are not switched on yet' }),
@@ -235,13 +235,13 @@ describe('/recipes/[id] — the API not existing yet', () => {
 
   it('marks a missing recipe noindex so a stub page cannot be indexed', async () => {
     mockApi({ '/api/v1/recipes': { status: 404 } });
-    const metadata = await generateMetadata({ params: Promise.resolve({ id: 'some-id' }) });
+    const metadata = await generateMetadata({ params: Promise.resolve({ id: 'some-id', locale: 'en' }) });
     expect(metadata.robots).toEqual({ index: false, follow: false });
   });
 
   it('distinguishes a server error from a missing endpoint', async () => {
     mockApi({ '/api/v1/recipes': { status: 500, body: { error: 'internal' } } });
-    render(await RecipeDetailPage({ params: Promise.resolve({ id: 'some-id' }) }));
+    render(await RecipeDetailPage({ params: Promise.resolve({ id: 'some-id', locale: 'en' }) }));
     expect(
       screen.getByRole('heading', { name: 'We could not load this recipe' }),
     ).toBeInTheDocument();
@@ -256,7 +256,7 @@ describe('/recipes', () => {
   it('lists recipes and links each one', async () => {
     mockApi({ '/api/v1/recipes': { body: page([FILTER_RECIPE, FORKED_ESPRESSO_RECIPE]) } });
 
-    render(await RecipeHubPage({ searchParams: Promise.resolve({}) }));
+    render(await RecipeHubPage({ params: Promise.resolve({ locale: 'en' }), searchParams: Promise.resolve({}) }));
 
     expect(screen.getByRole('link', { name: 'Chelbesa on the V60 — 1:16, gentle' })).toHaveAttribute(
       'href',
@@ -272,9 +272,7 @@ describe('/recipes', () => {
     });
 
     render(
-      await RecipeHubPage({
-        searchParams: Promise.resolve({ coffee: 'cascara-ethiopia-chelbesa-washed' }),
-      }),
+      await RecipeHubPage({ params: Promise.resolve({ locale: 'en' }), searchParams: Promise.resolve({ coffee: 'cascara-ethiopia-chelbesa-washed' }) }),
     );
 
     const calls = (globalThis.fetch as unknown as { mock: { calls: string[][] } }).mock.calls;
@@ -293,7 +291,7 @@ describe('/recipes', () => {
       '/api/v1/recipes': { body: page([FILTER_RECIPE]) },
     });
 
-    render(await RecipeHubPage({ searchParams: Promise.resolve({ brewer: 'chemex-6-cup' }) }));
+    render(await RecipeHubPage({ params: Promise.resolve({ locale: 'en' }), searchParams: Promise.resolve({ brewer: 'chemex-6-cup' }) }));
 
     const calls = (globalThis.fetch as unknown as { mock: { calls: string[][] } }).mock.calls;
     const recipesCall = calls
@@ -309,7 +307,7 @@ describe('/recipes', () => {
     mockApi({ '/api/v1/recipes': { body: page([FILTER_RECIPE]) } });
 
     const { container } = render(
-      await RecipeHubPage({ searchParams: Promise.resolve({ coffee: 'no-such-coffee' }) }),
+      await RecipeHubPage({ params: Promise.resolve({ locale: 'en' }), searchParams: Promise.resolve({ coffee: 'no-such-coffee' }) }),
     );
     expect(container.textContent).toContain('so that filter was ignored');
   });
@@ -317,7 +315,7 @@ describe('/recipes', () => {
   it('explains itself while the recipes API is still being built', async () => {
     mockApi({ '/api/v1/recipes': { status: 404 } });
 
-    const { container } = render(await RecipeHubPage({ searchParams: Promise.resolve({}) }));
+    const { container } = render(await RecipeHubPage({ params: Promise.resolve({ locale: 'en' }), searchParams: Promise.resolve({}) }));
     expect(container.textContent).toContain('Recipes are not switched on yet');
     expect(screen.getByRole('link', { name: 'the equipment pages' })).toHaveAttribute(
       'href',

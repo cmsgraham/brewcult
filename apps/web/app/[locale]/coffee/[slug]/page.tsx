@@ -11,14 +11,9 @@ import {
 import { CoffeeCard } from '../../../../components/catalog/entity-cards';
 import styles from '../../../../components/catalog/catalog.module.css';
 import {
-  INTENDED_USE_COPY,
-  INTENDED_USE_LABEL,
-  PROCESS_LABEL,
-  ROAST_LEVEL_COPY,
-  ROAST_LEVEL_LABEL,
-  STATUS_COPY,
+  catalogCopy,
   originLabel,
-  processCopy,
+  processCopyFor,
 } from '../../../../components/catalog/copy';
 import { CoffeeNotes } from '../../../../components/coffee/coffee-notes';
 import { CoffeeOffers } from '../../../../components/coffee/coffee-offers';
@@ -56,14 +51,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (result.status !== 'ok') return notFoundMetadata('Coffee');
 
   const coffee = result.data;
+  const copy = catalogCopy(locale);
   return {
     ...coffeeMetadata({
       slug: coffee.slug,
       name: coffee.name,
       roasterName: coffee.roaster?.name ?? 'an independent roaster',
       originLabel: originLabel(coffee.origin),
-      processLabel: coffee.process ? PROCESS_LABEL[coffee.process] : null,
-      roastLevelLabel: coffee.roast_level ? ROAST_LEVEL_LABEL[coffee.roast_level] : null,
+      processLabel: coffee.process ? copy.PROCESS_LABEL[coffee.process] : null,
+      roastLevelLabel: coffee.roast_level ? copy.ROAST_LEVEL_LABEL[coffee.roast_level] : null,
       tastingNotes: coffee.tasting_notes ?? [],
     }),
     // hreflang for the coffee that IS this coffee in the other language —
@@ -73,9 +69,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 /** Lede sentence — assembled from real data so no two pages read identically. */
-function ledeFor(coffee: CoffeeDetail): string {
+function ledeFor(coffee: CoffeeDetail, locale: string): string {
+  const copy = catalogCopy(locale);
   const where = originLabel(coffee.origin);
-  const process = coffee.process ? PROCESS_LABEL[coffee.process].toLowerCase() : null;
+  const process = coffee.process ? copy.PROCESS_LABEL[coffee.process].toLowerCase() : null;
   const notes = coffee.tasting_notes?.length
     ? `The roaster tastes ${coffee.tasting_notes.join(', ')} in it.`
     : null;
@@ -88,7 +85,9 @@ function ledeFor(coffee: CoffeeDetail): string {
 }
 
 export default async function CoffeeDetailPage({ params }: PageProps) {
-  const { slug } = await params;
+  const { slug, locale: rawLocale } = await params;
+  const locale = localeParam(rawLocale);
+  const copy = catalogCopy(locale);
   const result = await loadCoffee(slug);
 
   // A hard 404 for a slug that does not exist; a soft error page would be
@@ -152,12 +151,12 @@ export default async function CoffeeDetailPage({ params }: PageProps) {
           coffeeProductJsonLd({
             slug: coffee.slug,
             name: coffee.name,
-            description: ledeFor(coffee),
+            description: ledeFor(coffee, locale),
             roaster: { name: coffee.roaster.name, slug: coffee.roaster.slug },
-            roastLevel: coffee.roast_level ? ROAST_LEVEL_LABEL[coffee.roast_level] : null,
-            intendedUse: coffee.intended_use ? INTENDED_USE_LABEL[coffee.intended_use] : null,
+            roastLevel: coffee.roast_level ? copy.ROAST_LEVEL_LABEL[coffee.roast_level] : null,
+            intendedUse: coffee.intended_use ? copy.INTENDED_USE_LABEL[coffee.intended_use] : null,
             tastingNotes: coffee.tasting_notes ?? [],
-            process: coffee.process ? PROCESS_LABEL[coffee.process] : null,
+            process: coffee.process ? copy.PROCESS_LABEL[coffee.process] : null,
             varietals: lot?.varietals ?? [],
             altitudeMasl: lot?.altitude_masl ?? null,
             harvestPeriod: lot?.harvest_period ?? null,
@@ -188,9 +187,9 @@ export default async function CoffeeDetailPage({ params }: PageProps) {
             Roasted by <Link href={`/roaster/${coffee.roaster.slug}`}>{coffee.roaster.name}</Link>
           </p>
         ) : null}
-        <p className="bc-lede">{ledeFor(coffee)}</p>
+        <p className="bc-lede">{ledeFor(coffee, locale)}</p>
         {coffee.status !== 'active' ? (
-          <p className="bc-muted">{STATUS_COPY[coffee.status]}</p>
+          <p className="bc-muted">{copy.STATUS_COPY[coffee.status]}</p>
         ) : null}
       </header>
 
@@ -217,7 +216,7 @@ export default async function CoffeeDetailPage({ params }: PageProps) {
             { label: 'Farm or station', value: lot?.farm?.name ?? null },
             {
               label: 'Process',
-              value: coffee.process ? PROCESS_LABEL[coffee.process] : null,
+              value: coffee.process ? copy.PROCESS_LABEL[coffee.process] : null,
               ...(coffee.process ? { href: `/coffee?process=${coffee.process}` } : {}),
             },
             { label: 'Process detail', value: lot?.process_detail ?? null },
@@ -226,12 +225,12 @@ export default async function CoffeeDetailPage({ params }: PageProps) {
             { label: 'Harvest', value: lot?.harvest_period ?? null },
             {
               label: 'Roast level',
-              value: coffee.roast_level ? ROAST_LEVEL_LABEL[coffee.roast_level] : null,
+              value: coffee.roast_level ? copy.ROAST_LEVEL_LABEL[coffee.roast_level] : null,
               ...(coffee.roast_level ? { href: `/coffee?roast_level=${coffee.roast_level}` } : {}),
             },
             {
               label: 'Best for',
-              value: coffee.intended_use ? INTENDED_USE_LABEL[coffee.intended_use] : null,
+              value: coffee.intended_use ? copy.INTENDED_USE_LABEL[coffee.intended_use] : null,
               ...(coffee.intended_use ? { href: `/coffee?intended_use=${coffee.intended_use}` } : {}),
             },
           ]}
@@ -253,22 +252,22 @@ export default async function CoffeeDetailPage({ params }: PageProps) {
 
       <section className={styles.section} aria-labelledby="what-this-means">
         <h2 id="what-this-means">What that actually means in the cup</h2>
-        {coffee.process && processCopy(coffee.process) ? (
+        {coffee.process && processCopyFor(coffee.process, locale) ? (
           <>
-            <h3>{PROCESS_LABEL[coffee.process]} process</h3>
-            <p>{processCopy(coffee.process)}</p>
+            <h3>{copy.PROCESS_LABEL[coffee.process]} process</h3>
+            <p>{processCopyFor(coffee.process, locale)}</p>
           </>
         ) : null}
         {coffee.roast_level ? (
           <>
-            <h3>{ROAST_LEVEL_LABEL[coffee.roast_level]} roast</h3>
-            <p>{ROAST_LEVEL_COPY[coffee.roast_level]}</p>
+            <h3>{copy.ROAST_LEVEL_LABEL[coffee.roast_level]} roast</h3>
+            <p>{copy.ROAST_LEVEL_COPY[coffee.roast_level]}</p>
           </>
         ) : null}
         {coffee.intended_use ? (
           <>
-            <h3>Brewed as {INTENDED_USE_LABEL[coffee.intended_use].toLowerCase()}</h3>
-            <p>{INTENDED_USE_COPY[coffee.intended_use]}</p>
+            <h3>Brewed as {copy.INTENDED_USE_LABEL[coffee.intended_use].toLowerCase()}</h3>
+            <p>{copy.INTENDED_USE_COPY[coffee.intended_use]}</p>
           </>
         ) : null}
       </section>
@@ -341,7 +340,7 @@ export default async function CoffeeDetailPage({ params }: PageProps) {
           {coffee.process ? (
             <li>
               <Link href={`/coffee?process=${coffee.process}`}>
-                More {PROCESS_LABEL[coffee.process].toLowerCase()} coffees
+                More {copy.PROCESS_LABEL[coffee.process].toLowerCase()} coffees
               </Link>
             </li>
           ) : null}

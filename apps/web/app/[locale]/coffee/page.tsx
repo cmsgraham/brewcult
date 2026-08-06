@@ -1,4 +1,5 @@
 import { type Metadata } from 'next';
+import { localeParam } from '../../../lib/locale-server';
 import Link from 'next/link';
 import { Breadcrumbs } from '../../../components/catalog/breadcrumbs';
 import {
@@ -10,11 +11,7 @@ import {
   type CoffeeSummary,
 } from '../../../components/catalog/catalog-api';
 import styles from '../../../components/catalog/catalog.module.css';
-import {
-  INTENDED_USE_LABEL,
-  PROCESS_LABEL,
-  ROAST_LEVEL_LABEL,
-} from '../../../components/catalog/copy';
+import { catalogCopy } from '../../../components/catalog/copy';
 import { CoffeeCard } from '../../../components/catalog/entity-cards';
 import { FilterBar, Pagination } from '../../../components/catalog/filter-bar';
 import { JsonLd, readCspNonce } from '../../../components/catalog/json-ld';
@@ -37,6 +34,7 @@ export const revalidate = 300;
 const PAGE_SIZE = 24;
 
 interface PageProps {
+  params: Promise<{ locale: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
@@ -68,14 +66,18 @@ function readFilters(searchParams: Record<string, string | string[] | undefined>
 
 /** "Washed Ethiopian coffee" — a real title for a real query, built from the
  *  active facets rather than a generic "Coffee (filtered)". */
-function titleFor(filters: ReturnType<typeof readFilters>): { title: string; description: string } {
+function titleFor(
+  filters: ReturnType<typeof readFilters>,
+  locale: string,
+): { title: string; description: string } {
+  const copy = catalogCopy(locale);
   const parts: string[] = [];
-  if (filters.roast_level) parts.push(ROAST_LEVEL_LABEL[filters.roast_level].toLowerCase());
-  if (filters.process) parts.push(PROCESS_LABEL[filters.process].toLowerCase());
+  if (filters.roast_level) parts.push(copy.ROAST_LEVEL_LABEL[filters.roast_level].toLowerCase());
+  if (filters.process) parts.push(copy.PROCESS_LABEL[filters.process].toLowerCase());
   const noun = parts.length > 0 ? `${parts.join(' ')} coffee` : 'coffee';
   const where = filters.origin ? ` from ${filters.origin}` : '';
   const use = filters.intended_use
-    ? ` for ${INTENDED_USE_LABEL[filters.intended_use].toLowerCase()}`
+    ? ` for ${copy.INTENDED_USE_LABEL[filters.intended_use].toLowerCase()}`
     : '';
 
   const headline = `${noun.charAt(0).toUpperCase()}${noun.slice(1)}${where}${use}`;
@@ -85,24 +87,27 @@ function titleFor(filters: ReturnType<typeof readFilters>): { title: string; des
   };
 }
 
-export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
-  const params = await searchParams;
-  const filters = readFilters(params);
-  const { title, description } = titleFor(filters);
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
+  const locale = localeParam((await params).locale);
+  const search = await searchParams;
+  const filters = readFilters(search);
+  const { title, description } = titleFor(filters, locale);
 
   return hubMetadata({
     title,
     description,
     basePath: '/coffee',
     filters,
-    cursor: one(params['cursor']),
+    cursor: one(search['cursor']),
   });
 }
 
-export default async function CoffeeHubPage({ searchParams }: PageProps) {
-  const params = await searchParams;
-  const filters = readFilters(params);
-  const cursor = one(params['cursor']);
+export default async function CoffeeHubPage({ params, searchParams }: PageProps) {
+  const locale = localeParam((await params).locale);
+  const copy = catalogCopy(locale);
+  const search = await searchParams;
+  const filters = readFilters(search);
+  const cursor = one(search['cursor']);
 
   const [result, origins, nonce] = await Promise.all([
     loadCoffees({ ...filters, cursor, limit: PAGE_SIZE }),
@@ -112,7 +117,7 @@ export default async function CoffeeHubPage({ searchParams }: PageProps) {
 
   const coffees: CoffeeSummary[] = result.status === 'ok' ? result.data.items : [];
   const nextCursor = result.status === 'ok' ? result.data.next_cursor : null;
-  const { title } = titleFor(filters);
+  const { title } = titleFor(filters, locale);
   const hasActiveFilters = Object.values(filters).some((value) => value !== undefined);
 
   const breadcrumbs = [
@@ -165,7 +170,7 @@ export default async function CoffeeHubPage({ searchParams }: PageProps) {
             selected: filters.process,
             options: LOT_PROCESSES.map((process) => ({
               value: process,
-              label: PROCESS_LABEL[process],
+              label: copy.PROCESS_LABEL[process],
             })),
           },
           {
@@ -175,7 +180,7 @@ export default async function CoffeeHubPage({ searchParams }: PageProps) {
             selected: filters.roast_level,
             options: ROAST_LEVELS.map((level) => ({
               value: level,
-              label: ROAST_LEVEL_LABEL[level],
+              label: copy.ROAST_LEVEL_LABEL[level],
             })),
           },
           {
@@ -183,7 +188,7 @@ export default async function CoffeeHubPage({ searchParams }: PageProps) {
             label: 'Brewed as',
             anyLabel: 'Either',
             selected: filters.intended_use,
-            options: INTENDED_USES.map((use) => ({ value: use, label: INTENDED_USE_LABEL[use] })),
+            options: INTENDED_USES.map((use) => ({ value: use, label: copy.INTENDED_USE_LABEL[use] })),
           },
         ]}
       />

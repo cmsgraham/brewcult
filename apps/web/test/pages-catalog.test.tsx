@@ -241,7 +241,7 @@ describe('/coffee', () => {
       '/api/v1/origins': { body: ORIGINS },
     });
 
-    const { container } = render(await CoffeeHubPage({ searchParams: Promise.resolve({}) }));
+    const { container } = render(await CoffeeHubPage({ params: Promise.resolve({ locale: 'en' }), searchParams: Promise.resolve({}) }));
 
     expect(screen.getByRole('link', { name: 'Ethiopia Chelbesa, Washed' })).toHaveAttribute(
       'href',
@@ -267,9 +267,7 @@ describe('/coffee', () => {
     });
 
     render(
-      await CoffeeHubPage({
-        searchParams: Promise.resolve({ origin: 'Ethiopia', process: 'washed' }),
-      }),
+      await CoffeeHubPage({ params: Promise.resolve({ locale: 'en' }), searchParams: Promise.resolve({ origin: 'Ethiopia', process: 'washed' }) }),
     );
 
     expect(
@@ -285,7 +283,7 @@ describe('/coffee', () => {
       '/api/v1/origins': { body: ORIGINS },
     });
 
-    render(await CoffeeHubPage({ searchParams: Promise.resolve({ process: 'not-a-process' }) }));
+    render(await CoffeeHubPage({ params: Promise.resolve({ locale: 'en' }), searchParams: Promise.resolve({ process: 'not-a-process' }) }));
 
     const calls = (globalThis.fetch as unknown as { mock: { calls: string[][] } }).mock.calls;
     const coffeeCall = calls.map((call) => String(call[0])).find((url) => url.includes('/coffees'));
@@ -299,7 +297,7 @@ describe('/coffee', () => {
     });
 
     const { container } = render(
-      await CoffeeHubPage({ searchParams: Promise.resolve({ origin: 'Kenya' }) }),
+      await CoffeeHubPage({ params: Promise.resolve({ locale: 'en' }), searchParams: Promise.resolve({ origin: 'Kenya' }) }),
     );
     expect(container.textContent).toContain('Nothing matches those filters yet');
     expect(screen.getByRole('link', { name: 'Clear the filters' })).toBeInTheDocument();
@@ -516,7 +514,7 @@ describe('/equipment', () => {
       '/api/v1/equipment': { body: page([GRINDER_DETAIL, BREWER_DETAIL]) },
     });
 
-    render(await EquipmentHubPage({ searchParams: Promise.resolve({}) }));
+    render(await EquipmentHubPage({ params: Promise.resolve({ locale: 'en' }), searchParams: Promise.resolve({}) }));
 
     expect(screen.getByRole('link', { name: 'Mahlkönig X54 Allround' })).toHaveAttribute(
       'href',
@@ -532,7 +530,7 @@ describe('/equipment', () => {
       '/api/v1/equipment': { body: page([GRINDER_DETAIL]) },
     });
 
-    render(await EquipmentHubPage({ searchParams: Promise.resolve({ category: 'grinder' }) }));
+    render(await EquipmentHubPage({ params: Promise.resolve({ locale: 'en' }), searchParams: Promise.resolve({ category: 'grinder' }) }));
     expect(screen.getByRole('heading', { level: 1, name: 'Grinders' })).toBeInTheDocument();
   });
 
@@ -542,7 +540,7 @@ describe('/equipment', () => {
       '/api/v1/equipment': { body: page([GRINDER_DETAIL]) },
     });
 
-    render(await EquipmentHubPage({ searchParams: Promise.resolve({}) }));
+    render(await EquipmentHubPage({ params: Promise.resolve({ locale: 'en' }), searchParams: Promise.resolve({}) }));
     // Grid still renders; the brand select degrades to "any brand" only.
     expect(screen.getByRole('link', { name: 'Mahlkönig X54 Allround' })).toBeInTheDocument();
     expect(within(screen.getByLabelText('Brand')).getAllByRole('option')).toHaveLength(1);

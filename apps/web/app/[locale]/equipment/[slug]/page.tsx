@@ -1,4 +1,5 @@
 import { type Metadata } from 'next';
+import { localeParam } from '../../../../lib/locale-server';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Breadcrumbs } from '../../../../components/catalog/breadcrumbs';
@@ -9,12 +10,7 @@ import {
   type EquipmentDetail,
 } from '../../../../components/catalog/catalog-api';
 import styles from '../../../../components/catalog/catalog.module.css';
-import {
-  EQUIPMENT_CATEGORY_COPY,
-  EQUIPMENT_CATEGORY_LABEL,
-  GRIND_SCALE_COPY,
-  humanize,
-} from '../../../../components/catalog/copy';
+import { catalogCopy, humanize } from '../../../../components/catalog/copy';
 import { GrindConversionSection } from '../../../../components/catalog/grind-conversion';
 import { JsonLd, readCspNonce } from '../../../../components/catalog/json-ld';
 import { RecipesSection } from '../../../../components/catalog/recipes-section';
@@ -36,10 +32,12 @@ import { breadcrumbJsonLd, equipmentProductJsonLd } from '../../../../lib/struct
 export const revalidate = 300;
 
 interface PageProps {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ slug: string; locale: string }>;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const locale = localeParam((await params).locale);
+  const copy = catalogCopy(locale);
   const { slug } = await params;
   const result = await loadEquipment(slug);
   if (result.status !== 'ok') return notFoundMetadata('Equipment');
@@ -49,7 +47,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     slug: equipment.slug,
     name: equipment.name,
     brandName: equipment.brand?.name ?? '',
-    categoryLabel: EQUIPMENT_CATEGORY_LABEL[equipment.category] ?? equipment.category,
+    categoryLabel: copy.EQUIPMENT_CATEGORY_LABEL[equipment.category] ?? equipment.category,
     isGrinder: equipment.category === 'grinder',
   });
 }
@@ -73,6 +71,8 @@ function specRows(specs: EquipmentDetail['specs']): SpecRow[] {
 }
 
 export default async function EquipmentDetailPage({ params }: PageProps) {
+  const locale = localeParam((await params).locale);
+  const copy = catalogCopy(locale);
   const { slug } = await params;
   const result = await loadEquipment(slug);
 
@@ -106,7 +106,7 @@ export default async function EquipmentDetailPage({ params }: PageProps) {
     readCspNonce(),
   ]);
 
-  const categoryLabel = EQUIPMENT_CATEGORY_LABEL[equipment.category] ?? equipment.category;
+  const categoryLabel = copy.EQUIPMENT_CATEGORY_LABEL[equipment.category] ?? equipment.category;
   const breadcrumbs = [
     { name: 'Home', path: '/' },
     { name: 'Equipment', path: '/equipment' },
@@ -148,7 +148,7 @@ export default async function EquipmentDetailPage({ params }: PageProps) {
             </Link>
           </p>
         ) : null}
-        <p className="bc-lede">{EQUIPMENT_CATEGORY_COPY[equipment.category]}</p>
+        <p className="bc-lede">{copy.EQUIPMENT_CATEGORY_COPY[equipment.category]}</p>
       </header>
 
       <section aria-labelledby="specs">
@@ -180,7 +180,7 @@ export default async function EquipmentDetailPage({ params }: PageProps) {
           </p>
         ) : null}
         {equipment.grind_scale_type ? (
-          <p className="bc-muted">{GRIND_SCALE_COPY[equipment.grind_scale_type]}</p>
+          <p className="bc-muted">{copy.GRIND_SCALE_COPY[equipment.grind_scale_type]}</p>
         ) : null}
       </section>
 

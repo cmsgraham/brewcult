@@ -1,4 +1,5 @@
 import { type Metadata } from 'next';
+import { localeParam } from '../../../lib/locale-server';
 import Link from 'next/link';
 import { Breadcrumbs } from '../../../components/catalog/breadcrumbs';
 import {
@@ -8,7 +9,7 @@ import {
   type RecipeView,
 } from '../../../components/catalog/catalog-api';
 import styles from '../../../components/catalog/catalog.module.css';
-import { METHOD_LABEL } from '../../../components/catalog/copy';
+import { catalogCopy } from '../../../components/catalog/copy';
 import { RecipeCard } from '../../../components/catalog/entity-cards';
 import { FilterBar, Pagination } from '../../../components/catalog/filter-bar';
 import { JsonLd, readCspNonce } from '../../../components/catalog/json-ld';
@@ -34,6 +35,7 @@ const PAGE_SIZE = 24;
 const METHODS = ['filter', 'immersion', 'espresso'] as const;
 
 interface PageProps {
+  params: Promise<{ locale: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
@@ -51,10 +53,12 @@ function readFilters(searchParams: Record<string, string | string[] | undefined>
   };
 }
 
-export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
-  const params = await searchParams;
-  const filters = readFilters(params);
-  const methodLabel = filters.method ? (METHOD_LABEL[filters.method] ?? filters.method) : null;
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
+  const locale = localeParam((await params).locale);
+  const copy = catalogCopy(locale);
+  const search = await searchParams;
+  const filters = readFilters(search);
+  const methodLabel = filters.method ? (copy.METHOD_LABEL[filters.method] ?? filters.method) : null;
 
   return hubMetadata({
     title: methodLabel ? `${methodLabel} brewing recipes` : 'Brewing recipes',
@@ -62,14 +66,16 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
       'Community and roaster brewing recipes with dose, water, ratio, temperature, grind and full pour schedules — each one a starting point to dial in from, not a rule.',
     basePath: '/recipes',
     filters,
-    cursor: one(params['cursor']),
+    cursor: one(search['cursor']),
   });
 }
 
-export default async function RecipeHubPage({ searchParams }: PageProps) {
-  const params = await searchParams;
-  const filters = readFilters(params);
-  const cursor = one(params['cursor']);
+export default async function RecipeHubPage({ params, searchParams }: PageProps) {
+  const locale = localeParam((await params).locale);
+  const copy = catalogCopy(locale);
+  const search = await searchParams;
+  const filters = readFilters(search);
+  const cursor = one(search['cursor']);
 
   // Slug → id, in parallel. A slug that does not resolve simply drops the
   // filter rather than 400ing the recipe query with an empty uuid.
@@ -98,7 +104,7 @@ export default async function RecipeHubPage({ searchParams }: PageProps) {
   const nextCursor = result.status === 'ok' ? result.data.next_cursor : null;
   const hasActiveFilters = Object.values(filters).some((value) => value !== undefined);
 
-  const methodLabel = filters.method ? (METHOD_LABEL[filters.method] ?? filters.method) : null;
+  const methodLabel = filters.method ? (copy.METHOD_LABEL[filters.method] ?? filters.method) : null;
   const heading = [
     methodLabel ? `${methodLabel} recipes` : 'Brewing recipes',
     coffee ? `for ${coffee.name}` : null,
@@ -146,7 +152,7 @@ export default async function RecipeHubPage({ searchParams }: PageProps) {
             selected: filters.method,
             options: METHODS.map((method) => ({
               value: method,
-              label: METHOD_LABEL[method] ?? method,
+              label: copy.METHOD_LABEL[method] ?? method,
             })),
           },
         ]}

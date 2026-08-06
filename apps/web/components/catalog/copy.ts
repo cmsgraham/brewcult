@@ -11,6 +11,27 @@
  *  - Never imply the reader's gear is the problem.
  *  - Suggestions, not prescriptions: "try", "start around", never "you must".
  */
+import {
+  CONFIDENCE_BAND_COPY_ES,
+  CONVERSION_SOURCE_COPY_ES,
+  EQUIPMENT_CATEGORY_COPY_ES,
+  EQUIPMENT_CATEGORY_LABEL_ES,
+  EQUIPMENT_CATEGORY_PLURAL_ES,
+  FRESHNESS_EXPLAINER_ES,
+  FRESHNESS_NO_BATCH_COPY_ES,
+  GRIND_CATEGORY_HINT_ES,
+  GRIND_CATEGORY_LABEL_ES,
+  GRIND_SCALE_COPY_ES,
+  INTENDED_USE_COPY_ES,
+  INTENDED_USE_LABEL_ES,
+  METHOD_LABEL_ES,
+  PROCESS_COPY_ES,
+  PROCESS_LABEL_ES,
+  RECIPE_STARTING_POINT_COPY_ES,
+  ROAST_LEVEL_COPY_ES,
+  ROAST_LEVEL_LABEL_ES,
+  STATUS_COPY_ES,
+} from './copy-es';
 import type {
   CoffeeStatus,
   EquipmentCategory,
@@ -249,4 +270,98 @@ export function humanize(token: string): string {
   const spaced = token.replace(/[_-]+/g, ' ').trim();
   if (spaced === '') return token;
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+
+/* ------------------------------------------------------------------ *
+ * Two languages
+ * ------------------------------------------------------------------ */
+
+/**
+ * The whole vocabulary for one language.
+ *
+ * Returned as an object of the SAME Records the English exports above are, so a
+ * page changes from `PROCESS_LABEL[x]` to `copy.PROCESS_LABEL[x]` and nothing
+ * else. The English constants stay exported and stay the source of truth for
+ * the shape — `CatalogCopy` is derived from them, so a vocabulary that grows a
+ * key in English and not in Spanish fails to compile.
+ */
+export interface CatalogCopy {
+  PROCESS_LABEL: typeof PROCESS_LABEL;
+  PROCESS_COPY: typeof PROCESS_COPY;
+  ROAST_LEVEL_LABEL: typeof ROAST_LEVEL_LABEL;
+  ROAST_LEVEL_COPY: typeof ROAST_LEVEL_COPY;
+  INTENDED_USE_LABEL: typeof INTENDED_USE_LABEL;
+  INTENDED_USE_COPY: typeof INTENDED_USE_COPY;
+  STATUS_COPY: typeof STATUS_COPY;
+  EQUIPMENT_CATEGORY_LABEL: typeof EQUIPMENT_CATEGORY_LABEL;
+  EQUIPMENT_CATEGORY_PLURAL: typeof EQUIPMENT_CATEGORY_PLURAL;
+  EQUIPMENT_CATEGORY_COPY: typeof EQUIPMENT_CATEGORY_COPY;
+  GRIND_SCALE_COPY: typeof GRIND_SCALE_COPY;
+  GRIND_CATEGORY_LABEL: typeof GRIND_CATEGORY_LABEL;
+  GRIND_CATEGORY_HINT: typeof GRIND_CATEGORY_HINT;
+  METHOD_LABEL: typeof METHOD_LABEL;
+  CONFIDENCE_BAND_COPY: typeof CONFIDENCE_BAND_COPY;
+  CONVERSION_SOURCE_COPY: typeof CONVERSION_SOURCE_COPY;
+  FRESHNESS_EXPLAINER: string;
+  FRESHNESS_NO_BATCH_COPY: string;
+  RECIPE_STARTING_POINT_COPY: string;
+}
+
+const EN: CatalogCopy = {
+  PROCESS_LABEL,
+  PROCESS_COPY,
+  ROAST_LEVEL_LABEL,
+  ROAST_LEVEL_COPY,
+  INTENDED_USE_LABEL,
+  INTENDED_USE_COPY,
+  STATUS_COPY,
+  EQUIPMENT_CATEGORY_LABEL,
+  EQUIPMENT_CATEGORY_PLURAL,
+  EQUIPMENT_CATEGORY_COPY,
+  GRIND_SCALE_COPY,
+  GRIND_CATEGORY_LABEL,
+  GRIND_CATEGORY_HINT,
+  METHOD_LABEL,
+  CONFIDENCE_BAND_COPY,
+  CONVERSION_SOURCE_COPY,
+  FRESHNESS_EXPLAINER,
+  FRESHNESS_NO_BATCH_COPY,
+  RECIPE_STARTING_POINT_COPY,
+};
+
+const ES: CatalogCopy = {
+  PROCESS_LABEL: PROCESS_LABEL_ES,
+  PROCESS_COPY: PROCESS_COPY_ES,
+  ROAST_LEVEL_LABEL: ROAST_LEVEL_LABEL_ES,
+  ROAST_LEVEL_COPY: ROAST_LEVEL_COPY_ES,
+  INTENDED_USE_LABEL: INTENDED_USE_LABEL_ES,
+  INTENDED_USE_COPY: INTENDED_USE_COPY_ES,
+  STATUS_COPY: STATUS_COPY_ES,
+  EQUIPMENT_CATEGORY_LABEL: EQUIPMENT_CATEGORY_LABEL_ES,
+  EQUIPMENT_CATEGORY_PLURAL: EQUIPMENT_CATEGORY_PLURAL_ES,
+  EQUIPMENT_CATEGORY_COPY: EQUIPMENT_CATEGORY_COPY_ES,
+  GRIND_SCALE_COPY: GRIND_SCALE_COPY_ES,
+  GRIND_CATEGORY_LABEL: GRIND_CATEGORY_LABEL_ES,
+  GRIND_CATEGORY_HINT: GRIND_CATEGORY_HINT_ES,
+  METHOD_LABEL: METHOD_LABEL_ES,
+  CONFIDENCE_BAND_COPY: CONFIDENCE_BAND_COPY_ES,
+  CONVERSION_SOURCE_COPY: CONVERSION_SOURCE_COPY_ES,
+  FRESHNESS_EXPLAINER: FRESHNESS_EXPLAINER_ES,
+  FRESHNESS_NO_BATCH_COPY: FRESHNESS_NO_BATCH_COPY_ES,
+  RECIPE_STARTING_POINT_COPY: RECIPE_STARTING_POINT_COPY_ES,
+};
+
+/** The vocabulary for a language. Unknown locales get English. */
+export function catalogCopy(locale: string): CatalogCopy {
+  return locale === 'es' ? ES : EN;
+}
+
+/** Process explanation in one language, or null when there is no process. */
+export function processCopyFor(
+  process: LotProcess | null | undefined,
+  locale: string,
+): string | null {
+  if (!process) return null;
+  return catalogCopy(locale).PROCESS_COPY[process] ?? null;
 }

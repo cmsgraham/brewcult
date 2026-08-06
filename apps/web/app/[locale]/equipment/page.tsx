@@ -1,4 +1,5 @@
 import { type Metadata } from 'next';
+import { localeParam } from '../../../lib/locale-server';
 import Link from 'next/link';
 import { Breadcrumbs } from '../../../components/catalog/breadcrumbs';
 import {
@@ -9,10 +10,7 @@ import {
   type EquipmentSummary,
 } from '../../../components/catalog/catalog-api';
 import styles from '../../../components/catalog/catalog.module.css';
-import {
-  EQUIPMENT_CATEGORY_COPY,
-  EQUIPMENT_CATEGORY_PLURAL,
-} from '../../../components/catalog/copy';
+import { catalogCopy } from '../../../components/catalog/copy';
 import { EquipmentCard } from '../../../components/catalog/entity-cards';
 import { FilterBar, Pagination } from '../../../components/catalog/filter-bar';
 import { JsonLd, readCspNonce } from '../../../components/catalog/json-ld';
@@ -32,6 +30,7 @@ export const revalidate = 300;
 const PAGE_SIZE = 36;
 
 interface PageProps {
+  params: Promise<{ locale: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
@@ -48,12 +47,14 @@ function readFilters(searchParams: Record<string, string | string[] | undefined>
   return { category, brand: one(searchParams['brand']) };
 }
 
-export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
-  const params = await searchParams;
-  const filters = readFilters(params);
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
+  const locale = localeParam((await params).locale);
+  const copy = catalogCopy(locale);
+  const search = await searchParams;
+  const filters = readFilters(search);
 
   const noun = filters.category
-    ? EQUIPMENT_CATEGORY_PLURAL[filters.category].toLowerCase()
+    ? copy.EQUIPMENT_CATEGORY_PLURAL[filters.category].toLowerCase()
     : 'coffee equipment';
   const brand = filters.brand ? ` from ${filters.brand}` : '';
 
@@ -62,14 +63,16 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
     description: `Specifications, brewing recipes and community grind data for ${noun}${brand}. Every grinder page carries crowd-sourced setting conversions with the confidence and sample size shown.`,
     basePath: '/equipment',
     filters,
-    cursor: one(params['cursor']),
+    cursor: one(search['cursor']),
   });
 }
 
-export default async function EquipmentHubPage({ searchParams }: PageProps) {
-  const params = await searchParams;
-  const filters = readFilters(params);
-  const cursor = one(params['cursor']);
+export default async function EquipmentHubPage({ params, searchParams }: PageProps) {
+  const locale = localeParam((await params).locale);
+  const copy = catalogCopy(locale);
+  const search = await searchParams;
+  const filters = readFilters(search);
+  const cursor = one(search['cursor']);
 
   const [result, brands, nonce] = await Promise.all([
     loadEquipmentList({ ...filters, cursor, limit: PAGE_SIZE }),
@@ -82,7 +85,7 @@ export default async function EquipmentHubPage({ searchParams }: PageProps) {
   const hasActiveFilters = Object.values(filters).some((value) => value !== undefined);
 
   const heading = filters.category
-    ? `${EQUIPMENT_CATEGORY_PLURAL[filters.category]}${filters.brand ? ` from ${filters.brand}` : ''}`
+    ? `${copy.EQUIPMENT_CATEGORY_PLURAL[filters.category]}${filters.brand ? ` from ${filters.brand}` : ''}`
     : filters.brand
       ? `Equipment from ${filters.brand}`
       : 'Brewers, grinders and gear';
@@ -113,7 +116,7 @@ export default async function EquipmentHubPage({ searchParams }: PageProps) {
       <h1>{heading}</h1>
       <p className="bc-lede">
         {filters.category
-          ? EQUIPMENT_CATEGORY_COPY[filters.category]
+          ? copy.EQUIPMENT_CATEGORY_COPY[filters.category]
           : 'Gear pages exist to answer one question honestly: what does this thing actually change in the cup? No brand rankings, no "you need to upgrade" — specs, recipes and what the community has measured.'}
       </p>
 
@@ -129,7 +132,7 @@ export default async function EquipmentHubPage({ searchParams }: PageProps) {
             selected: filters.category,
             options: EQUIPMENT_CATEGORIES.map((category) => ({
               value: category,
-              label: EQUIPMENT_CATEGORY_PLURAL[category],
+              label: copy.EQUIPMENT_CATEGORY_PLURAL[category],
             })),
           },
           {
@@ -185,7 +188,7 @@ export default async function EquipmentHubPage({ searchParams }: PageProps) {
           {EQUIPMENT_CATEGORIES.map((category) => (
             <li key={category}>
               <Link href={`/equipment?category=${category}`}>
-                {EQUIPMENT_CATEGORY_PLURAL[category]}
+                {copy.EQUIPMENT_CATEGORY_PLURAL[category]}
               </Link>
             </li>
           ))}
