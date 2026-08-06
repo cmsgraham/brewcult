@@ -39,9 +39,9 @@ export const en = {
     discover: 'Discover coffee',
     equipment: 'Equipment',
     recipes: 'Recipes',
-    brew: 'Log a brew',
+    brew: 'Brew',
     learn: 'Learn',
-    ai: 'Ask the assistant',
+    ai: 'AI',
   },
 
   home: {

@@ -212,3 +212,41 @@ describe('which language a URL gets', () => {
     });
   });
 });
+
+/**
+ * Nav labels are words, not sentences.
+ *
+ * Spanish is reliably longer than English, so a label that fits in one language
+ * can wrap in the other — and the header has a global `overflow-wrap: anywhere`
+ * (for slugs and recovery codes) that turns a squeezed label into "Inici/o".
+ * The CSS now refuses to break inside a label; this refuses to write one long
+ * enough to need it.
+ */
+describe('nav labels', () => {
+  const NAV_KEYS = ['home', 'brew', 'ai', 'discoverShort', 'news', 'community', 'logIn'] as const;
+
+  it('stay short enough for a horizontal bar, in both languages', () => {
+    for (const key of NAV_KEYS) {
+      for (const [name, catalogue] of [['en', en], ['es', es]] as const) {
+        const label = translate(catalogue, `nav.${key}` as never);
+        // Two words is the practical ceiling for a top-level item; "Cerrar
+        // sesión" and "Iniciar sesión" are exactly that.
+        expect({ name, key, words: label.split(/\s+/).length }).toEqual({
+          name,
+          key,
+          words: expect.any(Number),
+        });
+        expect(label.split(/\s+/).length).toBeLessThanOrEqual(2);
+        expect(label.length).toBeLessThanOrEqual(18);
+      }
+    }
+  });
+
+  it('kept the English wording the nav already had', () => {
+    // Translating a site is not licence to reword it. Both of these were
+    // silently changed while adding Spanish, and both are back.
+    expect(translate(en, 'nav.brew')).toBe('Brew');
+    expect(translate(en, 'nav.ai')).toBe('AI');
+    expect(translate(en, 'nav.logIn')).toBe('Log in');
+  });
+});

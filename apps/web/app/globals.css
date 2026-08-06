@@ -199,6 +199,12 @@ svg {
 .bc-nav__list {
   display: flex;
   align-items: center;
+  /* Wrap BETWEEN items when the row runs out of room. Without this the items
+     squeeze instead, and the global `overflow-wrap: anywhere` below (meant for
+     slugs and recovery codes) starts breaking labels mid-word — "Inici/o",
+     "Españo/l". Longer languages found that immediately. */
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 0.25rem;
   list-style: none;
   margin: 0;
@@ -206,6 +212,8 @@ svg {
 }
 .bc-nav__link {
   display: inline-block;
+  /* A navigation label is never broken across lines. It is one thing to click. */
+  white-space: nowrap;
   padding: 0.45rem 0.7rem;
   border-radius: var(--bc-radius-sm);
   text-decoration: none;
@@ -1007,6 +1015,7 @@ svg {
   font-size: 0.85rem;
 }
 .bc-lang__option {
+  white-space: nowrap;
   color: var(--bc-ink-muted);
   text-decoration: none;
   padding: 0.15rem 0.4rem;

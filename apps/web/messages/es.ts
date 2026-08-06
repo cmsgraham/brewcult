@@ -48,9 +48,9 @@ export const es: Messages = {
     discover: 'Descubrir café',
     equipment: 'Equipo',
     recipes: 'Recetas',
-    brew: 'Anotar una preparación',
+    brew: 'Preparar',
     learn: 'Aprender',
-    ai: 'Preguntarle al asistente',
+    ai: 'IA',
   },
 
   home: {
