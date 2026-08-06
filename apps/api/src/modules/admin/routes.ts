@@ -368,16 +368,34 @@ export async function registerAdminRoutes(
     draft: CoffeeDraft,
   ): Promise<void> => {
     if (!isCoffeePublishable(draft)) {
+      // Three different outcomes hide behind "not publishable", and collapsing
+      // them was wrong: production turned "some coffee, dunno" into a rejection,
+      // which left the person with nothing at all on a submission that was
+      // perfectly honest.
       if (!draft.is_coffee) {
         await recordCoffeeDecision(db, {
           id: requestId,
           status: 'rejected',
           note:
             draft.notes.trim() ||
-            'That does not look like a bag of coffee. If it is, try a clearer photo of the label.',
+            'That does not look like a bag of coffee. If it is, try a photo of the label.',
         });
         return;
       }
+
+      if (!draft.name?.trim()) {
+        // Coffee, but nothing to call it. Shelving "Unnamed coffee" would be
+        // noise on the shelf; saying what would fix it is more use.
+        await recordCoffeeDecision(db, {
+          id: requestId,
+          status: 'rejected',
+          note:
+            'We could not make out the roaster or the name. A photo of the front of the bag ' +
+            'usually does it — or type it in and it goes straight on your shelf.',
+        });
+        return;
+      }
+
       // Readable enough for a shelf, not for the catalogue. Both are true at
       // once, and the shelf is the half the person actually needs today.
       await shelveCoffee(userId, draft, null);
