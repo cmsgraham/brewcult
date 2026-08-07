@@ -76,16 +76,13 @@ export function StartingRecipeCard({
     );
   };
 
-  const subject = coffeeName ? `for ${coffeeName}` : 'for this coffee';
-
   return (
     <section className={`bc-panel ${styles.recipeCard}`} aria-labelledby="ai-starting-recipe">
       <h2 id="ai-starting-recipe" className={styles.recipeHeading}>
-        Not sure where to start?
+        {t('ai.startingTitle')}
       </h2>
       <p className="bc-muted">
-        A starting point {subject} on your gear — the roaster&apos;s recipe if there is one,
-        what the community brews if there isn&apos;t, and an honest note about which.
+        {coffeeName ? t('ai.startingBodyNamed', { coffee: coffeeName }) : t('ai.startingBody')}
       </p>
 
       {state.status !== 'ready' ? (
@@ -115,7 +112,7 @@ export function StartingRecipeCard({
               ? state.failure.message
               : state.failure.kind === 'error'
                 ? state.failure.message
-                : "The recipe assistant isn't available right now — the recipes below are a good place to start instead."}
+                : t('ai.startingUnavailable')}
           </p>
         ) : null}
 
@@ -136,7 +133,10 @@ export function StartingRecipeCard({
 
             {state.recipe.notes ? <SafeMarkdown text={state.recipe.notes} /> : null}
 
-            <p className={`bc-muted ${styles.quiet}`}>{describeBasis(state.recipe.basis)}</p>
+            {/* `t` is not optional here in practice: describeBasis falls back to
+                English without it, which is how this line stayed English on a
+                Spanish page while everything around it was translated. */}
+            <p className={`bc-muted ${styles.quiet}`}>{describeBasis(state.recipe.basis, t)}</p>
 
             <EntityLinks entities={state.recipe.entities} />
 
@@ -145,10 +145,10 @@ export function StartingRecipeCard({
                 className="bc-button"
                 href={`/brew?coffee_product_id=${encodeURIComponent(coffeeProductId)}`}
               >
-                Log a brew with this
+                {t('ai.logWithThis')}
               </Link>
               <button type="button" className="bc-button bc-button--quiet" onClick={() => void request()}>
-                Try again
+                {t('ai.retry')}
               </button>
             </p>
           </div>

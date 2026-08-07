@@ -30,6 +30,12 @@ export const en = {
 
   nav: {
     skipToContent: 'Skip to content',
+    // The mobile disclosure and the two landmark names. Invisible to most
+    // readers and read aloud to the rest, which is exactly why they were the
+    // last English left in a translated nav.
+    menu: 'Menu',
+    primary: 'Primary',
+    homeAria: 'BrewCult — home',
     home: 'Home',
     logIn: 'Log in',
     news: 'News',
@@ -378,6 +384,26 @@ export const en = {
     workingOut: 'Working out a starting point…',
     getStarting: 'Get a starting recipe for my setup',
     lookingAt: 'Looking at the roaster’s notes and community brews…',
+
+    /**
+     * The starting-recipe card on a coffee page.
+     *
+     * `startingBodyNamed` and `startingBody` are two whole sentences rather than
+     * one sentence around a `for {coffee}` fragment. The fragment version works
+     * in English only by accident of word order — Spanish wants "para {coffee}"
+     * in a different place, and a translator handed "for X" as a unit cannot
+     * move it. Two sentences cost one duplicated clause and buy a translation
+     * that reads like a sentence.
+     */
+    startingTitle: 'Not sure where to start?',
+    startingBodyNamed:
+      'A starting point for {coffee} on your gear — the roaster’s recipe if there is one, what the community brews if there isn’t, and an honest note about which.',
+    startingBody:
+      'A starting point for this coffee on your gear — the roaster’s recipe if there is one, what the community brews if there isn’t, and an honest note about which.',
+    startingUnavailable:
+      'The recipe assistant isn’t available right now — the recipes below are a good place to start instead.',
+    logWithThis: 'Log a brew with this',
+    retry: 'Try again',
   },
 
   media: {
@@ -769,6 +795,13 @@ export const en = {
     backHint: 'Roast date, process, weight — whatever is printed there.',
     pasteButton: 'Paste from clipboard',
     pasteHint: 'Or press Ctrl+V (⌘V) anywhere in this box — it fills the next empty slot.',
+    clipboardEmpty: 'There is no image on the clipboard — copy one first, or choose a file.',
+    clipboardBlocked:
+      'The browser would not let us read the clipboard. Press Ctrl+V (or ⌘V) instead.',
+    /** Stands in for the coffee's name when the label was too unclear to read one. */
+    thatCoffee: 'That coffee',
+    /** Only used when the assistant rejected a submission without saying why. */
+    notABag: 'That did not look like a bag of coffee.',
     publishNotice: 'If this coffee is added to the catalogue, your first photo becomes its picture on the site.',
     noteLabel: 'Anything the photo misses',
     notePlaceholder: 'e.g. the roast date is on the bottom seam',

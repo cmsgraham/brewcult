@@ -39,6 +39,9 @@ export const es: Messages = {
 
   nav: {
     skipToContent: 'Saltar al contenido',
+    menu: 'Menú',
+    primary: 'Principal',
+    homeAria: 'BrewCult — inicio',
     home: 'Inicio',
     logIn: 'Iniciar sesión',
     news: 'Noticias',
@@ -378,6 +381,16 @@ export const es: Messages = {
     workingOut: 'Buscando un punto de partida…',
     getStarting: 'Conseguir una receta de partida para mi equipo',
     lookingAt: 'Revisando las notas del tostador y las preparaciones de la comunidad…',
+
+    startingTitle: '¿No sabés por dónde empezar?',
+    startingBodyNamed:
+      'Un punto de partida para {coffee} con tu equipo: la receta del tostador si la hay, lo que prepara la comunidad si no, y una nota honesta sobre cuál de las dos es.',
+    startingBody:
+      'Un punto de partida para este café con tu equipo: la receta del tostador si la hay, lo que prepara la comunidad si no, y una nota honesta sobre cuál de las dos es.',
+    startingUnavailable:
+      'El asistente de recetas no está disponible en este momento; las recetas de abajo son un buen lugar para empezar.',
+    logWithThis: 'Anotar una preparación con esta receta',
+    retry: 'Probá de nuevo',
   },
 
   media: {
@@ -770,6 +783,11 @@ export const es: Messages = {
     backHint: 'Fecha de tueste, proceso, peso: lo que esté impreso ahí.',
     pasteButton: 'Pegar del portapapeles',
     pasteHint: 'O presioná Ctrl+V (⌘V) en cualquier parte de este cuadro: llena el siguiente espacio vacío.',
+    clipboardEmpty: 'No hay ninguna imagen en el portapapeles: copiá una primero, o elegí un archivo.',
+    clipboardBlocked:
+      'El navegador no nos dejó leer el portapapeles. Presioná Ctrl+V (o ⌘V) en su lugar.',
+    thatCoffee: 'Ese café',
+    notABag: 'Eso no parecía una bolsa de café.',
     publishNotice: 'Si este café entra al catálogo, tu primera foto pasa a ser su imagen en el sitio.',
     noteLabel: 'Algo que la foto no muestre',
     notePlaceholder: 'p. ej. la fecha de tueste está en el borde de abajo',

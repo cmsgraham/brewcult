@@ -13,6 +13,7 @@ import { type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { StartingRecipeCard } from '../components/ai/starting-recipe';
 import { resetRefreshState } from '../lib/api';
+import { en } from '../messages/en';
 
 vi.mock('next/link', () => ({
   default: ({
@@ -135,8 +136,12 @@ describe('starting recipe', () => {
       screen.getByRole('button', { name: 'Get a starting recipe for my setup' }),
     );
 
+    // Asserted against the catalogue, not a copy of it. This line used to carry
+    // its own literal and broke the moment the string moved into `en.ts` with a
+    // typographic apostrophe — a punctuation diff failing a test about routing
+    // people to the human recipes.
     await waitFor(() =>
-      expect(screen.getByText(/isn't available right now/i)).toBeInTheDocument(),
+      expect(screen.getByText(en.ai.startingUnavailable)).toBeInTheDocument(),
     );
   });
 

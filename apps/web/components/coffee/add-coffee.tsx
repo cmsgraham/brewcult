@@ -144,9 +144,9 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
         attach(fileFromClipboard(await item.getType(type)), nextEmptySlot());
         return;
       }
-      setError('There is no image on the clipboard — copy one first, or choose a file.');
+      setError(t('addCoffee.clipboardEmpty'));
     } catch {
-      setError('The browser would not let us read the clipboard. Press Ctrl+V (or ⌘V) instead.');
+      setError(t('addCoffee.clipboardBlocked'));
     }
   }
 
@@ -180,7 +180,7 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
         ...(mediaIds.length > 0 ? { image_media_ids: mediaIds } : {}),
       });
       setShelf(await fetchShelf());
-      setOutcome(describe(items[0]));
+      setOutcome(describe(items[0], t));
       reset();
     } catch (failure) {
       setError(
@@ -464,21 +464,27 @@ export function AddCoffee({ compact = false }: { compact?: boolean }) {
   );
 }
 
-/** Reads the request back and says which of the three things happened. */
-function describe(request: CoffeeRequest | undefined): Outcome {
+/**
+ * Reads the request back and says which of the three things happened.
+ *
+ * Takes `t` because two of the three outcomes have a fallback of our own — the
+ * stand-in name when no label could be read, and the rejection reason when the
+ * assistant gave none. `decision_note` itself stays in the API's words.
+ */
+function describe(request: CoffeeRequest | undefined, t: Translator): Outcome {
   const draft = request?.ai_draft;
   const label = [draft?.roaster, draft?.name].filter(Boolean).join(' ').trim();
 
   if (request?.status === 'approved') {
-    return { kind: 'published', label: label || 'That coffee' };
+    return { kind: 'published', label: label || t('addCoffee.thatCoffee') };
   }
   if (request?.status === 'rejected') {
     return {
       kind: 'rejected',
-      why: request.decision_note ?? 'That did not look like a bag of coffee.',
+      why: request.decision_note ?? t('addCoffee.notABag'),
     };
   }
-  return { kind: 'shelved', label: label || 'That coffee' };
+  return { kind: 'shelved', label: label || t('addCoffee.thatCoffee') };
 }
 
 function OutcomeNote({ outcome, t }: { outcome: Outcome; t: Translator }) {

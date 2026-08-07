@@ -50,7 +50,7 @@ export function SiteNav({
   return (
     <header className="bc-header">
       <div className="bc-shell bc-header__inner">
-        <Link href={localePath('/', locale)} aria-label="BrewCult — home">
+        <Link href={localePath('/', locale)} aria-label={t('nav.homeAria')}>
           <BrandLockup />
         </Link>
 
@@ -61,13 +61,13 @@ export function SiteNav({
           aria-controls={navId}
           onClick={() => setOpen((value) => !value)}
         >
-          Menu
+          {t('nav.menu')}
         </button>
 
         <nav
           id={navId}
           className="bc-nav"
-          aria-label="Primary"
+          aria-label={t('nav.primary')}
           data-open={open ? 'true' : 'false'}
         >
           <ul className="bc-nav__list">
