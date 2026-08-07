@@ -181,7 +181,7 @@ export default async function CoffeeDetailPage({ params }: PageProps) {
         ]}
       />
 
-      <Breadcrumbs entries={breadcrumbs} />
+      <Breadcrumbs entries={breadcrumbs} locale={locale} />
 
 
       {/* The bag. Usually photographed by whoever added the coffee — for a lot
@@ -313,6 +313,7 @@ export default async function CoffeeDetailPage({ params }: PageProps) {
 
       <RecipesSection
         result={recipes}
+        locale={locale}
         heading={t('coffeePage.recipesHeading')}
         headingId="recipes"
         subject={t('coffeePage.recipesSubject')}

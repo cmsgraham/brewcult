@@ -13,11 +13,18 @@ import styles from './catalog.module.css';
  */
 export function Breadcrumbs({
   entries,
-  locale = 'en',
+  locale,
 }: {
   entries: BreadcrumbEntry[];
-  /** Only the landmark label is translated — crumb names arrive translated. */
-  locale?: string;
+  /**
+   * Only the landmark label is translated — crumb names arrive translated.
+   *
+   * Required rather than defaulting to `'en'`: the one thing this prop controls
+   * is invisible on screen, so a page that forgot it looked completely correct
+   * and announced "Breadcrumb" in English to the only people who could tell.
+   * The coffee page forgot it for exactly that reason.
+   */
+  locale: string;
 }) {
   if (entries.length === 0) return null;
   const t = translator(localeParam(locale));

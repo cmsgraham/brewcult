@@ -30,8 +30,18 @@ export interface RecipesSectionProps {
   subject: string;
   /** Link to the filtered recipe hub, when one makes sense. */
   browseHref?: string;
-  /** `heading` and `subject` arrive translated; this is for everything else. */
-  locale?: string;
+  /**
+   * `heading` and `subject` arrive translated; this is for everything else.
+   *
+   * REQUIRED, and deliberately so. It used to default to `'en'`, which meant a
+   * page that forgot it rendered a translated heading over an English body —
+   * "Recetas para este café" above "No recipes for este café yet". The coffee
+   * page did exactly that and nothing failed: not the build, not the tests,
+   * not the type checker. A default that is silently wrong on one of two
+   * languages is worse than no default, because the failure looks like
+   * half-finished translation work rather than a missing argument.
+   */
+  locale: string;
 }
 
 export function RecipesSection({
@@ -40,7 +50,7 @@ export function RecipesSection({
   headingId,
   subject,
   browseHref,
-  locale = 'en',
+  locale,
 }: RecipesSectionProps) {
   const t = translator(localeParam(locale));
 
