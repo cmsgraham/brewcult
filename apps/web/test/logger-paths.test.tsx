@@ -54,9 +54,21 @@ async function harness(overrides: { seedBag?: boolean } = {}): Promise<Harness> 
   const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
     if (url.includes('/brews/prefill')) return jsonResponse(PREFILL);
     if (url.includes('/autocomplete')) {
+      // The REAL envelope: `{query, items}` with `sublabel`. This stub used to
+      // say `{results:[…{subtitle}]}` — the client's belief, not the server's —
+      // so it passed while the picker was returning nothing in production. A
+      // stub copied from the caller can only ever confirm the caller.
+      // apps/api/test/catalog.test.ts pins this shape on the other side.
       return jsonResponse({
-        results: [
-          { id: 'coffee-2', type: 'coffee', label: 'Kenya Kiamabara', subtitle: 'Nomad Roasters' },
+        query: 'kenya',
+        items: [
+          {
+            id: 'coffee-2',
+            type: 'coffee',
+            slug: 'kenya-kiamabara',
+            label: 'Kenya Kiamabara',
+            sublabel: 'Nomad Roasters',
+          },
         ],
       });
     }

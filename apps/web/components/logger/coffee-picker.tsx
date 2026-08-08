@@ -84,7 +84,7 @@ export function CoffeePicker({
             signal: controller.signal,
             ...(fetchImpl ? { fetchImpl } : {}),
           });
-          const items = Array.isArray(response?.results) ? response.results.map(toCoffeeRef) : [];
+          const items = response.map(toCoffeeRef);
           setResults(items);
           setStatus(
             items.length === 0

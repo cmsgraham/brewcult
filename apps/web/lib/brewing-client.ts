@@ -152,7 +152,9 @@ export function normalizeBrewList(raw: unknown): {
 }
 
 export function toCoffeeRef(suggestion: AutocompleteSuggestion): CoffeeRef {
-  return { id: suggestion.id, label: suggestion.label, subtitle: suggestion.subtitle ?? null };
+  // `sublabel` on the wire, `subtitle` in our own CoffeeRef. Reading the wrong
+  // one here is why every suggestion lost its roaster name.
+  return { id: suggestion.id, label: suggestion.label, subtitle: suggestion.sublabel ?? null };
 }
 
 /* ------------------------------------------------------------------ *

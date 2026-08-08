@@ -429,12 +429,21 @@ export interface Paginated<T> {
   next_cursor?: string | null;
 }
 
+/**
+ * One row from `GET /v1/autocomplete`.
+ *
+ * The field is `sublabel`, not `subtitle`. This interface said `subtitle` and
+ * the server has always sent `sublabel`, so the roaster name under every
+ * suggestion was silently `undefined` — on top of the envelope bug below.
+ * Named to match the wire, because the only version that matters is the
+ * server's (see `AutocompleteItem` in apps/api catalog/types.ts).
+ */
 export interface AutocompleteSuggestion {
   id: string;
   type: 'coffee' | 'roaster' | 'equipment' | string;
   label: string;
-  slug?: string;
-  subtitle?: string | null;
+  slug: string;
+  sublabel: string | null;
 }
 
 export const authApi = {
@@ -516,13 +525,33 @@ export const catalogApi = {
   coffee: (slug: string, options?: ApiRequestOptions) =>
     apiFetch<CoffeeSummary>(`/api/v1/coffees/${encodeURIComponent(slug)}`, options),
 
-  autocomplete: (query: string, types: string[] = [], options?: ApiRequestOptions) => {
+  /**
+   * Returns the suggestions THEMSELVES, not the envelope around them.
+   *
+   * This used to be typed `{ results: … }` and the server has always answered
+   * `{ query, items }`. `apiFetch` is a generic over parsed JSON — an assertion,
+   * not a check — so `response.results` type-checked, evaluated to `undefined`
+   * at runtime, and both callers fell to their empty-array branch. The coffee
+   * picker in the brew logger and the entity search on Discover therefore
+   * reported "no match" for every query ever typed, while the endpoint returned
+   * correct results the whole time. Neither surface could be used at all.
+   *
+   * `web-contract.test.ts` compares PATHS, and the path was right, so it stayed
+   * green. Unwrapping here means the envelope is named in exactly one place
+   * instead of at every call site.
+   */
+  autocomplete: async (
+    query: string,
+    types: string[] = [],
+    options?: ApiRequestOptions,
+  ): Promise<AutocompleteSuggestion[]> => {
     const params = new URLSearchParams({ q: query });
     if (types.length > 0) params.set('types', types.join(','));
-    return apiFetch<{ results: AutocompleteSuggestion[] }>(
+    const response = await apiFetch<{ items?: AutocompleteSuggestion[] }>(
       `/api/v1/autocomplete?${params.toString()}`,
       options,
     );
+    return Array.isArray(response?.items) ? response.items : [];
   },
 } as const;
 

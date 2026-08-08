@@ -64,8 +64,9 @@ export function EntitySearch({
             signal: controller.signal,
             refreshOn401: false,
           });
-          const items = Array.isArray(response?.results) ? response.results : [];
+          const items = response;
           setResults(items);
+
           setActiveIndex(-1);
           setOpen(true);
           setStatus(
@@ -179,7 +180,7 @@ export function EntitySearch({
           >
             <span>
               {item.label}
-              {item.subtitle ? <span className="bc-muted"> — {item.subtitle}</span> : null}
+              {item.sublabel ? <span className="bc-muted"> — {item.sublabel}</span> : null}
             </span>
             <span className="bc-combobox__type">{item.type}</span>
           </li>

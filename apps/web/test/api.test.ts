@@ -6,6 +6,7 @@ import {
   isApiError,
   resetRefreshState,
   resolveApiUrl,
+  catalogApi,
   shouldAttemptRefresh,
 } from '../lib/api';
 
@@ -277,5 +278,53 @@ describe('shouldAttemptRefresh', () => {
     expect(shouldAttemptRefresh('/api/v1/auth/password/reset')).toBe(false);
     expect(shouldAttemptRefresh('/api/v1/users/me')).toBe(true);
     expect(shouldAttemptRefresh('/api/v1/coffees')).toBe(true);
+  });
+});
+
+/**
+ * The autocomplete envelope.
+ *
+ * The client typed this response `{ results: … }` for as long as it existed and
+ * the API has always sent `{ query, items }`. `apiFetch` is a generic over
+ * parsed JSON — an assertion, not a check — so `response.results` compiled fine,
+ * evaluated to `undefined`, and both callers took their empty-array branch. The
+ * coffee picker in the brew logger and the entity search on Discover reported
+ * "no match" for every query anyone ever typed.
+ *
+ * `web-contract.test.ts` compares PATHS and the path was correct, so nothing
+ * caught it. These assert the SHAPE, which is the half that was missing.
+ */
+describe('catalogApi.autocomplete', () => {
+  it('unwraps the items the API actually sends', async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse(200, {
+        query: 'past',
+        items: [
+          {
+            id: 'bf3c8bce',
+            type: 'coffee',
+            slug: 'coope-tarrazu-la-pastora',
+            label: 'La Pastora',
+            sublabel: 'Coopetarrazú',
+          },
+        ],
+      }),
+    );
+
+    const suggestions = await catalogApi.autocomplete('past', ['coffee'], { fetchImpl });
+
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0]).toMatchObject({
+      label: 'La Pastora',
+      // The roaster line under the suggestion. Read as `subtitle` before, which
+      // is not a field the server has ever sent.
+      sublabel: 'Coopetarrazú',
+      slug: 'coope-tarrazu-la-pastora',
+    });
+  });
+
+  it('returns an empty array rather than throwing when there are no matches', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse(200, { query: 'zzz', items: [] }));
+    await expect(catalogApi.autocomplete('zzz', ['coffee'], { fetchImpl })).resolves.toEqual([]);
   });
 });
