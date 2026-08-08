@@ -63,8 +63,14 @@ export const COFFEE_DRAFT_SCHEMA: Record<string, unknown> = {
       type: 'array',
       items: { type: 'string', maxLength: 24 },
       description:
-        'SHORT descriptors, one per entry: "milk chocolate", "citrus", "almond". Split any ' +
-        'prose on the bag into its parts. Never a sentence, never your own guesses.',
+        'SHORT descriptors, one per entry: "milk chocolate" / "chocolate de leche", ' +
+        '"citrus" / "cítricos", "almond" / "almendra". Split any prose on the bag into ' +
+        'its parts. Never a sentence, never your own guesses. ' +
+        'TRANSCRIBE IN THE LANGUAGE PRINTED ON THE BAG — do NOT translate. A bag reading ' +
+        '"notas de chocolate y caramelo" yields ["chocolate", "caramelo"], never ' +
+        '["chocolate", "caramel"]. These are the roaster\'s words about their own coffee ' +
+        'and the site shows them unchanged in both languages; translating here would put ' +
+        'words in their mouth that they never printed.',
     },
     roast_date: { type: 'string', description: 'ISO date (YYYY-MM-DD) if a date is printed.' },
     confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
@@ -133,26 +139,54 @@ export function isCoffeePublishable(draft: CoffeeDraft): boolean {
  * request and the schema is a contract. Splitting on commas and conjunctions,
  * dropping the connective filler that survives, and refusing anything still
  * sentence-shaped afterwards.
+ *
+ * ── BOTH LANGUAGES, BECAUSE THE BAGS ARE IN BOTH ────────────────────────────
+ * Notes are catalogue DATA and are never translated for display (lib/i18n.ts):
+ * they are the roaster's words about their own coffee. That principle only
+ * holds if what we store is what the bag actually printed — so the prompt now
+ * says transcribe, never translate, and this guard understands the Spanish
+ * shapes too. Otherwise the model quietly rendered a Costa Rican bag into
+ * English and the "never translate" rule protected a translation.
  */
-const NOTE_FILLER =
+const NOTE_FILLER_EN =
   /^(?:a |an |the )?(?:smooth |bright |rich |lovely |delicate |subtle |sweet )?(?:balance of|balanced|hints? of|notes? of|touch of|with|and|plus|finishing with|finish of|flavors?|flavours?|aromas? of)\s+/i;
+
+/**
+ * The same shapes in Spanish, because most bags on this site are printed here.
+ *
+ * Without this the whole function quietly only worked in English: "notas de
+ * chocolate y caramelo" does not split on " and ", so it survived as ONE note
+ * carrying its own filler — and a bag that read perfectly well produced a chip
+ * reading "notas de chocolate y caramelo". The English path had a guard for
+ * exactly that and the Spanish path did not.
+ *
+ * `sabores a` as well as `sabores de`: "con sabores a nuez" is how it is
+ * actually printed.
+ */
+const NOTE_FILLER_ES =
+  /^(?:un |una |el |la |los |las )?(?:suave |brillante |rico |delicado |sutil |dulce |ligero |intenso )?(?:balance de|equilibrio de|notas? de|toques? de|dejos? de|matices? de|aromas? de|sabores? a|sabores? de|final de|termina(?:ndo)? con|además de|con|y)\s+/i;
 
 export function normaliseTastingNotes(raw: readonly string[] | undefined): string[] {
   const out: string[] = [];
   for (const entry of raw ?? []) {
     const parts = entry
-      .split(/[,;/]| and | & |\bwith\b/i)
+      // ` y ` / ` e ` / ` con ` are the Spanish conjunctions; `e` replaces `y`
+      // before an i- or hi- word ("chocolate e higos"), so both are needed.
+      .split(/[,;/]| and | & |\bwith\b| y | e | con /i)
       .map((part) => part.trim())
       .filter((part) => part !== '');
 
     for (let part of parts) {
-      // Filler can nest: "with subtle hints of caramel" needs two passes.
+      // Filler can nest: "with subtle hints of caramel" needs two passes, and
+      // so does "con suaves notas de caramelo".
       let previous = '';
       while (previous !== part) {
         previous = part;
-        part = part.replace(NOTE_FILLER, '').trim();
+        part = part.replace(NOTE_FILLER_EN, '').replace(NOTE_FILLER_ES, '').trim();
       }
-      part = part.replace(/\b(flavou?rs?|aromas?|tones?|undertones?)\b/gi, '').trim();
+      part = part
+        .replace(/\b(flavou?rs?|aromas?|tones?|undertones?|sabores?|matices?)\b/gi, '')
+        .trim();
       part = part.replace(/^[-–—•*]+\s*/, '').replace(/[.!]+$/, '').trim();
 
       // Still a phrase rather than a note. Better dropped than shown: a chip

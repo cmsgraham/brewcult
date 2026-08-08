@@ -367,6 +367,39 @@ describe('tasting notes read off a bag', () => {
   it('does not repeat itself', () => {
     expect(normaliseTastingNotes(['chocolate, chocolate and Chocolate'])).toEqual(['chocolate']);
   });
+
+  /**
+   * Most bags photographed on this site are printed in Spanish, and the
+   * function only ever understood English — " y " is not " and ", so the whole
+   * prose survived as a single chip reading "notas de chocolate y caramelo".
+   *
+   * The notes are stored exactly as the roaster printed them and shown
+   * unchanged in both languages, so getting this wrong is not a formatting
+   * problem: it puts words in a roaster's mouth, or drops theirs entirely.
+   */
+  it('splits the same prose in Spanish', () => {
+    expect(
+      normaliseTastingNotes(['suave balance de chocolate y cítricos, con notas de caramelo']),
+    ).toEqual(['chocolate', 'cítricos', 'caramelo']);
+  });
+
+  it('strips Spanish filler without eating the note', () => {
+    expect(
+      normaliseTastingNotes(['notas de almendra', 'toques de miel', 'con sabores a nuez']),
+    ).toEqual(['almendra', 'miel', 'nuez']);
+  });
+
+  it('keeps a Spanish note that is already a note', () => {
+    expect(normaliseTastingNotes(['chocolate de leche', 'frutos rojos', 'panela'])).toEqual([
+      'chocolate de leche',
+      'frutos rojos',
+      'panela',
+    ]);
+  });
+
+  it('handles "e" before an i- word', () => {
+    expect(normaliseTastingNotes(['chocolate e higos'])).toEqual(['chocolate', 'higos']);
+  });
 });
 
 /**
