@@ -31,6 +31,8 @@ import {
   type BrewSession,
   type BrewSessionResource,
   type BrewSessionRow,
+  type BrewSessionLabelledRow,
+  type LabelledBrewSession,
   type BrewSessionWriteInput,
   type BrewingDb,
   type GrindSetting,
@@ -612,6 +614,76 @@ export async function listBrewSessionRows(
     values,
   );
   return res.rows;
+}
+
+/**
+ * The same page, plus the names the ids stand for.
+ *
+ * A brew session stores `coffee_product_id` and `brewer_model_id` and nothing
+ * else — correct for a write model, useless for a history list, which would
+ * otherwise render a column of UUIDs. The device that logged the brew keeps the
+ * labels locally (`LocalBrewRecord`), but that only helps on that one device
+ * and only until the cache is cleared.
+ *
+ * LEFT JOINs, all four of them: a brew may name no coffee at all (quick-add
+ * bags have no catalogue row yet), and an INNER JOIN would silently drop
+ * exactly the brews of somebody still finding their feet.
+ *
+ * Kept separate from `listBrewSessionRows` rather than folded into it because
+ * the write paths and `/brews/:id` have no use for the join, and a history
+ * screen should not make every upsert read two more tables.
+ */
+export async function listBrewSessionRowsWithLabels(
+  db: BrewingDb,
+  filters: BrewListFilters,
+): Promise<BrewSessionLabelledRow[]> {
+  const values: unknown[] = [];
+  const add = (v: unknown): string => `$${values.push(v)}`;
+
+  const where = [`b.user_id = ${add(filters.userId)}::uuid`, 'b.deleted_at IS NULL'];
+  if (filters.coffeeProductId) {
+    where.push(`b.coffee_product_id = ${add(filters.coffeeProductId)}::uuid`);
+  }
+  if (filters.recipeId) where.push(`b.recipe_id = ${add(filters.recipeId)}::uuid`);
+  if (filters.from) where.push(`b.brewed_at >= ${add(filters.from)}::timestamptz`);
+  if (filters.to) where.push(`b.brewed_at <= ${add(filters.to)}::timestamptz`);
+  if (filters.cursor) {
+    const key = decodeCursor(filters.cursor);
+    where.push(`(b.brewed_at, b.id) < (${add(key.ts)}::timestamptz, ${add(key.id)}::uuid)`);
+  }
+
+  const columns = SESSION_COLUMNS.split(',')
+    .map((column) => `b.${column.trim()}`)
+    .join(', ');
+
+  const res = await db.query<BrewSessionLabelledRow>(
+    `SELECT ${columns},
+            cp.name  AS coffee_label,
+            cp.slug  AS coffee_slug,
+            r.name   AS roaster_label,
+            CASE WHEN em.id IS NULL THEN NULL ELSE eb.name || ' ' || em.name END AS brewer_label
+       FROM brew_sessions b
+       LEFT JOIN coffee_products cp ON cp.id = b.coffee_product_id
+       LEFT JOIN roasters        r  ON r.id  = cp.roaster_id
+       LEFT JOIN equipment_models em ON em.id = b.brewer_model_id
+       LEFT JOIN equipment_brands eb ON eb.id = em.brand_id
+      WHERE ${where.join(' AND ')}
+      ORDER BY b.brewed_at DESC, b.id DESC
+      LIMIT ${add(filters.limit + 1)}`,
+    values,
+  );
+  return res.rows;
+}
+
+/** A session as the history list needs it: the row, plus what the ids mean. */
+export function toLabelledBrewSession(row: BrewSessionLabelledRow): LabelledBrewSession {
+  return {
+    ...toBrewSession(row),
+    coffee_label: row.coffee_label,
+    coffee_slug: row.coffee_slug,
+    roaster_label: row.roaster_label,
+    brewer_label: row.brewer_label,
+  };
 }
 
 /**

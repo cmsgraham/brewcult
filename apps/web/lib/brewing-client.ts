@@ -130,18 +130,32 @@ export const brewingApi = {
     catalogApi.autocomplete(query, ['coffee'], options),
 } as const;
 
+/**
+ * A session as the LIST returns it: the row, plus what its ids point at.
+ *
+ * `GET /v1/brews` joins the coffee and the brewer so a history does not have to
+ * render UUIDs. Every label is nullable and that is ordinary — a quick-add bag
+ * has no catalogue row, which is the usual state of somebody's first brews.
+ */
+export interface LabelledBrewSession extends BrewSession {
+  coffee_label: string | null;
+  coffee_slug: string | null;
+  roaster_label: string | null;
+  brewer_label: string | null;
+}
+
 /** The list endpoint is keyset-paginated; tolerate either envelope shape. */
 export function normalizeBrewList(raw: unknown): {
-  items: BrewSession[];
+  items: LabelledBrewSession[];
   nextCursor: string | null;
 } {
-  if (Array.isArray(raw)) return { items: raw as BrewSession[], nextCursor: null };
+  if (Array.isArray(raw)) return { items: raw as LabelledBrewSession[], nextCursor: null };
   if (raw && typeof raw === 'object') {
     const record = raw as Record<string, unknown>;
     const items = Array.isArray(record['items'])
-      ? (record['items'] as BrewSession[])
+      ? (record['items'] as LabelledBrewSession[])
       : Array.isArray(record['brews'])
-        ? (record['brews'] as BrewSession[])
+        ? (record['brews'] as LabelledBrewSession[])
         : [];
     // The API envelope is { items, next_cursor } (matching catalog); the other
     // spellings are tolerated so a shape change can't silently stop pagination.

@@ -816,7 +816,10 @@ export async function registerBrewingRoutes(
     const q = request.query;
     const limit = q.limit ?? 20;
 
-    const rows = await repo.listBrewSessionRows(db, {
+    // Labelled variant: a history list has to say "La Pastora", not a UUID, and
+    // the session row stores only the id. See the repository for why this is a
+    // second query rather than a join folded into the shared one.
+    const rows = await repo.listBrewSessionRowsWithLabels(db, {
       userId,
       ...(q.coffee_product_id ? { coffeeProductId: q.coffee_product_id } : {}),
       ...(q.recipe_id ? { recipeId: q.recipe_id } : {}),
@@ -833,7 +836,7 @@ export async function registerBrewingRoutes(
     }), BREW_SESSION_RESOURCE);
 
     const page = paginate(visible, limit, (row) => row.brewed_at);
-    return { items: page.items.map(repo.toBrewSession), next_cursor: page.next_cursor };
+    return { items: page.items.map(repo.toLabelledBrewSession), next_cursor: page.next_cursor };
   });
 
   app.get<{ Params: { id: string } }>(

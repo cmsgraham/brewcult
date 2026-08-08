@@ -382,3 +382,53 @@
     flex: 1 1 auto;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Brew history (/brew/history)
+
+   A list, not a table: every row is read top-to-bottom on a phone, and a table
+   of six numeric columns is the thing that forces a horizontal scrollbar on the
+   screen this is most used on.
+   --------------------------------------------------------------------------- */
+.bc-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.bc-history__item {
+  border: 1px solid var(--bc-line);
+  border-radius: var(--bc-radius-sm);
+  padding: 0.75rem 0.9rem;
+}
+
+.bc-history__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+}
+
+.bc-history__coffee {
+  font-weight: 600;
+}
+
+.bc-history__sub,
+.bc-history__specs,
+.bc-history__pending {
+  margin: 0.25rem 0 0;
+}
+
+/* Tabular figures so doses and temperatures line up down the list rather than
+   wandering by a pixel per digit. */
+.bc-history__specs {
+  font-variant-numeric: tabular-nums;
+}
+
+.bc-history__pending {
+  font-size: 0.9rem;
+}

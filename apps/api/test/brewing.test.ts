@@ -24,7 +24,7 @@ import { registerErrorHandler } from '../src/lib/errors.js';
 import { ANONYMOUS, resetPolicies, type Actor } from '../src/lib/policy.js';
 import { registerBrewingRoutes } from '../src/modules/brewing/index.js';
 import { diagnoseTaste } from '../src/modules/brewing/index.js';
-import type { BrewingDb } from '../src/modules/brewing/index.js';
+import type { BrewingDb, LabelledBrewSession } from '../src/modules/brewing/index.js';
 import type {
   BrewPrefill,
   BrewSession,
@@ -871,6 +871,62 @@ describe('brew sessions — idempotent PUT and last-write-wins (EF §2.2, BREW-0
 
     const tampered = await as(USER_A, () => app.inject({ url: '/v1/brews?cursor=nonsense' }));
     expect(tampered.statusCode).toBe(400);
+  });
+
+  /**
+   * The history list has to say what the ids MEAN.
+   *
+   * A session stores `coffee_product_id` and `brewer_model_id` and nothing
+   * else, which is right for a write model and useless for a list — without
+   * these joins a brew history renders a column of UUIDs. The device that
+   * logged the brew keeps the labels locally, but that helps on that device
+   * only, and never on a second one.
+   */
+  it('returns the names behind the ids, not just the ids', async () => {
+    const list = await as(USER_A, () => app.inject({ url: '/v1/brews?limit=100' }));
+    const items = list.json<{ items: LabelledBrewSession[] }>().items;
+    const withCoffee = items.find((s) => s.coffee_product_id === ids.coffee1);
+
+    expect(withCoffee).toBeDefined();
+    expect(withCoffee).toMatchObject({
+      coffee_label: 'chelbesa',
+      coffee_slug: 'chelbesa',
+      roaster_label: 'Cascara',
+      brewer_label: 'Generic V60',
+    });
+  });
+
+  /**
+   * Every join is a LEFT join, and this is why.
+   *
+   * A quick-add bag has no catalogue row, so `coffee_product_id` is null — and
+   * that is the normal state for somebody's first few brews, not an edge case.
+   * An INNER join would drop exactly those, so the people with the least to
+   * show would see an empty history and conclude the feature was broken.
+   */
+  it('still lists a brew that names no catalogue coffee or brewer', async () => {
+    const quickAdd = uuid(206);
+    const put = await as(USER_A, () =>
+      app.inject({
+        method: 'PUT',
+        url: `/v1/brews/${quickAdd}`,
+        payload: brewBody({ coffee_product_id: null, brewer_model_id: null }),
+      }),
+    );
+    expect(put.statusCode).toBeLessThan(300);
+
+    const list = await as(USER_A, () => app.inject({ url: '/v1/brews?limit=100' }));
+    const found = list
+      .json<{ items: LabelledBrewSession[] }>()
+      .items.find((s) => s.id === quickAdd);
+
+    expect(found).toBeDefined();
+    expect(found).toMatchObject({
+      coffee_label: null,
+      coffee_slug: null,
+      roaster_label: null,
+      brewer_label: null,
+    });
   });
 
   it('soft-deletes so the deletion can reach every device', async () => {

@@ -107,6 +107,16 @@ export default async function ProfilePage({
         </p>
       </section>
 
+      <section aria-labelledby="brews-heading" className="bc-stack">
+        <h2 id="brews-heading">{t('history.title')}</h2>
+        <p className="bc-muted">{t('history.lede')}</p>
+        <p>
+          <Link className="bc-button bc-button--quiet" href="/brew/history">
+            {t('profile.seeBrews')}
+          </Link>
+        </p>
+      </section>
+
       <section aria-labelledby="equipment-heading" className="bc-stack">
         <h2 id="equipment-heading">{t('profile.equipmentHeading')}</h2>
         <p className="bc-muted">{t('profile.equipmentBody')}</p>

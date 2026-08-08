@@ -1,4 +1,5 @@
 import { type Metadata } from 'next';
+import { LocaleLink as Link } from '../../../components/locale-link';
 import { BrewLogger } from '../../../components/logger/brew-logger';
 import { localeParam, translator } from '../../../lib/locale-server';
 import './logger.css';
@@ -32,6 +33,11 @@ export default async function BrewPage({ params }: { params: Promise<{ locale: s
     <div className="bc-stack">
       <h1 className="bc-visually-hidden">{t('brew.title')}</h1>
       <BrewLogger />
+      {/* The way back to what the logging was for. Below the card rather than
+          above it: the point of this screen is to log, not to browse. */}
+      <p className="bc-logger__footnote">
+        <Link href="/brew/history">{t('history.title')}</Link>
+      </p>
       <p className="bc-muted bc-logger__footnote">{t('brew.footnote')}</p>
     </div>
   );

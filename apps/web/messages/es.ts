@@ -344,6 +344,26 @@ export const es: Messages = {
     photoNote: 'Nunca atrasa la anotación: anotá la preparación y la foto la alcanza.',
   },
 
+  history: {
+    title: 'Tus preparaciones',
+    description: 'Todas las preparaciones que has anotado, de la más reciente a la más vieja.',
+    lede: 'Todo lo que has anotado, de lo más nuevo a lo más viejo: qué usaste y cómo te quedó.',
+    loading: 'Buscando tus preparaciones…',
+    loadingMore: 'Buscando más…',
+    more: 'Ver más',
+    empty: 'Todavía no hay preparaciones. La primera toma unos quince segundos.',
+    logFirst: 'Anotar una preparación',
+    unnamedCoffee: 'Un café que agregaste vos',
+    pending: 'En este dispositivo; se sincroniza sola apenas tengás señal.',
+    loadError:
+      'No pudimos alcanzar tus preparaciones en este momento: eso es culpa nuestra, no tuya. Lo que anotaste en este dispositivo sigue aquí.',
+    partial:
+      'Mostrando lo que hay en este dispositivo. El resto aparece apenas volvamos a alcanzar el servidor.',
+    signedOutOne: 'Tus preparaciones están ligadas a tu cuenta.',
+    signedOutLink: 'Iniciá sesión',
+    signedOutTwo: ' para verlas.',
+  },
+
   ai: {
     title: 'Asistente de preparación',
     description:
@@ -502,6 +522,7 @@ export const es: Messages = {
     equipmentHeading: 'Tu equipo',
     equipmentBody:
       'Lo que tengás es el punto de partida correcto. Si nos contás cuál es, las sugerencias te hablan en los números de tu molino y no en los de otra persona.',
+    seeBrews: 'Ver tus preparaciones',
     coffeeHeading: 'Tu café',
     coffeeBody: 'Las bolsas que estás tomando. Fotografiá una y la etiqueta llena el resto.',
     personalisationHeading: 'Personalización, en palabras sencillas',

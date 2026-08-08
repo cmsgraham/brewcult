@@ -343,6 +343,33 @@ export const en = {
     photoNote: 'It never holds the log up — log the brew and the photo catches up.',
   },
 
+  /**
+   * Your own brews, listed back to you.
+   *
+   * The empty state is an invitation rather than an apology (§9.7): somebody
+   * with no brews yet has not failed at anything, they have just arrived.
+   */
+  history: {
+    title: 'Your brews',
+    description: 'Every brew you have logged, most recent first.',
+    lede: 'Every brew you have logged, newest first — what you used, and how it went.',
+    loading: 'Getting your brews…',
+    loadingMore: 'Getting more…',
+    more: 'Show more',
+    empty: 'No brews yet. The first one takes about fifteen seconds.',
+    logFirst: 'Log a brew',
+    unnamedCoffee: 'A coffee you added yourself',
+    // Not an error: the brew is safe, it just has not reached the server yet.
+    pending: 'On this device — syncs itself when you have signal.',
+    loadError:
+      'We could not reach your brews just now — that is on us, not on you. Anything logged on this device is still here.',
+    partial:
+      'Showing what is on this device. The rest will appear once we can reach the server again.',
+    signedOutOne: 'Your brews are tied to your account.',
+    signedOutLink: 'Sign in',
+    signedOutTwo: ' to see them.',
+  },
+
   ai: {
     title: 'Brew assistant',
     description:
@@ -515,6 +542,7 @@ export const en = {
     equipmentHeading: 'Your equipment',
     equipmentBody:
       'Whatever you own is the right starting point. Telling us about it lets suggestions talk in your grinder’s numbers instead of somebody else’s.',
+    seeBrews: 'See your brews',
     coffeeHeading: 'Your coffee',
     coffeeBody: 'Bags you are drinking. Photograph one and the label fills the rest in.',
     personalisationHeading: 'Personalisation, in plain words',

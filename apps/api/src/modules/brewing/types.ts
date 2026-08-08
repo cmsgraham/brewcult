@@ -200,6 +200,29 @@ export interface BrewSessionRow {
   diagnosis: ExtractionDiagnosis;
 }
 
+/**
+ * A session row joined to the names its foreign keys point at.
+ *
+ * Every label is nullable and that is the normal case, not the edge: a brew
+ * logged against a quick-add bag has no `coffee_product_id` to join on, and one
+ * logged before the brewer was picked has no equipment either. A history list
+ * must render those brews too — they are usually somebody's first.
+ */
+export interface BrewSessionLabelledRow extends BrewSessionRow {
+  coffee_label: string | null;
+  coffee_slug: string | null;
+  roaster_label: string | null;
+  brewer_label: string | null;
+}
+
+/** What `GET /v1/brews` returns: the session plus what its ids mean. */
+export interface LabelledBrewSession extends BrewSession {
+  coffee_label: string | null;
+  coffee_slug: string | null;
+  roaster_label: string | null;
+  brewer_label: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // List/page shapes
 // ---------------------------------------------------------------------------
