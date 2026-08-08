@@ -118,6 +118,17 @@ export const brewingApi = {
     return apiFetch<unknown>(`${BREW_PATHS.brews}${query ? `?${query}` : ''}`, options);
   },
 
+  /**
+   * Soft-deletes a brew. 204, and the server emits a tombstone so the deletion
+   * reaches every other device through `/sync/changes` rather than lingering
+   * on the phone that did not perform it.
+   */
+  remove: (id: string, options?: ApiRequestOptions) =>
+    apiFetch<void>(`${BREW_PATHS.brews}/${encodeURIComponent(id)}`, {
+      ...options,
+      method: 'DELETE',
+    }),
+
   changes: (since: string | null, types: string[] = ['brew_session'], options?: ApiRequestOptions) => {
     const search = new URLSearchParams();
     if (since) search.set('since', since);

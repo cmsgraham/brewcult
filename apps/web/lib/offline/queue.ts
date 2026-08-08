@@ -211,14 +211,30 @@ export class SyncQueue {
           remaining -= 1;
           dropped += 1;
         } else {
-          await this.options.store.set(this.key(mutation.type, mutation.id), {
-            ...mutation,
-            attempts,
-            last_error: lastError,
-            next_attempt_at:
-              this.options.now() +
-              backoffDelay(attempts, this.options.baseDelayMs, this.options.maxDelayMs),
-          } satisfies QueuedMutation);
+          /**
+           * Re-queue for another attempt — but ONLY if the entry is still
+           * there.
+           *
+           * `send` is awaited, so anything may have happened meanwhile, and
+           * `remove()` is a deliberate cancellation: deleting a brew drops its
+           * pending upsert precisely so the drain cannot recreate it. Writing
+           * this back unconditionally resurrected that entry and the deleted
+           * brew reappeared on the next sync — the app visibly ignoring the
+           * one instruction it had been given.
+           */
+          const key = this.key(mutation.type, mutation.id);
+          if ((await this.options.store.get<QueuedMutation>(key)) === undefined) {
+            remaining -= 1;
+          } else {
+            await this.options.store.set(key, {
+              ...mutation,
+              attempts,
+              last_error: lastError,
+              next_attempt_at:
+                this.options.now() +
+                backoffDelay(attempts, this.options.baseDelayMs, this.options.maxDelayMs),
+            } satisfies QueuedMutation);
+          }
         }
 
         if (this.options.isTransportError?.(error) === true) break;

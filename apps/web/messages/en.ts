@@ -365,6 +365,17 @@ export const en = {
       'We could not reach your brews just now — that is on us, not on you. Anything logged on this device is still here.',
     partial:
       'Showing what is on this device. The rest will appear once we can reach the server again.',
+    // The result half. `rating` is 1-5; the verdict is one of the four taste
+    // buttons, translated from the same table the logger uses so the history
+    // and the card can never disagree about what "bitter" is called.
+    rating: 'Rated {rating}/5',
+    unrated: 'Not rated.',
+    delete: 'Delete',
+    // Deliberately a question and not a warning dialog: this is one brew, and
+    // an interstitial for a two-tap undoable action is theatre.
+    deleteConfirm: 'Delete this brew?',
+    deleteYes: 'Delete it',
+    deleting: 'Deleting…',
     signedOutOne: 'Your brews are tied to your account.',
     signedOutLink: 'Sign in',
     signedOutTwo: ' to see them.',

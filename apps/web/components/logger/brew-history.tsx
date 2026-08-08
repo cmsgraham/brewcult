@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FetchLike } from '../../lib/api';
 import { isApiError } from '../../lib/api';
+import type { TasteVerdict } from '@brewcult/shared-types';
 import {
   brewingApi,
   formatDuration,
@@ -10,6 +11,7 @@ import {
   isFilterParams,
   normalizeBrewList,
   ratioOf,
+  tasteOptions,
   type LabelledBrewSession,
 } from '../../lib/brewing-client';
 import type { Translator } from '../../lib/i18n';
@@ -49,6 +51,8 @@ type Row = {
   timeSeconds: number | null;
   grind: string | null;
   rating: number | null;
+  /** How it actually tasted. The whole point of logging, and it was missing. */
+  verdict: TasteVerdict | null;
   pending: boolean;
 };
 
@@ -73,6 +77,7 @@ function rowFromSession(session: LabelledBrewSession): Row {
     timeSeconds: filter?.brew_time_s ?? null,
     grind: session.grind?.setting ?? null,
     rating: session.rating ?? null,
+    verdict: session.taste?.verdict ?? null,
     pending: false,
   };
 }
@@ -90,7 +95,33 @@ export function BrewHistory({
   const [engine] = useState<BrewEngine>(
     () => providedEngine ?? createBrewEngine({ ...(fetchImpl ? { fetchImpl } : {}) }),
   );
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const alive = useRef(true);
+
+  /**
+   * Removes the row, then tells the engine.
+   *
+   * The list updates first because the engine's own delete is local-first: the
+   * brew is gone from this device before any request is made, and the DELETE is
+   * queued exactly like a log is. Waiting on the network to redraw would make
+   * deletion feel slower than creation, which is backwards.
+   */
+  async function remove(id: string): Promise<void> {
+    setDeleting(id);
+    try {
+      await engine.deleteBrew(id);
+      if (!alive.current) return;
+      setState((current) =>
+        current.status === 'ready' || current.status === 'error'
+          ? { ...current, rows: current.rows.filter((row) => row.key !== id) }
+          : current,
+      );
+      setConfirming(null);
+    } finally {
+      if (alive.current) setDeleting(null);
+    }
+  }
 
   useEffect(() => {
     alive.current = true;
@@ -121,6 +152,7 @@ export function BrewHistory({
             timeSeconds: filter?.brew_time_s ?? null,
             grind: record.session.grind?.setting ?? null,
             rating: record.session.rating ?? null,
+            verdict: record.session.taste?.verdict ?? null,
             pending: true,
           };
         });
@@ -236,9 +268,60 @@ export function BrewHistory({
 
             <p className="bc-history__specs">{specLine(row, t)}</p>
 
+            {/* The RESULT. A log that shows only what you did, and never how it
+                came out, is a recipe card — the taste is the reason to keep
+                one. Absent when it was never rated, which is a real state: an
+                unrated repeat is still useful data (§8). */}
+            {row.verdict || row.rating !== null ? (
+              <p className="bc-history__result">
+                {row.verdict ? (
+                  <span className={`bc-history__verdict bc-history__verdict--${row.verdict}`}>
+                    {verdictLabel(row.verdict, t)}
+                  </span>
+                ) : null}
+                {row.rating !== null ? (
+                  <span className="bc-muted">{t('history.rating', { rating: row.rating })}</span>
+                ) : null}
+              </p>
+            ) : (
+              <p className="bc-muted bc-history__result">{t('history.unrated')}</p>
+            )}
+
             {row.pending ? (
               <p className="bc-muted bc-history__pending">{t('history.pending')}</p>
             ) : null}
+
+            <p className="bc-history__actions">
+              {confirming === row.key ? (
+                <>
+                  <span className="bc-muted">{t('history.deleteConfirm')}</span>
+                  <button
+                    type="button"
+                    className="bc-button bc-button--quiet"
+                    onClick={() => void remove(row.key)}
+                    disabled={deleting === row.key}
+                  >
+                    {deleting === row.key ? t('history.deleting') : t('history.deleteYes')}
+                  </button>
+                  <button
+                    type="button"
+                    className="bc-button bc-button--quiet"
+                    onClick={() => setConfirming(null)}
+                    disabled={deleting === row.key}
+                  >
+                    {t('common.cancel')}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="bc-button bc-button--quiet"
+                  onClick={() => setConfirming(row.key)}
+                >
+                  {t('history.delete')}
+                </button>
+              )}
+            </p>
           </li>
         ))}
       </ol>
@@ -270,6 +353,11 @@ export function merge(pending: Row[], server: Row[]): Row[] {
   const seen = new Set(server.map((row) => row.key));
   const rows = [...server, ...pending.filter((row) => !seen.has(row.key))];
   return rows.sort((a, b) => (a.brewedAt < b.brewedAt ? 1 : a.brewedAt > b.brewedAt ? -1 : 0));
+}
+
+/** The verdict in the reader's language, from the same table the logger uses. */
+function verdictLabel(verdict: TasteVerdict, t: Translator): string {
+  return tasteOptions(t).find((option) => option.verdict === verdict)?.label ?? verdict;
 }
 
 /** The numbers, in the order somebody reads them back. Missing ones are skipped. */

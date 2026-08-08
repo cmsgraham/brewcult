@@ -10,7 +10,7 @@
  * whole offline story is testable without rendering anything.
  */
 import type { BrewPrefill, BrewSession } from '@brewcult/shared-types';
-import { ApiError, type FetchLike } from '../api';
+import { ApiError, isApiError, type FetchLike } from '../api';
 import {
   brewingApi,
   normalizeBrewList,
@@ -86,10 +86,24 @@ export class BrewEngine {
       isTransportError,
       isPermanentError,
       send: async (mutation: QueuedMutation) => {
-        await brewingApi.upsert(
-          mutation.body as BrewUpsertBody,
-          this.fetchImpl ? { fetchImpl: this.fetchImpl } : {},
-        );
+        const options = this.fetchImpl ? { fetchImpl: this.fetchImpl } : {};
+
+        // Dispatch on the method. This used to call `upsert` unconditionally,
+        // which was fine while PUT was the only thing ever queued — a queued
+        // DELETE would have been sent as a PUT and resurrected the brew it was
+        // supposed to remove.
+        if (mutation.method === 'DELETE') {
+          try {
+            await brewingApi.remove(mutation.id, options);
+          } catch (error) {
+            // Already gone is the outcome we wanted. Anything else re-throws
+            // and the queue's own retry policy decides.
+            if (!(isApiError(error) && error.status === 404)) throw error;
+          }
+          return;
+        }
+
+        await brewingApi.upsert(mutation.body as BrewUpsertBody, options);
         await this.markSynced(mutation.id);
       },
     });
@@ -227,6 +241,46 @@ export class BrewEngine {
       body: session,
       queued_at: new Date(this.now()).toISOString(),
     });
+  }
+
+  /**
+   * Forget a brew — on this device now, on the server when there is signal.
+   *
+   * ── ORDER MATTERS, AND THIS IS THE WHOLE FUNCTION ───────────────────────
+   * Dropping the queued PUT comes FIRST. A brew logged minutes ago may still
+   * be waiting to sync; delete the local record without removing that entry
+   * and the drain happily replays the upsert, recreating on the server exactly
+   * the brew somebody just deleted. It would come back on the next sync, which
+   * reads as the app ignoring you.
+   *
+   * ── WHEN THE SERVER NEEDS TELLING AT ALL ────────────────────────────────
+   * Only when it could plausibly know about the brew. A record still marked
+   * unsynced never reached it — `markSynced` is awaited immediately after the
+   * PUT resolves, so `synced === false` with an entry still queued means the
+   * upsert has not succeeded — and queueing a DELETE for a row the server has
+   * never seen would just retry a 404. A row absent from the device entirely
+   * came from the server list, so that one always gets a DELETE.
+   *
+   * The DELETE is QUEUED rather than sent, so this works with no signal for
+   * the same reason logging does.
+   */
+  async deleteBrew(id: string): Promise<void> {
+    const record = await this.store.get<LocalBrewRecord>(KEYS.session(id));
+    await this.queue.remove('brew_session', id);
+    await this.store.delete(KEYS.session(id));
+
+    const neverReachedServer = record !== undefined && !record.synced;
+    if (neverReachedServer) return;
+
+    await this.queue.enqueue({
+      id,
+      type: 'brew_session',
+      method: 'DELETE',
+      path: `/api/v1/brews/${id}`,
+      body: null,
+      queued_at: new Date(this.now()).toISOString(),
+    });
+    void this.queue.flush();
   }
 
   private async markSynced(id: string): Promise<void> {

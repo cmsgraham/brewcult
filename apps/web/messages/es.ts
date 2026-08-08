@@ -359,6 +359,12 @@ export const es: Messages = {
       'No pudimos alcanzar tus preparaciones en este momento: eso es culpa nuestra, no tuya. Lo que anotaste en este dispositivo sigue aquí.',
     partial:
       'Mostrando lo que hay en este dispositivo. El resto aparece apenas volvamos a alcanzar el servidor.',
+    rating: 'Calificada {rating}/5',
+    unrated: 'Sin calificar.',
+    delete: 'Borrar',
+    deleteConfirm: '¿Borrar esta preparación?',
+    deleteYes: 'Borrarla',
+    deleting: 'Borrando…',
     signedOutOne: 'Tus preparaciones están ligadas a tu cuenta.',
     signedOutLink: 'Iniciá sesión',
     signedOutTwo: ' para verlas.',

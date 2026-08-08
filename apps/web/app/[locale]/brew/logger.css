@@ -432,3 +432,35 @@
 .bc-history__pending {
   font-size: 0.9rem;
 }
+
+/* The result, which is the reason the log exists. The verdict carries a tint
+   rather than an icon: four emoji render as four house styles and say less. */
+.bc-history__result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0.35rem 0 0;
+}
+
+.bc-history__verdict {
+  border: 1px solid var(--bc-line);
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+/* `good` is the only one that gets to look like good news. The other three are
+   diagnoses, not failures — nothing here should read as a telling-off (§9.7). */
+.bc-history__verdict--good {
+  border-color: currentColor;
+  font-weight: 600;
+}
+
+.bc-history__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0;
+}

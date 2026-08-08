@@ -42,6 +42,8 @@ function serverSession(over: Record<string, unknown> = {}) {
     grind: { equipment_model_id: 'ode-2', setting: '6.5', scale_type: 'stepless', category: 'medium' },
     params: { method: 'filter', dose_g: 16.5, water_g: 275, temperature_c: 91, brew_time_s: 165 },
     params_schema_version: 1,
+    taste: { verdict: 'good' },
+    rating: 4,
     changed_fields: [],
     source: 'new',
     photo_media_id: null,
@@ -243,5 +245,167 @@ describe('brew history', () => {
     await mount(store, fetchImpl, 'es');
 
     expect(await screen.findByText(es.history.empty)).toBeInTheDocument();
+  });
+
+  /**
+   * The complaint that produced these: the list showed the recipe and never
+   * how the coffee turned out. A log of only what you did is a recipe card.
+   */
+  it('shows how it tasted, not only what was used', async () => {
+    const store = createMemoryStore();
+    const fetchImpl = vi.fn(async () => jsonResponse({ items: [serverSession()], next_cursor: null }));
+
+    await mount(store, fetchImpl);
+
+    expect(await screen.findByText(en.brew.tasteGood)).toBeInTheDocument();
+    expect(screen.getByText(en.history.rating.replace('{rating}', '4'))).toBeInTheDocument();
+  });
+
+  it('says so plainly when a brew was never rated', async () => {
+    const store = createMemoryStore();
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse({ items: [serverSession({ taste: undefined, rating: undefined })], next_cursor: null }),
+    );
+
+    await mount(store, fetchImpl);
+
+    expect(await screen.findByText(en.history.unrated)).toBeInTheDocument();
+  });
+
+  it('translates the verdict rather than echoing the wire value', async () => {
+    const store = createMemoryStore();
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse({ items: [serverSession({ taste: { verdict: 'sour' } })], next_cursor: null }),
+    );
+
+    await mount(store, fetchImpl, 'es');
+
+    expect(await screen.findByText(es.brew.tasteSour)).toBeInTheDocument();
+    expect(screen.queryByText('sour')).not.toBeInTheDocument();
+  });
+});
+
+describe('deleting a brew', () => {
+  it('asks first, then removes the row', async () => {
+    const store = createMemoryStore();
+    const fetchImpl = vi.fn(async () => jsonResponse({ items: [serverSession()], next_cursor: null }));
+
+    await mount(store, fetchImpl);
+    await screen.findByText('La Pastora');
+
+    await userEvent.click(screen.getByRole('button', { name: en.history.delete }));
+    expect(screen.getByText(en.history.deleteConfirm)).toBeInTheDocument();
+    // Still there until it is confirmed.
+    expect(screen.getByText('La Pastora')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: en.history.deleteYes }));
+    await waitFor(() => expect(screen.queryByText('La Pastora')).not.toBeInTheDocument());
+  });
+
+  it('lets a confirmation be backed out of', async () => {
+    const store = createMemoryStore();
+    const fetchImpl = vi.fn(async () => jsonResponse({ items: [serverSession()], next_cursor: null }));
+
+    await mount(store, fetchImpl);
+    await screen.findByText('La Pastora');
+
+    await userEvent.click(screen.getByRole('button', { name: en.history.delete }));
+    await userEvent.click(screen.getByRole('button', { name: en.common.cancel }));
+
+    expect(screen.queryByText(en.history.deleteConfirm)).not.toBeInTheDocument();
+    expect(screen.getByText('La Pastora')).toBeInTheDocument();
+  });
+});
+
+/**
+ * The engine half, tested without rendering anything.
+ *
+ * This is where deletion is actually dangerous: a brew logged minutes ago may
+ * still have a PUT waiting in the queue, and removing only the local record
+ * would let the drain replay that upsert and recreate it on the server.
+ */
+describe('engine.deleteBrew', () => {
+  it('drops a queued upsert so the sync cannot recreate what was deleted', async () => {
+    const store = createMemoryStore();
+    // Rejects, so the fire-and-forget flush inside logBrew cannot drain the
+    // entry before this test looks at it. Asserting on a queue that a
+    // background flush might have emptied would pass or fail on timing.
+    const fetchImpl = vi.fn(async () => {
+      throw new Error('offline');
+    });
+    const engine = createBrewEngine({ store, fetchImpl });
+
+    const record = localRecord();
+    await engine.logBrew(record);
+    expect(await engine.queue.pending()).toHaveLength(1);
+
+    await engine.deleteBrew(record.session.id);
+
+    // Nothing queued for a brew the server never saw, and nothing left locally.
+    expect(await engine.queue.pending()).toHaveLength(0);
+    expect(await store.get(KEYS.session(record.session.id))).toBeUndefined();
+  });
+
+  it('queues a DELETE for a brew the server already has', async () => {
+    const store = createMemoryStore();
+    const fetchImpl = vi.fn(async () => jsonResponse({}, 200));
+    const engine = createBrewEngine({ store, fetchImpl });
+
+    const record = localRecord({ synced: true });
+    await store.set(KEYS.session(record.session.id), record);
+
+    await engine.deleteBrew(record.session.id);
+
+    const queued = await engine.queue.pending();
+    expect(queued).toHaveLength(1);
+    expect(queued[0]).toMatchObject({ method: 'DELETE', path: `/api/v1/brews/${record.session.id}` });
+  });
+
+  /**
+   * A row that is only on the server has no local record to consult, so the
+   * DELETE must be queued on that basis alone — otherwise deleting from a
+   * second device would do nothing at all.
+   */
+  it('queues a DELETE for a brew this device has never held', async () => {
+    const store = createMemoryStore();
+    const fetchImpl = vi.fn(async () => jsonResponse({}, 200));
+    const engine = createBrewEngine({ store, fetchImpl });
+
+    await engine.deleteBrew('srv-only-1');
+
+    expect(await engine.queue.pending()).toMatchObject([{ method: 'DELETE' }]);
+  });
+
+  it('sends a queued DELETE as a DELETE, not as an upsert', async () => {
+    const store = createMemoryStore();
+    const calls: Array<{ url: string; method: string | undefined }> = [];
+    const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url: String(url), method: init?.method });
+      return jsonResponse(null, 204);
+    });
+    const engine = createBrewEngine({ store, fetchImpl });
+
+    const record = localRecord({ synced: true });
+    await store.set(KEYS.session(record.session.id), record);
+    await engine.deleteBrew(record.session.id);
+    await engine.queue.flush();
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.method).toBe('DELETE');
+    expect(await engine.queue.pending()).toHaveLength(0);
+  });
+
+  /** Already gone on the server is the outcome we wanted, not a failure to retry. */
+  it('treats a 404 from the server as done', async () => {
+    const store = createMemoryStore();
+    const fetchImpl = vi.fn(async () => jsonResponse({ error: 'not_found' }, 404));
+    const engine = createBrewEngine({ store, fetchImpl, maxAttempts: 2, baseDelayMs: 1 });
+
+    const record = localRecord({ synced: true });
+    await store.set(KEYS.session(record.session.id), record);
+    await engine.deleteBrew(record.session.id);
+    await engine.queue.flush();
+
+    expect(await engine.queue.pending()).toHaveLength(0);
   });
 });
